@@ -1,0 +1,57 @@
+{
+  "manifest_version": 3,
+  "name": "SmartGrab AI Search",
+  "version": "1.0.0",
+  "description": "AI-powered text extraction and semantic search with side panel interface",
+  
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting",
+    "sidePanel"
+  ],
+  
+  "background": {
+    "service_worker": "background.js"
+  },
+  
+  "web_accessible_resources": [
+    {
+      "resources": ["sqlite3.wasm", "sqlite3-worker1.js"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
+  },
+  
+  "commands": {
+    "trigger_action": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+G",
+        "mac": "Command+Shift+G"
+      },
+      "description": "Grab visible text from page"
+    }
+  },
+  
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  
+  "action": {
+    "default_title": "SmartGrab AI Search",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  
+  "side_panel": {
+    "default_path": "popup.html"
+  }
+} 
