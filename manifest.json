@@ -15,17 +15,6 @@
     "service_worker": "background.js"
   },
   
-  "web_accessible_resources": [
-    {
-      "resources": ["sqlite3.wasm", "sqlite3-worker1.js"],
-      "matches": ["<all_urls>"]
-    }
-  ],
-  
-  "content_security_policy": {
-    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
-  },
-  
   "commands": {
     "trigger_action": {
       "suggested_key": {
