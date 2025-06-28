@@ -18,6 +18,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   const resultCount = document.getElementById('resultCount');
   const loadingIndicator = document.getElementById('loadingIndicator');
   
+  // Setup note elements
+  const setupNote = document.getElementById('setupNote');
+  const dismissSetupNote = document.getElementById('dismissSetupNote');
+  const shortcutsLink = document.getElementById('shortcutsLink');
+  
   // Tab system
   const tabs = document.querySelectorAll('.tab');
   const tabContents = document.querySelectorAll('.tab-content');
@@ -35,6 +40,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadEntries();
   await loadStats();
   await initializeSimilarity();
+  await loadSetupNoteVisibility();
   
   // Tab switching
   tabs.forEach(tab => {
@@ -69,6 +75,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     searchClear.addEventListener('click', clearSearch);
   }
   
+  // Setup note event listeners
+  if (dismissSetupNote) {
+    dismissSetupNote.addEventListener('click', dismissSetupNoteForever);
+  }
+  if (shortcutsLink) {
+    shortcutsLink.addEventListener('click', openShortcutsPage);
+  }
+  
   // Tab switching function
   function switchTab(tabName) {
     tabs.forEach(tab => {
@@ -82,6 +96,54 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Load data when switching to settings tab
     if (tabName === 'settings') {
       loadStats();
+    }
+  }
+  
+  // Setup note functions
+  async function loadSetupNoteVisibility() {
+    if (!setupNote) return;
+    
+    try {
+      const result = await chrome.storage.local.get(['setupNoteDismissed']);
+      const isDismissed = result.setupNoteDismissed || false;
+      
+      if (isDismissed) {
+        setupNote.style.display = 'none';
+      } else {
+        setupNote.style.display = 'flex';
+      }
+    } catch (error) {
+      console.error('Error loading setup note visibility:', error);
+    }
+  }
+  
+  async function dismissSetupNoteForever() {
+    if (!setupNote) return;
+    
+    try {
+      // Hide the setup note immediately
+      setupNote.style.display = 'none';
+      
+      // Save the dismissal state
+      await chrome.storage.local.set({ setupNoteDismissed: true });
+      
+      console.log('✅ Setup note dismissed permanently');
+    } catch (error) {
+      console.error('Error dismissing setup note:', error);
+    }
+  }
+  
+  function openShortcutsPage(event) {
+    event.preventDefault();
+    try {
+      chrome.tabs.create({ url: 'chrome://extensions/shortcuts' });
+      console.log('🔗 Opened shortcuts page');
+    } catch (error) {
+      console.error('❌ Error opening shortcuts page:', error);
+      // Fallback - copy URL to clipboard
+      navigator.clipboard.writeText('chrome://extensions/shortcuts').then(() => {
+        console.log('📋 Copied shortcuts URL to clipboard as fallback');
+      });
     }
   }
   

@@ -92,6 +92,60 @@
       background: rgba(255, 255, 255, 0.15);
       color: white;
     }
+
+    .setup-note {
+      background: rgba(255, 193, 7, 0.2);
+      border: 1px solid rgba(255, 193, 7, 0.5);
+      padding: 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      margin-bottom: 15px;
+      line-height: 1.4;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .setup-content {
+      flex: 1;
+    }
+
+    .setup-content a {
+      color: #1976D2 !important;
+      text-decoration: underline !important;
+      font-weight: 600 !important;
+    }
+
+    .setup-content a:hover {
+      color: #0D47A1 !important;
+      text-decoration: underline !important;
+    }
+
+    .dismiss-btn {
+      background: none;
+      border: none;
+      color: rgba(255, 193, 7, 0.8);
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: bold;
+      padding: 0;
+      margin: 0;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .dismiss-btn:hover {
+      background: rgba(255, 193, 7, 0.2);
+      color: rgba(255, 193, 7, 1);
+      transform: scale(1.1);
+    }
     
     .search-container {
       position: relative;
@@ -438,6 +492,17 @@
   </div>
 
   <div class="content">
+    <!-- Setup Note -->
+    <div class="setup-note" id="setupNote">
+      <div class="setup-content">
+        <p>🚀 <strong>Quick Setup Guide:</strong></p>
+        <p>⌨️ Go to <a href="#" id="shortcutsLink" style="color: #4285f4; text-decoration: underline; cursor: pointer;">chrome://extensions/shortcuts</a> to configure the keyboard shortcut for quick text capture.</p>
+        <p>🔍 Use <strong>Similarity Search</strong> to find semantically related content - perfect for discovering articles to add to NotebookLM!</p>
+        <p>💡 For first-time use, you may need to reload the Chrome browser to activate the extension.</p>
+      </div>
+      <button class="dismiss-btn" id="dismissSetupNote" title="Don't show again">✕</button>
+    </div>
+
     <!-- Tab Navigation -->
     <div class="tab-container">
       <button class="tab active" data-tab="search">🔍 Search</button>
