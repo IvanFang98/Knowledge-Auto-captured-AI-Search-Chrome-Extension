@@ -22,20 +22,38 @@ document.addEventListener('DOMContentLoaded', async () => {
   const tabs = document.querySelectorAll('.tab');
   const tabContents = document.querySelectorAll('.tab-content');
   
+  // Search mode elements (add these back)
+  const searchOptions = document.querySelectorAll('.search-option');
+  
   // State variables
   let allEntries = [];
   let currentSearch = '';
+  let currentSearchMode = 'similarity'; // Default to similarity search
   let isSearching = false;
   
   // Initialize
   await loadEntries();
   await loadStats();
+  await initializeSimilarity();
   
   // Tab switching
   tabs.forEach(tab => {
     tab.addEventListener('click', () => {
       const targetTab = tab.dataset.tab;
       switchTab(targetTab);
+    });
+  });
+  
+  // Search mode switching
+  searchOptions.forEach(option => {
+    option.addEventListener('click', async () => {
+      currentSearchMode = option.dataset.mode;
+      updateSearchOptions();
+      
+      // Re-run search if there's an active query
+      if (currentSearch) {
+        await performSearch(currentSearch);
+      }
     });
   });
   
@@ -67,6 +85,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
   
+  // Update search options UI
+  function updateSearchOptions() {
+    searchOptions.forEach(option => {
+      option.classList.toggle('active', option.dataset.mode === currentSearchMode);
+    });
+    
+    // Update placeholder text
+    if (searchInput) {
+      if (currentSearchMode === 'similarity') {
+        searchInput.placeholder = "Find similar content...";
+      } else {
+        searchInput.placeholder = "Search keywords...";
+      }
+    }
+  }
+  
   // Function to handle search input
   async function handleSearchInput(e) {
     const query = e.target.value.trim();
@@ -82,8 +116,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
     
-    // Perform keyword search
-    console.log('🔍 handleSearchInput: performing keyword search for:', query);
+    // Perform search based on current mode
+    console.log(`🔍 handleSearchInput: performing ${currentSearchMode} search for:`, query);
     await performSearch(query);
   }
   
@@ -102,12 +136,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (isSearching) return; // Prevent multiple simultaneous searches
     
     console.log('🚀 performSearch called with query:', `"${query}"`);
+    console.log('🔍 Search mode:', currentSearchMode);
     
     try {
       isSearching = true;
       showLoading(true);
       
-      const results = await performKeywordSearch(query);
+      let results;
+      if (currentSearchMode === 'similarity') {
+        results = await performSimilaritySearch(query);
+      } else {
+        results = await performKeywordSearch(query);
+      }
+      
       console.log('📊 Search results count:', results.length);
       
       displaySearchResults(results, query);
@@ -118,6 +159,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     } finally {
       isSearching = false;
       showLoading(false);
+    }
+  }
+  
+  // Similarity search function
+  async function performSimilaritySearch(query) {
+    try {
+      const response = await chrome.runtime.sendMessage({
+        action: 'search_similar',
+        query: query,
+        options: {
+          limit: 10,
+          threshold: 0.1
+        }
+      });
+      
+      if (response && response.success && response.results) {
+        return response.results;
+      } else {
+        console.error('Similarity search failed:', response);
+        return [];
+      }
+    } catch (error) {
+      console.error('Error performing similarity search:', error);
+      return [];
     }
   }
   
@@ -138,6 +203,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (error) {
       console.error('Error performing keyword search:', error);
       return [];
+    }
+  }
+  
+  // Initialize similarity engine
+  async function initializeSimilarity() {
+    try {
+      console.log('🔄 Initializing similarity engine...');
+      const response = await chrome.runtime.sendMessage({
+        action: 'initialize_embeddings'
+      });
+      
+      if (response && response.success) {
+        console.log('✅ Similarity engine initialized');
+        updateSearchOptions(); // Set initial search mode
+      } else {
+        console.warn('⚠️ Similarity engine initialization failed');
+      }
+    } catch (error) {
+      console.error('❌ Error initializing similarity engine:', error);
     }
   }
   
@@ -191,7 +275,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         emptyState.style.display = 'none';
       }
       if (searchResults) {
-        searchResults.innerHTML = `Found ${results.length} result${results.length === 1 ? '' : 's'} for "${query}"`;
+        const searchModeText = currentSearchMode === 'similarity' ? 'similar' : 'keyword';
+        searchResults.innerHTML = `Found ${results.length} ${searchModeText} result${results.length === 1 ? '' : 's'} for "${query}"`;
         searchResults.style.display = 'block';
       }
       
@@ -321,6 +406,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Highlight search terms if present
     const displayText = searchQuery ? highlightSearchTerms(truncatedText, searchQuery) : escapeHtml(truncatedText);
     
+    // Add similarity score if available
+    let similarityInfo = '';
+    if (entry.similarity && currentSearchMode === 'similarity') {
+      const simPercentage = Math.round(entry.similarity * 100);
+      similarityInfo = `<span class="similarity-score">📊 ${simPercentage}% similar</span>`;
+    }
+    
     return `
       <div class="entry" data-entry-id="${entry.id}">
         <div class="entry-header">
@@ -328,6 +420,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             <span class="entry-title">${escapeHtml(entry.title || 'Untitled')}</span>
             <span class="entry-date">${date} ${time}</span>
             <span class="entry-words">${entry.wordCount || 0} words</span>
+            ${similarityInfo}
           </div>
           <button class="copy-btn" data-entry-id="${entry.id}" title="Copy text">📋</button>
         </div>
@@ -421,6 +514,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     div.textContent = text;
     return div.innerHTML;
   }
+  
+  // Initialize search mode
+  updateSearchOptions();
 });
 
 // Global error handler

@@ -1,6 +1,9 @@
 // Background script (Service Worker) for Manifest V3
 console.log('🚀 Text Grabber Extension - Background script starting...');
 
+// Import embeddings functionality
+importScripts('embeddings.js');
+
 // Function to clear all persistent storage and error states
 async function clearPersistentState() {
   try {
@@ -20,11 +23,11 @@ async function clearPersistentState() {
     // Get current storage to preserve important data
     const currentStorage = await chrome.storage.local.get(null);
     
-    // Clear only error-related and temporary state
+    // Only clear the specified keys
     for (const key of keysToClear) {
-      if (currentStorage[key] !== undefined) {
+      if (currentStorage[key]) {
         await chrome.storage.local.remove(key);
-        console.log(`🗑️ Cleared ${key} from storage`);
+        console.log(`🗑️ Cleared: ${key}`);
       }
     }
     
@@ -34,452 +37,343 @@ async function clearPersistentState() {
   }
 }
 
-// Simple startup check
-try {
-  console.log('✅ Background script loaded successfully');
-  console.log('Chrome runtime available:', !!chrome.runtime);
-  console.log('Chrome storage available:', !!chrome.storage);
-  console.log('Chrome tabs available:', !!chrome.tabs);
-  console.log('Chrome commands available:', !!chrome.commands);
-  console.log('Chrome scripting available:', !!chrome.scripting);
-} catch (error) {
-  console.error('❌ Error during background script startup:', error);
-}
+// Clear state on extension startup
+clearPersistentState();
 
-// Extension lifecycle events
-chrome.runtime.onStartup.addListener(() => {
-  console.log('📱 Extension startup event');
-  clearPersistentState().catch(console.error);
-});
-
+// Service Worker event handlers
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('📦 Extension installed/updated event');
+  console.log('📦 Extension installed/updated');
   
-  // Log available commands
-  chrome.commands.getAll((commands) => {
-    console.log('📋 Available commands:', commands);
-  });
+  // Initialize side panel
+  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
   
-  // Clear persistent state on install
-  clearPersistentState().catch(console.error);
+  // Clear any stale state
+  clearPersistentState();
 });
 
-// Handle side panel - open when extension icon is clicked
-chrome.action.onClicked.addListener(async (tab) => {
-  console.log('🔧 Extension icon clicked, opening side panel');
-  
-  try {
-    // Open the side panel
-    await chrome.sidePanel.open({ windowId: tab.windowId });
-    console.log('✅ Side panel opened successfully');
-  } catch (error) {
-    console.error('❌ Error opening side panel:', error);
-  }
+chrome.runtime.onStartup.addListener(() => {
+  console.log('🔄 Extension startup');
+  clearPersistentState();
 });
 
-// Listen for keyboard shortcut commands
-chrome.commands.onCommand.addListener((command) => {
-  console.log('⌨️ *** KEYBOARD COMMAND RECEIVED ***:', command);
+// Command handler for keyboard shortcut
+chrome.commands.onCommand.addListener(async (command) => {
+  console.log('⌨️ Command received:', command);
   
   if (command === 'trigger_action') {
-    console.log('🎯 Trigger action command detected - starting text extraction...');
-    // Get the active tab and extract text
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs[0]) {
-        console.log('📄 Active tab found:', tabs[0].url);
-        extractAndSavePageText(tabs[0]);
-      } else {
-        console.log('❌ No active tab found');
-      }
-    });
-  } else {
-    console.log('❓ Unknown command received:', command);
-  }
-});
-
-// Function to ensure content script is injected
-async function ensureContentScript(tabId) {
-  try {
-    console.log('🔍 Checking if content script exists on tab:', tabId);
-    // Try to ping the content script first
-    const response = await chrome.tabs.sendMessage(tabId, { action: 'ping' });
-    if (response && response.status === 'ready') {
-      console.log('✅ Content script already loaded');
-      return true; // Content script is already loaded
-    }
-  } catch (error) {
-    // Content script not loaded, inject it
-    console.log('📥 Content script not found, injecting...', error.message);
-  }
-  
-  try {
-    await chrome.scripting.executeScript({
-      target: { tabId: tabId },
-      files: ['content.js']
-    });
-    console.log('✅ Content script injected successfully');
-    
-    // Wait a moment for the script to initialize
-    await new Promise(resolve => setTimeout(resolve, 100));
-    return true;
-  } catch (error) {
-    console.error('❌ Failed to inject content script:', error);
-    return false;
-  }
-}
-
-// Function to extract and save page text
-async function extractAndSavePageText(tab) {
-  try {
-    console.log('📄 Starting text extraction from:', tab.url);
-    
-    // Check if this is a supported page
-    if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('edge://') || tab.url.startsWith('about:')) {
-      console.log('⚠️ Cannot extract text from system pages');
-      showNotification('❌ Cannot extract text from system pages');
-      return;
-    }
-    
-    // Ensure content script is loaded
-    const scriptReady = await ensureContentScript(tab.id);
-    if (!scriptReady) {
-      console.log('❌ Could not load content script');
-      showNotification('❌ Could not load content script');
-      return;
-    }
-    
-    console.log('📤 Sending extract_text message to content script...');
-    // Send message to content script to extract visible text
-    const response = await chrome.tabs.sendMessage(tab.id, {
-      action: 'extract_text'
-    }).catch(error => {
-      console.log('❌ Content script communication failed:', error.message);
-      return null;
-    });
-    
-    console.log('📥 Received response from content script:', response ? 'Success' : 'Failed');
-    
-    if (response && response.text) {
-      console.log(`📝 Text extracted: ${response.text.length} characters`);
+    try {
+      // Get the active tab
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       
-      // Create entry object
-      const entry = {
-        id: Date.now(), // Simple ID based on timestamp
-        url: tab.url,
-        title: tab.title,
-        text: response.text,
-        timestamp: new Date().toISOString(),
-        wordCount: response.text.split(/\s+/).filter(word => word.length > 0).length
-      };
-      
-      console.log('💾 Saving entry to storage...');
-      // Save to chrome.storage
-      await saveTextEntry(entry);
-      
-      console.log('✅ Text entry saved successfully:', {
-        id: entry.id,
-        url: entry.url,
-        wordCount: entry.wordCount,
-        timestamp: entry.timestamp
-      });
-      
-    } else {
-      console.log('❌ No text extracted from page');
-      showNotification('❌ No text found on this page');
-    }
-    
-  } catch (error) {
-    console.error('❌ Error extracting text:', error);
-    showNotification('❌ Error extracting text: ' + error.message);
-  }
-}
-
-// Function to ask user if they want to replace existing entry
-async function askUserForReplacement(newEntry, existingEntry) {
-  try {
-    console.log('❓ Asking user for replacement decision...');
-    
-    // Get the active tab to show the confirmation
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tabs[0]) {
-      console.log('❌ No active tab found for user prompt');
-      return false;
-    }
-    
-    // Ensure content script is loaded
-    await ensureContentScript(tabs[0].id);
-    
-    // Prepare the confirmation message
-    const existingDate = new Date(existingEntry.timestamp).toLocaleDateString();
-    const newWordCount = newEntry.wordCount;
-    const existingWordCount = existingEntry.wordCount;
-    
-    const message = `📄 You already have this page saved!\n\n` +
-      `Existing: ${existingEntry.title}\n` +
-      `Saved: ${existingDate} (${existingWordCount} words)\n\n` +
-      `New version: ${newWordCount} words\n\n` +
-      `Replace with new version?`;
-    
-    // Send confirmation request to content script
-    const response = await chrome.tabs.sendMessage(tabs[0].id, {
-      action: 'confirm_replacement',
-      message: message
-    });
-    
-    console.log('✅ User response received:', response?.replace ? 'Replace' : 'Keep existing');
-    return response?.replace || false;
-    
-  } catch (error) {
-    console.error('❌ Error asking user for replacement:', error);
-    // Default to not replacing if we can't ask
-    return false;
-  }
-}
-
-// Function to save text entry to chrome.storage
-async function saveTextEntry(entry) {
-  try {
-    console.log('💾 Saving entry...');
-    console.log('🔍 DEBUG: Entry to save:', { id: entry.id, title: entry.title, wordCount: entry.wordCount });
-    
-    // Check for duplicates first
-    console.log('🔍 Checking for duplicates...');
-    const result = await chrome.storage.local.get(['textEntries']);
-    const existingEntries = result.textEntries || [];
-    console.log('🔍 DEBUG: Existing entries in storage:', existingEntries.length);
-    
-    // Find duplicate by URL
-    const duplicateEntry = existingEntries.find(existing => existing.url === entry.url);
-    
-    if (duplicateEntry) {
-      console.log('⚠️ Duplicate found for URL:', entry.url);
-      console.log('🔍 DEBUG: Existing entry:', { id: duplicateEntry.id, title: duplicateEntry.title, wordCount: duplicateEntry.wordCount });
-      
-      // Show notification about duplicate and ask user
-      const userChoice = await askUserForReplacement(entry, duplicateEntry);
-      
-      if (!userChoice) {
-        console.log('ℹ️ User chose to keep existing entry');
-        showNotification(`📄 Keeping ${duplicateEntry.title}`);
+      if (!tab) {
+        console.error('❌ No active tab found');
         return;
       }
       
-      console.log('🔄 User chose to replace existing entry');
+      console.log('🎯 Triggering text extraction on tab:', tab.id);
+      
+      // Inject and execute content script
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ['content.js']
+      });
+      
+    } catch (error) {
+      console.error('❌ Error executing command:', error);
+    }
+  }
+});
+
+// Message handler for communication with popup and content scripts
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  console.log('📨 Message received:', request.action);
+  
+  // Handle async operations
+  (async () => {
+    try {
+      let response = { success: false };
+      
+      switch (request.action) {
+        case 'save_text':
+          response = await saveTextEntry(request.data);
+          break;
+          
+        case 'get_entries':
+          response = await getTextEntries();
+          break;
+          
+        case 'search_keywords':
+          response = await searchKeywords(request.query);
+          break;
+          
+        case 'search_similar':
+          response = await searchSimilar(request.query, request.options);
+          break;
+          
+        case 'clear_entries':
+          response = await clearAllEntries();
+          break;
+          
+        case 'get_stats':
+          response = await getStorageStats();
+          break;
+          
+        case 'initialize_embeddings':
+          response = await initializeEmbeddings();
+          break;
+          
+        case 'get_similarity_stats':
+          response = getSimilarityStats();
+          break;
+          
+        default:
+          console.warn('⚠️ Unknown action:', request.action);
+          response = { success: false, error: 'Unknown action' };
+      }
+      
+      sendResponse(response);
+      
+    } catch (error) {
+      console.error('❌ Error handling message:', error);
+      sendResponse({ 
+        success: false, 
+        error: error.message 
+      });
+    }
+  })();
+  
+  // Return true to indicate we will send a response asynchronously
+  return true;
+});
+
+// Save text entry function
+async function saveTextEntry(data) {
+  try {
+    console.log('💾 Saving text entry...');
+    
+    // Get existing entries
+    const result = await chrome.storage.local.get(['textEntries']);
+    const entries = result.textEntries || [];
+    
+    // Create new entry with ID and timestamp
+    const newEntry = {
+      ...data,
+      id: Date.now(),
+      timestamp: new Date().toISOString(),
+      wordCount: data.text ? data.text.split(/\s+/).length : 0
+    };
+    
+    // Add to beginning of array (most recent first)
+    entries.unshift(newEntry);
+    
+    // Save back to storage
+    await chrome.storage.local.set({ textEntries: entries });
+    
+    // Add to embeddings/similarity engine
+    if (typeof addEntryEmbedding === 'function') {
+      try {
+        await addEntryEmbedding(newEntry);
+      } catch (embeddingError) {
+        console.warn('⚠️ Error adding to embeddings:', embeddingError);
+        // Don't fail the entire operation if embeddings fail
+      }
     }
     
-    // Remove duplicate if exists (either for replacement or initial save)
-    const filteredEntries = existingEntries.filter(e => e.url !== entry.url);
-    filteredEntries.unshift(entry);
+    console.log('✅ Text entry saved successfully:', newEntry.id);
     
-    // Keep only last 100 entries
-    if (filteredEntries.length > 100) {
-      filteredEntries.splice(100);
-    }
-    
-    await chrome.storage.local.set({ textEntries: filteredEntries });
-    
-    const isReplacement = !!duplicateEntry;
-    
-    if (isReplacement) {
-      console.log('✅ Entry replaced in chrome.storage, total entries now:', filteredEntries.length);
-    } else {
-      console.log('✅ Entry saved to chrome.storage, total entries now:', filteredEntries.length);
-    }
-    
-    // Verify the save
-    const verification = await chrome.storage.local.get(['textEntries']);
-    console.log('🔍 DEBUG: Verification - entries in storage after save:', (verification.textEntries || []).length);
-    
-    // Show appropriate notification based on whether this is new or replacement
-    if (isReplacement) {
-      showNotification(`🔄 Replaced ${entry.title} (${entry.wordCount} words)`);
-    } else {
-      showNotification(`✅ Saved ${entry.wordCount} words from ${entry.title}`);
-    }
+    return { 
+      success: true, 
+      entry: newEntry,
+      totalEntries: entries.length
+    };
     
   } catch (error) {
     console.error('❌ Error saving text entry:', error);
-    showNotification('❌ Error saving text: ' + error.message);
-    throw error;
+    return { 
+      success: false, 
+      error: error.message 
+    };
   }
 }
 
-// Function to show notification
-async function showNotification(message) {
-  console.log('📢 Showing notification:', message);
-  
-  try {
-    // Get the active tab
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tabs[0]) {
-      // Ensure content script is loaded for notifications
-      await ensureContentScript(tabs[0].id);
-      
-      // Send notification message
-      await chrome.tabs.sendMessage(tabs[0].id, {
-        action: 'show_notification',
-        message: message
-      });
-      console.log('✅ Notification sent to page');
-    }
-  } catch (error) {
-    console.log('❌ Could not show notification on page:', error.message);
-  }
-}
-
-// Message handler with simplified functionality
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.log('📨 Background received message:', message);
-  
-  try {
-    if (message.action === 'ping') {
-      console.log('🏓 Ping received, sending pong');
-      sendResponse({ status: 'ok', timestamp: Date.now(), message: 'Background script is working!' });
-      return true;
-    }
-    
-    if (message.action === 'get_entries') {
-      console.log('📚 Getting entries request');
-      handleGetEntries(sendResponse);
-      return true;
-    }
-    
-    if (message.action === 'search_keywords') {
-      console.log('🔍 Keyword search request:', message.query);
-      handleKeywordSearch(message.query, sendResponse);
-      return true;
-    }
-    
-    if (message.action === 'clear_entries') {
-      console.log('🗑️ Clearing all entries');
-      handleClearEntries(sendResponse);
-      return true;
-    }
-    
-    if (message.action === 'get_stats') {
-      console.log('📊 Getting storage stats');
-      handleGetStats(sendResponse);
-      return true;
-    }
-    
-    console.log('❓ Unknown message action:', message.action);
-    sendResponse({ error: 'Unknown action' });
-    
-  } catch (error) {
-    console.error('❌ Error handling message:', error);
-    sendResponse({ error: error.message });
-  }
-  
-  return false;
-});
-
-// Handle get entries
-async function handleGetEntries(sendResponse) {
+// Get all text entries
+async function getTextEntries() {
   try {
     const result = await chrome.storage.local.get(['textEntries']);
     const entries = result.textEntries || [];
-    console.log(`📚 Retrieved ${entries.length} entries from chrome.storage`);
     
-    sendResponse({
-      success: true,
-      entries: entries
-    });
+    console.log(`📚 Retrieved ${entries.length} text entries`);
+    
+    return { 
+      success: true, 
+      entries: entries 
+    };
     
   } catch (error) {
-    console.error('❌ Error getting entries:', error);
-    sendResponse({
-      success: false,
-      error: error.message
-    });
+    console.error('❌ Error getting text entries:', error);
+    return { 
+      success: false, 
+      error: error.message,
+      entries: []
+    };
   }
 }
 
-// Handle keyword search
-async function handleKeywordSearch(query, sendResponse) {
+// Search entries by keywords
+async function searchKeywords(query) {
   try {
-    const result = await chrome.storage.local.get(['textEntries']);
-    const allEntries = result.textEntries || [];
+    console.log(`🔍 Searching keywords: "${query}"`);
     
     if (!query || query.trim() === '') {
-      sendResponse({
-        success: true,
-        results: allEntries
-      });
-      return;
+      return { success: true, results: [] };
     }
     
-    const searchTerms = query.toLowerCase().split(' ').filter(term => term.length > 0);
+    const result = await chrome.storage.local.get(['textEntries']);
+    const entries = result.textEntries || [];
     
-    const results = allEntries.filter(entry => {
-      const searchableText = [
-        entry.title || '',
-        entry.url || '',
-        entry.text || ''
-      ].join(' ').toLowerCase();
+    const searchTerms = query.toLowerCase().split(/\s+/).filter(term => term.length > 0);
+    
+    const results = entries.filter(entry => {
+      const title = (entry.title || '').toLowerCase();
+      const text = (entry.text || '').toLowerCase();
+      const url = (entry.url || '').toLowerCase();
       
-      return searchTerms.every(term => searchableText.includes(term));
+      // Check if all search terms are found in title, text, or URL
+      return searchTerms.every(term => 
+        title.includes(term) || 
+        text.includes(term) || 
+        url.includes(term)
+      );
     });
     
-    console.log(`🎯 Keyword search found ${results.length} results for "${query}"`);
+    console.log(`📊 Found ${results.length} keyword matches`);
     
-    sendResponse({
-      success: true,
-      results: results
-    });
+    return { 
+      success: true, 
+      results: results,
+      query: query,
+      searchType: 'keyword'
+    };
     
   } catch (error) {
-    console.error('❌ Error in keyword search:', error);
-    sendResponse({
-      success: false,
-      error: error.message
-    });
+    console.error('❌ Error searching keywords:', error);
+    return { 
+      success: false, 
+      error: error.message,
+      results: []
+    };
   }
 }
 
-// Handle clear entries
-async function handleClearEntries(sendResponse) {
+// Search entries by similarity
+async function searchSimilar(query, options = {}) {
   try {
-    await chrome.storage.local.set({ textEntries: [] });
-    console.log('✅ All entries cleared from chrome.storage');
+    console.log(`🧠 Searching similar content: "${query}"`);
     
-    sendResponse({
-      success: true,
-      message: 'All entries cleared'
-    });
+    if (!query || query.trim() === '') {
+      return { success: true, results: [] };
+    }
+    
+    // Use embeddings module if available
+    if (typeof findSimilarEntries === 'function') {
+      const result = await findSimilarEntries(query, options);
+      if (result.success) {
+        console.log(`📊 Found ${result.results.length} similar entries`);
+        return {
+          success: true,
+          results: result.results,
+          query: query,
+          searchType: 'similarity',
+          stats: result.stats
+        };
+      }
+    }
+    
+    // Fallback to keyword search if embeddings not available
+    console.log('⚠️ Embeddings not available, falling back to keyword search');
+    return await searchKeywords(query);
+    
+  } catch (error) {
+    console.error('❌ Error searching similar content:', error);
+    
+    // Fallback to keyword search on error
+    try {
+      return await searchKeywords(query);
+    } catch (fallbackError) {
+      console.error('❌ Fallback search also failed:', fallbackError);
+      return { 
+        success: false, 
+        error: error.message,
+        results: []
+      };
+    }
+  }
+}
+
+// Clear all entries
+async function clearAllEntries() {
+  try {
+    console.log('🗑️ Clearing all text entries...');
+    
+    await chrome.storage.local.set({ textEntries: [] });
+    
+    // Clear embeddings if available
+    if (typeof clearEmbeddings === 'function') {
+      clearEmbeddings();
+    }
+    
+    console.log('✅ All entries cleared successfully');
+    
+    return { success: true };
     
   } catch (error) {
     console.error('❌ Error clearing entries:', error);
-    sendResponse({
-      success: false,
-      error: error.message
-    });
+    return { 
+      success: false, 
+      error: error.message 
+    };
   }
 }
 
-// Handle get stats
-async function handleGetStats(sendResponse) {
+// Get storage statistics
+async function getStorageStats() {
   try {
     const result = await chrome.storage.local.get(['textEntries']);
     const entries = result.textEntries || [];
     
     const totalWords = entries.reduce((sum, entry) => sum + (entry.wordCount || 0), 0);
     
-    sendResponse({
-      success: true,
-      stats: {
-        totalEntries: entries.length,
-        totalWords: totalWords,
-        storageType: 'chrome.storage.local'
+    let similarityStats = null;
+    if (typeof getSimilarityStats === 'function') {
+      const simStats = getSimilarityStats();
+      if (simStats.success) {
+        similarityStats = simStats.stats;
       }
-    });
+    }
+    
+    const stats = {
+      totalEntries: entries.length,
+      totalWords: totalWords,
+      averageWordsPerEntry: entries.length > 0 ? Math.round(totalWords / entries.length) : 0,
+      oldestEntry: entries.length > 0 ? entries[entries.length - 1].timestamp : null,
+      newestEntry: entries.length > 0 ? entries[0].timestamp : null,
+      similarity: similarityStats
+    };
+    
+    console.log('📊 Storage stats:', stats);
+    
+    return { 
+      success: true, 
+      stats: stats 
+    };
     
   } catch (error) {
-    console.error('❌ Error getting stats:', error);
-    sendResponse({
-      success: false,
-      error: error.message
-    });
+    console.error('❌ Error getting storage stats:', error);
+    return { 
+      success: false, 
+      error: error.message 
+    };
   }
 }
 
-console.log('🎉 Background script setup complete'); 
+console.log('✅ Background script loaded successfully'); 
