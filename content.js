@@ -34,6 +34,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
+// Function to import articles to NotebookLM
+async function importToNotebookLM() {
+  // Remove all NotebookLM import logic and messaging
+}
+
 // Twitter/X specific text extraction
 function extractTwitterText() {
   try {

@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <style>
     body {
-      width: 100%;
-      min-height: 100vh;
-      height: auto;
+      width: 380px;
+      min-width: 350px;
+      max-width: 420px;
       padding: 0;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -49,15 +49,15 @@
     }
     
     .content {
+      width: 100%;
+      min-width: 350px;
+      max-width: 420px;
+      box-sizing: border-box;
+      flex: 1;
       padding: 20px;
       padding-bottom: 400px;
-      flex: 1;
       overflow-y: auto;
       overflow-x: hidden;
-      min-height: calc(100vh - 140px);
-      height: auto;
-      width: 100%;
-      box-sizing: border-box;
     }
 
     .tab-container {
@@ -91,60 +91,6 @@
     .tab:hover {
       background: rgba(255, 255, 255, 0.15);
       color: white;
-    }
-
-    .setup-note {
-      background: rgba(255, 193, 7, 0.2);
-      border: 1px solid rgba(255, 193, 7, 0.5);
-      padding: 12px;
-      border-radius: 6px;
-      font-size: 13px;
-      margin-bottom: 15px;
-      line-height: 1.4;
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 10px;
-    }
-
-    .setup-content {
-      flex: 1;
-    }
-
-    .setup-content a {
-      color: #1976D2 !important;
-      text-decoration: underline !important;
-      font-weight: 600 !important;
-    }
-
-    .setup-content a:hover {
-      color: #0D47A1 !important;
-      text-decoration: underline !important;
-    }
-
-    .dismiss-btn {
-      background: none;
-      border: none;
-      color: rgba(255, 193, 7, 0.8);
-      cursor: pointer;
-      font-size: 16px;
-      font-weight: bold;
-      padding: 0;
-      margin: 0;
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.2s ease;
-      flex-shrink: 0;
-    }
-
-    .dismiss-btn:hover {
-      background: rgba(255, 193, 7, 0.2);
-      color: rgba(255, 193, 7, 1);
-      transform: scale(1.1);
     }
     
     .search-container {
@@ -229,6 +175,49 @@
       border-radius: 4px;
       display: none;
     }
+
+    kbd {
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 3px;
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.2);
+      color: #FFE082;
+      display: inline-block;
+      font-size: 10px;
+      font-weight: bold;
+      padding: 2px 4px;
+      white-space: nowrap;
+    }
+
+    .api-key-section {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 12px;
+      border-radius: 6px;
+      margin-bottom: 15px;
+      font-size: 12px;
+    }
+
+    .api-key-input {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+      font-size: 11px;
+      box-sizing: border-box;
+      margin-top: 8px;
+    }
+
+    .api-key-input::placeholder {
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    .api-status {
+      margin-top: 8px;
+      font-size: 10px;
+      opacity: 0.8;
+    }
     
     .controls {
       display: flex;
@@ -281,6 +270,7 @@
       box-sizing: border-box;
     }
     
+    /* Custom scrollbar styling for entries */
     .entries::-webkit-scrollbar {
       width: 6px;
     }
@@ -302,7 +292,7 @@
     .entry {
       background: rgba(255, 255, 255, 0.1);
       border-left: 4px solid rgba(255, 255, 255, 0.3);
-      padding: 12px;
+      padding: 8px 10px;
       margin-bottom: 8px;
       border-radius: 6px;
       transition: all 0.3s;
@@ -317,90 +307,114 @@
       transform: translateY(-1px);
     }
     
-    .entry-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 8px;
-      gap: 10px;
+    .entry.search-result {
+      border-left-color: #FFE082;
+      background: rgba(255, 224, 130, 0.15);
+    }
+
+    .entry.semantic-result {
+      border-left-color: #9C27B0;
+      background: rgba(156, 39, 176, 0.15);
     }
     
-    .entry-meta {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      flex: 1;
-      min-width: 0;
+    .entry-header {
+      margin-bottom: 4px;
+      width: 100%;
     }
     
     .entry-title {
-      font-weight: 600;
-      font-size: 14px;
+      font-weight: 500;
+      font-size: 13px;
       line-height: 1.3;
       color: #E3F2FD;
-      margin: 0;
-      word-wrap: break-word;
-    }
-    
-    .entry-date {
-      font-size: 11px;
-      opacity: 0.7;
-      color: #90CAF9;
-    }
-    
-    .entry-words {
-      font-size: 11px;
-      opacity: 0.7;
-      color: #90CAF9;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      width: 100%;
+      display: block;
+      text-decoration: none;
+      transition: opacity 0.2s;
     }
 
-    .similarity-score {
-      font-size: 11px;
-      color: #9C27B0;
-      font-weight: 500;
+    .entry-title:hover {
+      opacity: 0.8;
+      text-decoration: none;
     }
     
-    .copy-btn {
+    .entry-meta {
+      font-size: 11px;
+      opacity: 0.7;
+      color: #90CAF9;
+      margin-bottom: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      justify-content: flex-start;
+    }
+
+    .date-time {
+      color: #90CAF9;
+      opacity: 0.7;
+    }
+
+    .view-full-btn {
       background: rgba(103, 126, 234, 0.2);
       border: none;
       color: #90CAF9;
       cursor: pointer;
-      font-size: 14px;
-      padding: 6px 8px;
-      border-radius: 4px;
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 3px;
       transition: all 0.2s;
-      flex-shrink: 0;
+      margin-left: auto;
     }
     
-    .copy-btn:hover {
+    .view-full-btn:hover {
       background: rgba(103, 126, 234, 0.4);
       color: #E3F2FD;
     }
-    
-    .entry-url {
-      font-size: 11px;
-      opacity: 0.7;
-      margin-bottom: 8px;
-      word-break: break-all;
-    }
-    
-    .entry-url a {
-      color: #90CAF9;
-      text-decoration: none;
-    }
-    
-    .entry-url a:hover {
-      text-decoration: underline;
+
+    .match-count {
+      color: #FFE082;
+      font-size: 10px;
+      opacity: 0.9;
     }
     
     .entry-text {
       font-size: 12px;
       line-height: 1.4;
       opacity: 0.9;
+      max-height: 120px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      position: relative;
+      padding-right: 8px;
       word-wrap: break-word;
       word-break: break-word;
       white-space: pre-wrap;
-      margin-bottom: 8px;
+      margin-bottom: 1px;
+    }
+
+    .entry-text::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .entry-text::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+    }
+
+    .entry-text::-webkit-scrollbar-thumb {
+      background: rgba(255, 224, 130, 0.5);
+      border-radius: 2px;
+    }
+
+    .entry-text::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 224, 130, 0.7);
+    }
+
+    .entry-text.expanded {
+      max-height: none;
     }
     
     .expand-btn {
@@ -409,15 +423,11 @@
       color: #FFE082;
       cursor: pointer;
       font-size: 11px;
-      padding: 4px 0;
+      padding: 4px 0 0 0;
       text-decoration: underline;
     }
     
-    .expand-btn:hover {
-      opacity: 0.8;
-    }
-    
-    mark {
+    .highlight {
       background: rgba(255, 224, 130, 0.6);
       color: #000;
       padding: 1px 2px;
@@ -440,7 +450,6 @@
       background: rgba(255, 255, 255, 0.05);
       border-radius: 8px;
       margin: 20px 0;
-      display: none;
     }
     
     .stats {
@@ -469,135 +478,1100 @@
       opacity: 0.9;
     }
     
-    .loading {
-      color: #FFE082;
-      font-size: 12px;
+    .setup-note {
+      background: rgba(255, 193, 7, 0.2);
+      border: 1px solid rgba(255, 193, 7, 0.5);
+      padding: 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      margin-bottom: 15px;
+      line-height: 1.4;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
     }
-    
+
+    .setup-content {
+      flex: 1;
+    }
+
+    .setup-content a {
+      color: #1976D2 !important;
+      text-decoration: underline !important;
+      font-weight: 600 !important;
+    }
+
+    .setup-content a:hover {
+      color: #0D47A1 !important;
+      text-decoration: underline !important;
+    }
+
+    .dismiss-btn {
+      background: none;
+      border: none;
+      color: rgba(255, 193, 7, 0.8);
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: bold;
+      padding: 0;
+      margin: 0;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .dismiss-btn:hover {
+      background: rgba(255, 193, 7, 0.2);
+      color: rgba(255, 193, 7, 1);
+      transform: scale(1.1);
+    }
+
+    .loading {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 1s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .semantic-loading {
+      animation: semanticPulse 2s ease-in-out infinite;
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    @keyframes semanticPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
     .tab-content {
       display: none;
     }
-    
+
     .tab-content.active {
       display: block;
+    }
+
+    .search-filters {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 15px;
+      display: none;
+    }
+
+    .filter-group {
+      display: flex;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .filter-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .filter-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.9);
+      min-width: 60px;
+      margin-right: 10px;
+    }
+
+    .filter-select {
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 6px;
+      padding: 6px 10px;
+      color: white;
+      font-size: 12px;
+      cursor: pointer;
+      outline: none;
+      flex: 1;
+      max-width: 150px;
+    }
+
+    .filter-select:hover {
+      background: rgba(255, 255, 255, 0.2);
+      border-color: rgba(255, 255, 255, 0.4);
+    }
+
+    .filter-select:focus {
+      background: rgba(255, 255, 255, 0.25);
+      border-color: #CE93D8;
+      box-shadow: 0 0 0 2px rgba(206, 147, 216, 0.3);
+    }
+
+    .filter-select option {
+      background: #2C1810;
+      color: white;
+    }
+
+    .custom-date-range {
+      margin-top: 10px;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .date-inputs {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .date-input {
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 4px;
+      padding: 6px 8px;
+      color: white;
+      font-size: 11px;
+      width: 120px;
+      outline: none;
+    }
+
+    .date-input:focus {
+      border-color: #CE93D8;
+      box-shadow: 0 0 0 2px rgba(206, 147, 216, 0.3);
+    }
+
+    .date-input::-webkit-calendar-picker-indicator {
+      filter: invert(1);
+      cursor: pointer;
+    }
+
+    .date-separator {
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .filter-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 15px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .filter-btn {
+      padding: 6px 12px;
+      border-radius: 5px;
+      border: none;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .apply-btn {
+      background: linear-gradient(135deg, #9C27B0, #7B1FA2);
+      color: white;
+    }
+
+    .apply-btn:hover {
+      background: linear-gradient(135deg, #AB47BC, #8E24AA);
+      transform: translateY(-1px);
+    }
+
+    .reset-btn {
+      background: rgba(255, 255, 255, 0.15);
+      color: rgba(255, 255, 255, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .reset-btn:hover {
+      background: rgba(255, 255, 255, 0.25);
+      color: white;
+    }
+
+    .search-tools {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .tools-btn {
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      color: rgba(255, 255, 255, 0.9);
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+    }
+
+    .tools-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+      border-color: rgba(255, 255, 255, 0.4);
+    }
+
+    .tools-btn.active {
+      background: rgba(206, 147, 216, 0.3);
+      border-color: #CE93D8;
+      color: #E1BEE7;
+    }
+
+    .active-filters {
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.7);
+      font-style: italic;
+    }
+
+    .active-filters:not(:empty) {
+      background: rgba(255, 224, 130, 0.2);
+      padding: 3px 8px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 224, 130, 0.4);
+      color: #FFE082;
+    }
+
+    /* Advanced Search Styling */
+    .advanced-search {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      padding: 16px;
+      margin: 12px 0;
+      animation: slideDown 0.3s ease;
+    }
+
+    .advanced-search-header h4 {
+      margin: 0 0 4px 0;
+      color: #E1BEE7;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .advanced-search-header p {
+      margin: 0 0 16px 0;
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 11px;
+    }
+
+    .advanced-field {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+      gap: 4px;
+    }
+
+    .advanced-field:last-child {
+      margin-bottom: 0;
+    }
+
+    .advanced-label {
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 11px;
+      min-width: 120px;
+      text-align: left;
+      font-weight: 500;
+      flex-shrink: 0;
+    }
+
+    .advanced-input {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 4px;
+      padding: 6px 10px;
+      color: white;
+      font-size: 11px;
+      transition: all 0.2s ease;
+    }
+
+    .advanced-input:focus {
+      outline: none;
+      border-color: #CE93D8;
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .advanced-input::placeholder {
+      color: rgba(255, 255, 255, 0.5);
+      font-style: italic;
+    }
+
+    .number-range {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+    }
+
+    .number-input {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 4px;
+      padding: 6px 8px;
+      color: white;
+      font-size: 11px;
+      width: 60px;
+      transition: all 0.2s ease;
+    }
+
+    .number-input:focus {
+      outline: none;
+      border-color: #CE93D8;
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .number-input::placeholder {
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    .range-separator {
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        max-height: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+      }
+      to {
+        opacity: 1;
+        max-height: 300px;
+        padding-top: 16px;
+        padding-bottom: 16px;
+      }
+    }
+
+    .search-input::-webkit-search-decoration,
+    .search-input::-webkit-search-cancel-button,
+    .search-input::-webkit-search-results-button,
+    .search-input::-webkit-search-results-decoration {
+      display: none !important;
+    }
+
+    .bullet-points {
+      list-style: disc inside none;
+      padding: 0;
+      margin: 0;
+    }
+    .bullet-point.no-indent {
+      margin-left: 0;
+      padding-left: 0;
+      background: none;
+      border-left: none;
+      margin-bottom: 0;
+    }
+    .bullet-space {
+      height: 12px;
+    }
+    .references-list {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 8px;
+      box-sizing: border-box;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .reference-item {
+      display: flex;
+      gap: 10px;
+      background: rgba(255, 255, 255, 0.05);
+      margin: 0;
+      padding: 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      transition: all 0.3s ease;
+      flex-wrap: wrap;
+      word-break: break-word;
+      align-items: flex-start;
+    }
+    .reference-title-link {
+      color: #81C784;
+      text-decoration: underline;
+      word-break: break-all;
+    }
+    .reference-title-link:hover {
+      color: #388E3C;
+      text-decoration: underline;
+    }
+
+    /* NotebookLM Export Styles */
+    #notebooklmTab .notebooklm-header {
+      background: linear-gradient(135deg, #4285F4, #34A853);
+      color: white;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      text-align: center;
+    }
+
+    #notebooklmTab .notebooklm-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin: 0 0 5px 0;
+    }
+
+    #notebooklmTab .notebooklm-subtitle {
+      font-size: 12px;
+      opacity: 0.9;
+      margin: 0;
+    }
+
+    #notebooklmTab .export-controls {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 15px;
+    }
+
+    #notebooklmTab .export-section {
+      margin-bottom: 20px;
+    }
+
+    #notebooklmTab .export-section:last-child {
+      margin-bottom: 0;
+    }
+
+    #notebooklmTab .export-section-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.9);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #notebooklmTab .selection-summary {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      padding: 10px;
+      margin-bottom: 15px;
+      font-size: 12px;
+    }
+
+    #notebooklmTab .selection-count {
+      font-weight: 600;
+      color: #4CAF50;
+    }
+
+    #notebooklmTab .export-format-options {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    #notebooklmTab .format-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    #notebooklmTab .format-option:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    #notebooklmTab .format-option input[type="radio"] {
+      margin: 0;
+    }
+
+    #notebooklmTab .format-label {
+      flex: 1;
+      font-size: 12px;
+    }
+
+    #notebooklmTab .format-description {
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.7);
+      margin-top: 2px;
+    }
+
+    #notebooklmTab .export-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    #notebooklmTab .google-drive-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      margin-bottom: 10px;
+    }
+
+    #notebooklmTab .google-drive-status.connected {
+      background: rgba(76, 175, 80, 0.2);
+      border: 1px solid rgba(76, 175, 80, 0.4);
+      color: #4CAF50;
+    }
+
+    #notebooklmTab .google-drive-status.disconnected {
+      background: rgba(255, 152, 0, 0.2);
+      border: 1px solid rgba(255, 152, 0, 0.4);
+      color: #FF9800;
+    }
+
+    #notebooklmTab .bulk-selection-toolbar {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    #notebooklmTab .bulk-select-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 4px;
+      color: white;
+      padding: 4px 8px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    #notebooklmTab .bulk-select-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    #notebooklmTab .entry-checkbox {
+      margin-right: 8px;
+    }
+
+    #notebooklmTab .entry.selected {
+      background: rgba(66, 133, 244, 0.2);
+      border-left-color: #4285F4;
+    }
+
+    #notebooklmTab .export-history {
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    #notebooklmTab .export-record {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      padding: 10px;
+      margin-bottom: 8px;
+      font-size: 11px;
+    }
+
+    #notebooklmTab .export-record-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 5px;
+    }
+
+    #notebooklmTab .export-record-date {
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    #notebooklmTab .export-record-count {
+      color: #4CAF50;
+      font-size: 10px;
+    }
+
+    #notebooklmTab .export-record-link {
+      color: #4285F4;
+      text-decoration: none;
+      font-size: 10px;
+    }
+
+    #notebooklmTab .export-record-link:hover {
+      text-decoration: underline;
+    }
+
+    /* Selection Toolbar Styles */
+    .selection-toolbar {
+      background: rgba(156, 39, 176, 0.1);
+      border: 1px solid rgba(156, 39, 176, 0.3);
+      border-radius: 8px;
+      padding: 12px;
+      margin: 15px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .selection-info {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.9);
+      font-weight: 600;
+    }
+
+    .selection-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .selection-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 4px;
+      color: white;
+      padding: 6px 12px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .selection-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+      border-color: rgba(255, 255, 255, 0.4);
+    }
+
+    .import-btn {
+      background: linear-gradient(135deg, #9C27B0, #7B1FA2);
+      border: 1px solid rgba(156, 39, 176, 0.5);
+      border-radius: 4px;
+      color: white;
+      padding: 6px 12px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-weight: 600;
+    }
+
+    .import-btn:hover:not(:disabled) {
+      background: linear-gradient(135deg, #8E24AA, #6A1B9A);
+      transform: translateY(-1px);
+    }
+
+    .import-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Entry selection styles */
+    .entry-checkbox {
+      margin-right: 8px;
+      cursor: pointer;
+    }
+
+    .entry.selectable {
+      position: relative;
+      cursor: pointer;
+    }
+
+    .entry.selected {
+      background: rgba(156, 39, 176, 0.15);
+      border-left: 3px solid #9C27B0;
+    }
+
+    .entry.selectable:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .entry-header.with-checkbox {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .entry-header.with-checkbox .entry-title {
+      flex: 1;
     }
   </style>
 </head>
 <body>
   <div class="header">
     <h1>SmartGrab AI Search</h1>
+    <button id="settingsIconBtn" title="Settings" style="position: absolute; top: 18px; right: 18px; background: none; border: none; color: #FFE082; font-size: 22px; cursor: pointer; z-index: 10;">
+      <span role="img" aria-label="Settings">⚙️</span>
+    </button>
     <div class="shortcut-info">
-      Press <span class="shortcut">⌘ + Shift + G</span> to grab text from current page
+      Press <span class="shortcut">Cmd+Shift+G</span> to grab visible text
     </div>
   </div>
-
+  
   <div class="content">
-    <!-- Setup Note -->
     <div class="setup-note" id="setupNote">
       <div class="setup-content">
-        <p>🚀 <strong>Quick Setup Guide:</strong></p>
-        <p>⌨️ Go to <a href="#" id="shortcutsLink" style="color: #4285f4; text-decoration: underline; cursor: pointer;">chrome://extensions/shortcuts</a> to configure the keyboard shortcut for quick text capture.</p>
-        <p>🔍 Use <strong>Similarity Search</strong> to find semantically related content - perfect for discovering articles to add to NotebookLM!</p>
+        <p>⌨️ Go to <a href="#" id="shortcutsLink" style="color: #4285f4; text-decoration: underline; cursor: pointer;">chrome://extensions/shortcuts</a> to configure the keyboard shortcut for quick capture.</p>
+        <p>🔑 To enable AI Semantic Search (i.e., finds results by meaning, not just keywords), get your OpenAI API key from <a href="https://platform.openai.com/api-keys" target="_blank" style="color: #4285f4; text-decoration: underline; cursor: pointer;">platform.openai.com/api-keys</a> and add it in the Settings tab.</p>
+        <p>🔒 Your API key is stored locally in your Chrome browser storage only.</p>
         <p>💡 For first-time use, you may need to reload the Chrome browser to activate the extension.</p>
       </div>
       <button class="dismiss-btn" id="dismissSetupNote" title="Don't show again">✕</button>
     </div>
 
-    <!-- Tab Navigation -->
     <div class="tab-container">
-      <button class="tab active" data-tab="search">🔍 Search</button>
-      <button class="tab" data-tab="settings">⚙️ Settings</button>
+      <button class="tab active" data-tab="search">Search</button>
+      <button class="tab" data-tab="notebooklm">NotebookLM</button>
     </div>
 
-    <!-- Search Tab -->
-    <div id="searchTab" class="tab-content active">
-      <!-- Search Input -->
+    <div class="tab-content active" id="searchTab">
+      <!-- Selection Mode Button -->
+      <div style="display: flex; justify-content: flex-end; margin-bottom: 8px;">
+        <button id="toggleSelectionBtn" class="selection-btn" style="font-weight: 600;">
+          Select Articles
+        </button>
+      </div>
+      <!-- Selection Mode Hint -->
+      <div class="selection-hint" style="background: rgba(156, 39, 176, 0.1); border: 1px solid rgba(156, 39, 176, 0.3); border-radius: 6px; padding: 8px; margin-bottom: 10px; font-size: 11px; color: rgba(255, 255, 255, 0.8); text-align: center; display: none;" id="selectionHint">
+        💡 Select articles to import to NotebookLM
+      </div>
+
       <div class="search-container">
-        <input type="text" id="searchInput" class="search-input" placeholder="Find similar content...">
-        <button id="searchClear" class="search-clear">✕</button>
+        <input type="text" class="search-input" id="searchInput" placeholder="Search your saved text...">
+        <button class="search-filters-icon" id="toggleFilters" title="Filters" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #FFE082; font-size: 18px; cursor: pointer; z-index: 2;">
+          <span role="img" aria-label="Filters">🔧</span>
+        </button>
+        <button class="search-clear" id="searchClear" style="right: 38px;">✕</button>
       </div>
-
-      <!-- Search Mode Options -->
       <div class="search-options">
-        <button class="search-option active" data-mode="similarity">🧠 Similarity</button>
-        <button class="search-option" data-mode="keyword">📝 Keywords</button>
+        <button class="search-option" data-mode="semantic">🤖 Semantic</button>
+        <button class="search-option active" data-mode="keyword">📝 Keyword</button>
       </div>
+      <div class="search-filters" id="searchFilters" style="display: none;">
+        <div class="filter-group">
+          <label class="filter-label">⏰ Time:</label>
+          <select class="filter-select" id="timeFilter">
+            <option value="any">Any time</option>
+            <option value="hour">Past hour</option>
+            <option value="day">Past 24 hours</option>
+            <option value="week">Past week</option>
+            <option value="month">Past month</option>
+            <option value="year">Past year</option>
+            <option value="custom">Custom range...</option>
+          </select>
+        </div>
+        
+        <div class="filter-group">
+                          <label class="filter-label">🎯 Verbatim:</label>
+          <select class="filter-select" id="resultsFilter">
+            <option value="any">All results</option>
+            <option value="verbatim">Verbatim</option>
+          </select>
+        </div>
+        
+        <div class="filter-group">
+          <label class="filter-label">🔍 Advanced:</label>
+          <select class="filter-select" id="advancedFilter">
+            <option value="off">Off</option>
+            <option value="on">On</option>
+          </select>
+        </div>
+        
+        <div class="custom-date-range" id="customDateRange" style="display: none;">
+          <div class="date-inputs">
+            <input type="date" id="dateFrom" class="date-input">
+            <span class="date-separator">to</span>
+            <input type="date" id="dateTo" class="date-input">
+          </div>
+        </div>
+        
+        <div class="advanced-search" id="advancedSearch" style="display: none;">
+          <div class="advanced-search-header">
+            <h4>🔍 Advanced Search</h4>
+            <p>Find pages with...</p>
+          </div>
+          
+          <div class="advanced-field">
+            <label class="advanced-label">all these words:</label>
+            <input type="text" id="allWords" class="advanced-input" placeholder="kiss marry kill">
+          </div>
+          
+          <div class="advanced-field">
+            <label class="advanced-label">these exact word(s):</label>
+            <input type="text" id="exactPhrase" class="advanced-input" placeholder='"life is suffering"'>
+          </div>
+          
+          <div class="advanced-field">
+            <label class="advanced-label">any of these words:</label>
+            <input type="text" id="anyWords" class="advanced-input" placeholder="ride OR die">
+          </div>
+          
+          <div class="advanced-field">
+            <label class="advanced-label">none of these words:</label>
+            <input type="text" id="noneWords" class="advanced-input" placeholder='-instagram, -"social media"'>
+          </div>
+          
 
-      <!-- Search Results Info -->
-      <div id="searchResults" class="search-results">
-        <span id="loadingIndicator" class="loading" style="display: none;">🔍 Searching...</span>
+        </div>
+        
+        <div class="filter-actions">
+          <button class="filter-btn apply-btn" id="applyFilters">Apply Filters</button>
+          <button class="filter-btn reset-btn" id="resetFilters">Reset</button>
+        </div>
       </div>
-
-      <!-- Controls -->
-      <div class="controls">
-        <button id="clearBtn" class="button danger">🗑️ Clear All</button>
+      
+      <div class="search-tools">
+        <span class="active-filters" id="activeFilters"></span>
       </div>
-
-      <!-- Stats -->
-      <div id="stats" class="stats">
+      
+      <div class="search-results" id="searchResults">
+        <span id="loadingIndicator" class="loading" style="display: none;"></span>
+        Found <span id="resultCount">0</span> results for "<span id="searchTerm"></span>"
+      </div>
+      
+      <!-- Selection Toolbar for Import to NotebookLM -->
+      <div class="selection-toolbar" id="selectionToolbar" style="display: none;">
+        <div class="selection-info">
+          <span id="homeSelectedCount">0</span> articles selected
+        </div>
+        <div class="selection-actions">
+          <button id="selectAllHome" class="selection-btn">Select All</button>
+          <button id="selectNoneHome" class="selection-btn">Select None</button>
+          
+          <!-- Notebook Selection Dropdown -->
+          <div class="notebook-selector" style="display: flex; align-items: center; gap: 8px;">
+            <select id="notebookDropdown" class="notebook-select" style="background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; color: white; padding: 6px 8px; font-size: 11px; min-width: 120px;">
+              <option value="">🔄 Loading notebooks...</option>
+            </select>
+            <button id="refreshNotebooks" class="selection-btn" title="Refresh notebooks" style="padding: 6px 8px;">🔄</button>
+          </div>
+          
+          <button id="importToNotebookLM" class="import-btn" disabled>
+            🧠 Import to NotebookLM
+          </button>
+        </div>
+      </div>
+      
+      <div id="stats" class="stats" style="display: none;">
         <div class="stat-item">
-          <span id="entryCount" class="stat-value">0</span>
-          <span class="stat-label">entries</span>
+          <span class="stat-value" id="entryCount">0</span>
+          <span class="stat-label">Entries</span>
         </div>
         <div class="stat-item">
-          <span id="totalWords" class="stat-value">0</span>
-          <span class="stat-label">words</span>
+          <span class="stat-value" id="totalWords">0</span>
+          <span class="stat-label">Words</span>
         </div>
       </div>
-
-      <!-- Empty State -->
+      
+      <div id="entries" class="entries">
+        <!-- Entries will be populated here -->
+      </div>
+      
       <div id="emptyState" class="empty-state">
-        <p>📄 No text entries saved yet</p>
-        <p>Use <strong>⌘ + Shift + G</strong> to grab text from any webpage</p>
+        <p>📄 No text saved yet</p>
+        <p>Visit any webpage and press <strong>Cmd+Shift+G</strong> to start grabbing text!</p>
       </div>
-
-      <!-- No Results -->
-      <div id="noResults" class="no-results">
-        No results found
+      
+      <div id="noResults" class="no-results" style="display: none;">
+        <p>🔍 No results found</p>
+        <p>Try different keywords or check your spelling</p>
       </div>
-
-      <!-- Entries Container -->
-      <div id="entries" class="entries"></div>
     </div>
 
-    <!-- Settings Tab -->
-    <div id="settingsTab" class="tab-content">
-      <div class="stats">
-        <h3 style="margin: 0 0 10px 0; font-size: 16px;">Storage Information</h3>
-        <div class="stat-item">
-          <span id="entryCountSettings" class="stat-value">0</span>
-          <span class="stat-label">entries saved</span>
-        </div>
-        <div class="stat-item">
-          <span id="totalWordsSettings" class="stat-value">0</span>
-          <span class="stat-label">words stored</span>
-        </div>
-        <p style="margin: 10px 0 0 0; font-size: 11px; opacity: 0.8;">
-          Using local TF-IDF similarity matching
-        </p>
+    <div class="tab-content" id="notebooklmTab">
+      <!-- NotebookLM Header -->
+      <div class="notebooklm-header">
+        <div class="notebooklm-title">🧠 NotebookLM Import</div>
+        <div class="notebooklm-subtitle">Select and import your captured sources to NotebookLM</div>
       </div>
 
-      <div style="background: rgba(255, 255, 255, 0.1); padding: 12px; border-radius: 6px; font-size: 12px; line-height: 1.4;">
-        <h4 style="margin: 0 0 8px 0; color: #FFE082;">How to Use:</h4>
-        <ul style="margin: 0; padding-left: 16px;">
-          <li>Navigate to any webpage</li>
-          <li>Press <strong>⌘ + Shift + G</strong> (or Ctrl + Shift + G on Windows)</li>
-          <li>Text will be extracted and saved automatically</li>
-          <li>Use <strong>Similarity</strong> search to find related content</li>
-          <li>Use <strong>Keywords</strong> search for exact word matches</li>
-        </ul>
+      <!-- Direct NotebookLM Workflow -->
+      <div class="export-controls">
+        <div class="export-section">
+          <div class="export-section-title">
+            <span>⚡</span>
+            <span>Quick Capture & Open NotebookLM</span>
+          </div>
+          <div style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+            <div style="font-size: 12px; color: rgba(255, 255, 255, 0.8); margin-bottom: 10px;">
+              Capture current page and open NotebookLM instantly
+            </div>
+            <div style="font-size: 10px; color: rgba(255, 255, 255, 0.6); margin-bottom: 8px; line-height: 1.3;">
+              📝 Works with: News articles, blog posts, Wikipedia, research papers<br>
+              ⚠️ Cannot capture: Chrome settings, extensions page, system pages
+            </div>
+            <button id="captureAndOpenBtn" class="button" style="width: 100%; background: linear-gradient(135deg, #9C27B0, #7B1FA2); margin-bottom: 8px;">
+              📄 Capture & Open NotebookLM
+            </button>
+            <a href="https://notebooklm.google.com/" target="_blank" class="button" style="width: 100%; background: rgba(255, 255, 255, 0.1); text-decoration: none; text-align: center; display: block;">
+              🧠 Open NotebookLM
+            </a>
+          </div>
+        </div>
       </div>
 
-      <div style="background: rgba(156, 39, 176, 0.1); padding: 12px; border-radius: 6px; font-size: 12px; line-height: 1.4; margin-top: 15px;">
-        <h4 style="margin: 0 0 8px 0; color: #E1BEE7;">Similarity Search:</h4>
-        <p style="margin: 0; opacity: 0.9;">
-          Uses TF-IDF (Term Frequency-Inverse Document Frequency) to find semantically similar content.
-          Perfect for discovering related articles and preparing content for NotebookLM integration.
-        </p>
+      <!-- Google Drive Connection Status -->
+      <div class="export-controls">
+        <div class="export-section">
+          <div class="export-section-title">
+            <span>☁️</span>
+            <span>Google Drive Connection</span>
+          </div>
+          <div id="driveStatus" class="google-drive-status disconnected">
+            <span>⚠️</span>
+            <span>Not connected to Google Drive</span>
+          </div>
+          <button id="connectDriveBtn" class="button" style="width: 100%; margin-top: 10px;">
+            Connect Google Drive
+          </button>
+        </div>
+
+        <!-- Selection Summary -->
+        <div class="export-section">
+          <div class="export-section-title">
+            <span>📊</span>
+            <span>Selection Summary</span>
+          </div>
+          <div class="selection-summary">
+            <div>Selected: <span id="selectedCount" class="selection-count">0</span> sources</div>
+            <div>Total words: <span id="selectedWords" class="selection-count">0</span></div>
+            <div>Estimated files: <span id="estimatedFiles" class="selection-count">0</span></div>
+          </div>
+        </div>
+
+        <!-- Bulk Selection Tools -->
+        <div class="export-section">
+          <div class="export-section-title">
+            <span>⚡</span>
+            <span>Quick Selection</span>
+          </div>
+          <div class="bulk-selection-toolbar">
+            <button id="selectAll" class="bulk-select-btn">Select All</button>
+            <button id="selectNone" class="bulk-select-btn">Select None</button>
+            <button id="selectRecentWeek" class="bulk-select-btn">Recent Week</button>
+            <button id="selectHighSimilarity" class="bulk-select-btn">Top 10</button>
+          </div>
+        </div>
+
+        <!-- Export Format Options -->
+        <div class="export-section">
+          <div class="export-section-title">
+            <span>📁</span>
+            <span>Export Format</span>
+          </div>
+          <div class="export-format-options">
+            <label class="format-option">
+              <input type="radio" name="exportFormat" value="individual" checked>
+              <div>
+                <div class="format-label">Individual Files</div>
+                <div class="format-description">Each source as a separate file</div>
+              </div>
+            </label>
+            <label class="format-option">
+              <input type="radio" name="exportFormat" value="combined">
+              <div>
+                <div class="format-label">Combined File</div>
+                <div class="format-description">All sources in one document</div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Export Actions -->
+        <div class="export-section">
+          <div class="export-actions">
+            <button id="exportToNotebookLM" class="button" disabled style="width: 100%; background: linear-gradient(135deg, #4285F4, #34A853);">
+              Export to NotebookLM
+            </button>
+            <button id="openDriveFolder" class="button" style="width: 100%; margin-top: 8px; background: rgba(255, 255, 255, 0.1);" disabled>
+              📁 Open Google Drive Folder
+            </button>
+          </div>
+        </div>
       </div>
+
+      <!-- Captured Sources List -->
+      <div class="export-section">
+        <div class="export-section-title">
+          <span>📄</span>
+          <span>Captured Sources</span>
+        </div>
+        <div id="notebooklmEntries" class="entries">
+          <!-- Sources will be populated here -->
+        </div>
+      </div>
+
+      <!-- Export History -->
+      <div class="export-section">
+        <div class="export-section-title">
+          <span>📋</span>
+          <span>Export History</span>
+        </div>
+        <div id="exportHistory" class="export-history">
+          <!-- Export history will be populated here -->
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-content" id="settingsTab" style="display: none;">
+      <div class="api-key-section">
+        <div>🔑 <strong>OpenAI API Key</strong> </div>
+        <div style="margin: 8px 0; font-size: 10px; opacity: 0.8;">
+          To enable semantic search. Without this, basic similarity search is used.
+        </div>
+        <input type="password" class="api-key-input" id="apiKeyInput" placeholder="sk-...">
+        <button class="button" id="saveApiKeyBtn" style="margin-top: 8px; width: 100%;">Save API Key</button>
+        <div class="api-status" id="apiStatus">
+          <span id="apiStatusIndicator">⚪</span> <span id="apiStatusText">No API key configured</span>
+        </div>
+      </div>
+
+
+
+      <div class="controls">
+        <button class="button" id="exportBtn">📤 Export Data</button>
+        <button class="button" id="clearErrorStatesBtn" style="margin-top: 8px; width: 100%; background: rgba(255, 193, 7, 0.2); border-color: rgba(255, 193, 7, 0.5);">🧹 Clear Error States</button>
+      </div>
+      
+      <div style="margin-top: 20px; padding: 15px; background: rgba(244, 67, 54, 0.1); border: 1px solid rgba(244, 67, 54, 0.3); border-radius: 8px;">
+        <div style="font-size: 12px; font-weight: 600; color: #FF8A80; margin-bottom: 8px;">
+          ⚠️ Danger Zone
+        </div>
+        <div style="font-size: 11px; opacity: 0.8; margin-bottom: 10px; line-height: 1.4;">
+          This action will permanently delete all your saved text entries and cannot be undone.
+        </div>
+        <button class="button danger" id="clearBtn" style="width: 100%;">🗑️ Clear All Data</button>
+      </div>
+    </div>
+
+    <div class="search-container" id="semanticSearchContainer" style="display: none;">
+      <input type="text" class="search-input" id="semanticInput" placeholder="Search your saved text...">
+      <button class="search-filters-icon" id="toggleFiltersSemantic" title="Filters" style="position: absolute; right: 38px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #FFE082; font-size: 18px; cursor: pointer; z-index: 2;">
+        <span role="img" aria-label="Filters">🔧</span>
+      </button>
+      <button class="search-clear" id="semanticClear">✕</button>
     </div>
   </div>
-
+  
   <script src="popup.js"></script>
 </body>
 </html> 
