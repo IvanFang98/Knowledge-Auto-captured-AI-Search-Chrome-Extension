@@ -1,22 +1,6 @@
 // Popup script for SmartGrab AI Search Extension
 console.log('SmartGrab AI Search - Popup script starting...');
 
-// === GLOBAL VARIABLES (Must be outside DOMContentLoaded) ===
-let homeSelectedArticles = new Set();
-let isSelectionMode = false;
-let allEntries = [];
-let currentSearch = '';
-let currentSearchMode = 'semantic';
-let lastSearchResults = [];
-let searchFilterState = {
-  timeFilter: 'any',
-  resultsFilter: 'any',
-  advancedFilter: 'off',
-  dateFrom: '',
-  dateTo: '',
-  isActive: false
-};
-
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('📄 DOM loaded, initializing...');
   
@@ -76,8 +60,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   const anyWords = document.getElementById('anyWords');
   const noneWords = document.getElementById('noneWords');
   
-  // State variables (moved to global scope above)
+  // State variables
+  let allEntries = [];
+  let currentSearch = '';
+  let currentSearchMode = 'semantic'; // 'keyword' or 'semantic'
   let isSearching = false;
+  let lastSearchResults = [];
+  let searchFilterState = {
+    timeFilter: 'any',
+    resultsFilter: 'any',
+    advancedFilter: 'off',
+    dateFrom: '',
+    dateTo: '',
+    isActive: false
+  };
+  
+  // Selection state for home page
+  let homeSelectedArticles = new Set();
+  let isSelectionMode = false;
   
   // User preferences
   let userAnswerContentHeight = 200; // Default height for answer content blocks
@@ -2724,9 +2724,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   // Remove Ctrl+S keyboard shortcut for selection mode
 
-});
-
-// === GLOBAL FUNCTIONS (Outside DOMContentLoaded) ===
+  // ... existing functions ...
 
   // NotebookLM Functions
   async function loadNotebookLMStatus() {
@@ -3102,60 +3100,27 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Home page selection and import functions
   function toggleSelectionMode(forceState) {
-  try {
-    console.log('🔄 toggleSelectionMode called with:', forceState);
-    
     if (typeof forceState === 'boolean') {
       isSelectionMode = forceState;
     } else {
       isSelectionMode = !isSelectionMode;
     }
-    
     homeSelectedArticles.clear();
-    console.log('✅ Selection mode set to:', isSelectionMode);
-    
-    // Update selection toolbar (safe function)
-    if (typeof updateSelectionToolbar === 'function') {
     updateSelectionToolbar();
-    }
-    
-    // Re-render entries to show/hide checkboxes - only if functions exist
-    try {
-      if (currentSearch && typeof displaySearchResults === 'function') {
+    // Re-render entries to show/hide checkboxes
+    if (currentSearch) {
       displaySearchResults(lastSearchResults, currentSearch);
-      } else if (typeof displayEntries === 'function') {
+    } else {
       displayEntries(allEntries);
     }
-    } catch (renderError) {
-      console.warn('⚠️ Could not re-render entries:', renderError.message);
-    }
-    
-    // Update button text and hint - safely
-    try {
-      const toggleSelectionBtn = document.getElementById('toggleSelectionBtn');
-      if (toggleSelectionBtn) {
+    // Update button text and hint
+    if (typeof toggleSelectionBtn !== 'undefined' && toggleSelectionBtn) {
       toggleSelectionBtn.textContent = isSelectionMode ? 'Cancel Selection' : 'Select Articles';
     }
-      
-      const selectionHint = document.getElementById('selectionHint');
-      if (selectionHint) {
+    if (typeof selectionHint !== 'undefined' && selectionHint) {
       selectionHint.style.display = isSelectionMode ? 'block' : 'none';
     }
-    } catch (uiError) {
-      console.warn('⚠️ Could not update UI elements:', uiError.message);
-    }
-    
-    // Show notification - safe function
-    if (typeof showNotification === 'function') {
     showNotification(isSelectionMode ? '✅ Selection mode enabled' : '❌ Selection mode disabled');
-    }
-    
-  } catch (error) {
-    console.error('❌ Error in toggleSelectionMode:', error);
-    // Prevent crash by resetting state
-    isSelectionMode = false;
-    homeSelectedArticles.clear();
-  }
   }
 
   function handleHomeArticleSelection(entryId, isSelected) {
@@ -3213,15 +3178,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function updateSelectionToolbar() {
-  try {
-    // Use safe DOM access instead of variables
-    const homeSelectedCount = document.getElementById('homeSelectedCount');
     if (homeSelectedCount) {
       homeSelectedCount.textContent = homeSelectedArticles.size;
     }
-    
-    const importToNotebookLMBtn = document.getElementById('importToNotebookLM');
-    const notebookDropdown = document.getElementById('notebookDropdown');
     
     if (importToNotebookLMBtn) {
       const hasSelection = homeSelectedArticles.size > 0;
@@ -3229,25 +3188,19 @@ document.addEventListener('DOMContentLoaded', async () => {
       importToNotebookLMBtn.disabled = !hasSelection || !hasNotebook;
     }
     
-    const selectionToolbar = document.getElementById('selectionToolbar');
     if (selectionToolbar) {
       selectionToolbar.style.display = isSelectionMode ? 'flex' : 'none';
       
-      // Load notebooks when selection mode is enabled (but only if dropdown is empty to prevent infinite loop)
-      if (isSelectionMode && notebookDropdown && typeof loadNotebooks === 'function' && notebookDropdown.children.length <= 1) {
+      // Load notebooks when selection mode is enabled
+      if (isSelectionMode && notebookDropdown) {
         loadNotebooks();
       }
     }
-    
-  } catch (error) {
-    console.warn('⚠️ Error in updateSelectionToolbar:', error.message);
   }
-}
   
-// Function to load notebooks into the dropdown
-async function loadNotebooks() {
-  const notebookDropdown = document.getElementById('notebookDropdown');
-  if (!notebookDropdown) return;
+  // Function to load notebooks into the dropdown
+  async function loadNotebooks() {
+    if (!notebookDropdown) return;
     
     try {
       console.log('📚 Loading notebooks for dropdown...');
@@ -3291,13 +3244,8 @@ async function loadNotebooks() {
         notebookDropdown.appendChild(webImportOption);
       }
       
-      // Update import button state (without triggering loadNotebooks again)
-      const importToNotebookLMBtn = document.getElementById('importToNotebookLM');
-      if (importToNotebookLMBtn) {
-        const hasSelection = homeSelectedArticles.size > 0;
-        const hasNotebook = notebookDropdown && notebookDropdown.value;
-        importToNotebookLMBtn.disabled = !hasSelection || !hasNotebook;
-      }
+      // Update import button state
+      updateSelectionToolbar();
       
     } catch (error) {
       console.error('❌ Error loading notebooks:', error);
@@ -3311,12 +3259,11 @@ async function loadNotebooks() {
     }
   }
   
-  // Add event listener to notebook dropdown (only if not already added)
-  if (notebookDropdown && !notebookDropdown.hasAttribute('data-listener-added')) {
+  // Add event listener to notebook dropdown
+  if (notebookDropdown) {
     notebookDropdown.addEventListener('change', () => {
       updateSelectionToolbar();
     });
-    notebookDropdown.setAttribute('data-listener-added', 'true');
   }
 
   // --- NOTEBOOKLM IMPORT REFACTOR ---
@@ -3332,22 +3279,7 @@ async function loadNotebooks() {
       return notebooks;
     } catch (error) {
       console.error('❌ Error fetching notebooks:', error);
-      
-      // Provide helpful error messages based on the error type
-      let userMessage = error.message;
-      if (error.message.includes('Please navigate to the NotebookLM home page')) {
-        userMessage = 'Please navigate to the NotebookLM home page to see your notebooks.';
-      } else if (error.message.includes('Please create a notebook')) {
-        userMessage = 'No notebooks found. Please create a notebook in NotebookLM first.';
-      } else if (error.message.includes('Please log in')) {
-        userMessage = 'Please log in to NotebookLM first.';
-      } else if (error.message.includes('No NotebookLM tab found')) {
-        userMessage = 'Please open NotebookLM in a browser tab first.';
-      } else if (error.message.includes('API_FORMAT_ERROR')) {
-        userMessage = 'Could not find notebooks on the current NotebookLM page. Please:\n1. Navigate to https://notebooklm.google.com/\n2. Make sure you have notebooks created\n3. Try refreshing the NotebookLM page\n4. Then try again';
-      }
-      
-      showNotification(`❌ ${userMessage}`);
+      showNotification(`❌ Error: ${error.message}`);
       return [];
     }
 
@@ -3435,7 +3367,6 @@ async function loadNotebooks() {
     } catch (error) {
       console.error('❌ Error adding source to notebook:', error);
       throw error;
-    }
   }
 
   // Show notebook selection modal in popup
@@ -3563,17 +3494,13 @@ async function loadNotebooks() {
         showNotification('⚠️ Please select articles to import');
         return;
       }
-    
-    const notebookDropdown = document.getElementById('notebookDropdown');
-    if (!notebookDropdown || !notebookDropdown.value) {
-      showNotification('⚠️ Please select a notebook first');
-      return;
-    }
-    
-    const importToNotebookLMBtn = document.getElementById('importToNotebookLM');
-    if (importToNotebookLMBtn && typeof showLoadingState === 'function') {
+      
+      if (!notebookDropdown || !notebookDropdown.value) {
+        showNotification('⚠️ Please select a notebook first');
+        return;
+      }
+      
       showLoadingState(importToNotebookLMBtn, 'Importing...');
-    }
       
       // Get selected articles data
       const currentEntries = currentSearch ? lastSearchResults : allEntries;
@@ -3677,11 +3604,8 @@ async function loadNotebooks() {
       console.error('❌ Import error:', error);
       showNotification('❌ Failed to import: ' + error.message);
     } finally {
-    const importToNotebookLMBtn = document.getElementById('importToNotebookLM');
-    if (importToNotebookLMBtn && typeof hideLoadingState === 'function') {
       hideLoadingState(importToNotebookLMBtn, '🧠 Import to NotebookLM');
     }
-  }
   }
 
   // --- NOTEBOOKLM CONTENT SCRIPT PROXY ---
@@ -3739,125 +3663,10 @@ async function loadNotebooks() {
         const notebookTab = tabs[0];
         console.log('✅ Found NotebookLM tab:', notebookTab.id);
         
-        // Execute in MAIN world to access NotebookLM's real API
-        const result = await chrome.scripting.executeScript({
-            target: { tabId: notebookTab.id },
-            world: 'MAIN',
-            func: async function() {
-                console.log('🚀 Executing in MAIN world - using exact working extension format...');
-                
-                try {
-                    // Extract authentication parameters exactly like the working extension
-                    const pageResponse = await fetch('https://notebooklm.google.com/', {
-                        responseType: 'text',
-                        redirect: 'error'
-                    });
-                    const pageText = await pageResponse.text();
-                    
-                    const atRegex = new RegExp('"SNlM0e":"([^"]+)"');
-                    const blRegex = new RegExp('"cfb2h":"([^"]+)"');
-                    
-                    const atMatch = atRegex.exec(pageText);
-                    const blMatch = blRegex.exec(pageText);
-                    
-                    if (!atMatch || !blMatch) {
-                        throw new Error('Please sign-in to your Google account to use NotebookLM');
-                    }
-                    
-                    const authParams = {
-                        at: atMatch[1],
-                        bl: blMatch[1]
-                    };
-                    
-                    console.log('🔑 Found auth params:', { 
-                        at: authParams.at.substring(0, 10) + '...', 
-                        bl: authParams.bl.substring(0, 10) + '...' 
-                    });
-                    
-                    // Build request URL exactly like working extension
-                    const requestId = Math.floor(Math.random() * 900000) + 100000;
-                    const url = new URL('https://notebooklm.google.com/_/LabsTailwindUi/data/batchexecute');
-                    url.searchParams.append('rpcids', 'wXbhsf');
-                    url.searchParams.append('_reqid', requestId.toString());
-                    url.searchParams.append('bl', authParams.bl);
-                    
-                    // Format request body exactly like working extension
-                    const formData = new FormData();
-                    formData.append('f.req', JSON.stringify([["wXbhsf", "[null,1]", null, "generic"]]));
-                    formData.append('at', authParams.at);
-                    
-                    console.log('🌐 Making RPC request to:', url.toString());
-                    
-                    const response = await fetch(url.toString(), {
-                        method: 'POST',
-                        body: formData
-                    });
-                    
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                    }
-                    
-                    const text = await response.text();
-                    console.log('📥 Raw response:', text.substring(0, 200) + '...');
-                    
-                    // Parse response exactly like working extension wC function
-                    const cleanedText = text.split('\n').slice(2).join('');
-                    const parsed = JSON.parse(cleanedText);
-                    const results = [];
-                    
-                    for (const item of parsed) {
-                        if (item[0] !== 'wrb.fr') continue;
-                        
-                        let index;
-                        if (item[6] === 'generic') {
-                            index = 1;
-                        } else {
-                            index = parseInt(item[6], 10);
-                        }
-                        
-                        const rpcId = item[1];
-                        const data = JSON.parse(item[2]);
-                        
-                        results.push({
-                            index: index,
-                            rpcId: rpcId,
-                            data: data
-                        });
-                    }
-                    
-                    if (!results || results.length === 0) {
-                        throw new Error('No valid response data found');
-                    }
-                    
-                    const notebooksData = results[0].data[0];
-                    if (!notebooksData || !Array.isArray(notebooksData)) {
-                        throw new Error('No notebooks found. Please create a notebook in NotebookLM first.');
-                    }
-                    
-                    // Map notebooks exactly like working extension
-                    const notebooks = notebooksData
-                        .sort((a, b) => a[5][1] - b[5][1])
-                        .map(notebook => ({
-                            id: notebook[2],
-                            title: notebook[0],
-                            emoji: notebook[3]
-                        }));
-                    
-                    console.log('📚 Found notebooks:', notebooks);
-                    return notebooks;
-                    
-                } catch (error) {
-                    console.error('❌ Error in MAIN world execution:', error);
-                    throw error;
-                }
-            }
-        });
-        
-        if (!result || !result[0] || !result[0].result) {
-            throw new Error('No notebooks found. Please create a notebook in NotebookLM first.');
-        }
-        
-        return result[0].result;
+        // Simplified approach - just return empty array for now
+        // The complex API integration will be handled separately
+        console.log('📋 Returning empty notebooks list (API integration in progress)');
+        return [];
         
     } catch (error) {
         console.error('❌ Error fetching notebooks:', error);
@@ -3865,10 +3674,27 @@ async function loadNotebooks() {
     }
   }
 
-// --- NOTEBOOKLM IMPORT FUNCTION ---
+  // Simplified debugging function
+  window.activateNotebookLMDebug = function() {
+    console.log('🔍 NotebookLM debugging simplified - check Network tab in DevTools');
+    return 'Use Network tab in DevTools to monitor requests';
+  };
+
+  async function debugNotebookLMRequests() {
+    console.log('🔍 Debug feature simplified');
+    showNotification('🔍 Use browser DevTools Network tab to monitor NotebookLM requests');
+    return Promise.resolve('Debug simplified');
+  }
+
+});
+
+// === GLOBAL FUNCTIONS (Outside DOMContentLoaded) ===
+
+// --- NOTEBOOKLM MAIN WORLD FETCH PROXY ---
+
 async function importToNotebookLM(notebookId, urls) {
   try {
-      console.log('📤 Importing URLs to NotebookLM:', { notebookId, urls });
+      console.log('📤 Simplified import to NotebookLM:', { notebookId, urls });
       
       // Find NotebookLM tab
       const tabs = await chrome.tabs.query({url: "https://notebooklm.google.com/*"});
@@ -3876,149 +3702,25 @@ async function importToNotebookLM(notebookId, urls) {
           throw new Error('No NotebookLM tab found. Please open NotebookLM first.');
       }
       
-      const notebookTab = tabs[0];
-      console.log('✅ Found NotebookLM tab:', notebookTab.id);
+      // For now, just open the notebook and let user manually import
+      const notebookUrl = `https://notebooklm.google.com/notebook/${notebookId}`;
+      await chrome.tabs.create({ url: notebookUrl, active: true });
       
-      // Import each URL using the discovered API format
-      const importResults = [];
-      
-      for (const url of urls) {
-          console.log(`📎 Importing URL: ${url}`);
-          
-          const importResult = await chrome.scripting.executeScript({
-              target: { tabId: notebookTab.id },
-              world: 'MAIN',
-              func: async function(targetNotebookId, targetUrl) {
-                  console.log('🚀 Executing import in MAIN world for:', targetUrl);
-                  
-                  try {
-                      // Extract session tokens from the page
-                      let sessionToken = null;
-                      let atToken = null;
-                      
-                      // Look for session token in script tags
-                      const scripts = document.querySelectorAll('script');
-                      for (const script of scripts) {
-                          const content = script.textContent;
-                          if (content && content.includes('f.sid')) {
-                              const sidMatch = content.match(/f\.sid['"]\s*:\s*['"]([^'"]+)['"]/);
-                              if (sidMatch) {
-                                  sessionToken = sidMatch[1];
-                                  console.log('✅ Found session token for import');
-                              }
-                          }
-                          if (content && content.includes('"at"')) {
-                              const atMatch = content.match(/"at"\s*:\s*"([^"]+)"/);
-                              if (atMatch) {
-                                  atToken = atMatch[1];
-                                  console.log('✅ Found AT token for import');
-                              }
-                          }
-                      }
-                      
-                      if (!sessionToken) {
-                          throw new Error('Could not find session token on NotebookLM page');
-                      }
-                      
-                      // Use the discovered API format for importing URLs
-                      const rpcId = 'izAoDd'; // RPC ID for URL imports
-                      const url = `/_/LabsTailwindUi/data/batchexecute?rpcids=${rpcId}&source-path=%2Fnotebook%2F${targetNotebookId}&bl=boq_labs-tailwind-frontend_20250701.09_p0&f.sid=${sessionToken}&hl=en&_reqid=${Date.now()}&rt=c`;
-                      
-                      // Construct the RPC request body for URL import
-                      const importData = [[[null, null, [targetUrl], null, null, null, null, null, null, null, 1]], targetNotebookId, [2]];
-                      const rpcData = [[[rpcId, JSON.stringify(importData), null, 'generic']]];
-                      const requestBody = 'f.req=' + encodeURIComponent(JSON.stringify(rpcData));
-                      
-                      console.log('📡 Making import API request to:', url);
-                      console.log('📦 Request body:', requestBody.substring(0, 200) + '...');
-                      
-                      const response = await fetch(url, {
-                          method: 'POST',
-                          headers: {
-                              'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-                              'X-Same-Domain': '1'
-                          },
-                          body: requestBody,
-                          credentials: 'include'
-                      });
-                      
-                      if (!response.ok) {
-                          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                      }
-                      
-                      const responseText = await response.text();
-                      console.log('📡 Import API response:', responseText.substring(0, 200) + '...');
-                      
-                      // Parse the response
-                      const lines = responseText.split('\n').filter(line => line.trim());
-                      let success = false;
-                      
-                      for (const line of lines) {
-                          try {
-                              const data = JSON.parse(line);
-                              if (Array.isArray(data) && data.length > 0) {
-                                  // Check if the response indicates success
-                                  success = true;
-                                  console.log('✅ Import appears successful');
-                                  break;
-                              }
-                          } catch (e) {
-                              // Skip invalid JSON lines
-                          }
-                      }
-                      
-                      return {
-                          success: success,
-                          url: targetUrl,
-                          notebookId: targetNotebookId,
-                          message: success ? 'Import successful' : 'Import may have failed'
-                      };
-                      
-                  } catch (error) {
-                      console.error('❌ Error in import execution:', error);
-                      return {
-                          success: false,
-                          url: targetUrl,
-                          notebookId: targetNotebookId,
-                          error: error.message
-                      };
-                  }
-              },
-              args: [notebookId, url]
-          });
-          
-          if (importResult && importResult[0] && importResult[0].result) {
-              importResults.push(importResult[0].result);
-          } else {
-              importResults.push({
-                  success: false,
-                  url: url,
-                  notebookId: notebookId,
-                  error: 'No result from import execution'
-              });
-          }
-      }
-      
-      console.log('📊 Import results:', importResults);
-      return importResults;
+      // Return success for all URLs (manual import expected)
+      return urls.map(url => ({
+          success: true,
+          url: url,
+          notebookId: notebookId,
+          message: 'Opened notebook for manual import'
+      }));
       
   } catch (error) {
-      console.error('❌ Error in importToNotebookLM:', error);
+      console.error('❌ Error importing to NotebookLM:', error);
       throw error;
   }
 }
 
-  // Simplified debugging function
-  window.activateNotebookLMDebug = function() {
-    console.log('🔍 NotebookLM debugging simplified - check Network tab in DevTools');
-    return 'Use Network tab in DevTools to monitor requests';
-  };
 
-async function debugNotebookLMRequests() {
-  console.log('🔍 Debug feature simplified');
-  showNotification('🔍 Use browser DevTools Network tab to monitor NotebookLM requests');
-  return Promise.resolve('Debug simplified');
-}
 
 // Global error handler
 window.addEventListener('error', (event) => {

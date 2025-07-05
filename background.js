@@ -1,180 +1,188 @@
-// Background script (Service Worker) for Manifest V3
-console.log('🚀 Text Grabber Extension - Background script starting...');
+// Background script for SmartGrab AI Search Extension
+// Based on working NotebookLM Web Importer pattern
 
-// NotebookLM Configuration
-const NOTEBOOKLM_CONFIG = {
-  GOOGLE_DRIVE_FOLDER: 'SmartGrab-NotebookLM-Exports',
-  MAX_SOURCES_PER_NOTEBOOK: 50,
-  MAX_WORDS_PER_EXPORT: 200000,
-  EXPORT_FORMATS: {
-    INDIVIDUAL: 'individual',
-    BULK: 'bulk',
-    THEMED: 'themed'
-  }
-};
-
-// No external module imports needed for NotebookLM integration
-
-// Configuration will be updated for NotebookLM integration
-
-// Function to clear all persistent storage and error states
-async function clearPersistentState() {
-  try {
-    console.log('🧹 Clearing persistent state on extension reload...');
+var background = function() {
+    "use strict";
     
-    // Clear all chrome.storage data except for actual entries and API key
-    const keysToClear = [
-      'searchState',
-      'setupNoteDismissed', 
-      'userAnswerContentHeight',
-      'lastError',
-      'errorState',
-      'searchError',
-      'semanticError'
-    ];
+    // Browser compatibility layer
+    const browser = globalThis.chrome || globalThis.browser;
     
-    // Get current storage to preserve important data
-    const currentStorage = await chrome.storage.local.get(null);
+    // Simple logging utility
+    const logger = {
+        debug: (...args) => console.debug('[SmartGrab]', ...args),
+        log: (...args) => console.log('[SmartGrab]', ...args),
+        warn: (...args) => console.warn('[SmartGrab]', ...args),
+        error: (...args) => console.error('[SmartGrab]', ...args)
+    };
     
-    // Clear only error-related and temporary state
-    for (const key of keysToClear) {
-      if (currentStorage[key] !== undefined) {
-        await chrome.storage.local.remove(key);
-        console.log(`🗑️ Cleared ${key} from storage`);
-      }
+    // Main initialization function
+    function initializeExtension() {
+        logger.log('🚀 SmartGrab AI Search Extension - Background script starting...');
+        
+        // Extension lifecycle events
+        browser.runtime.onStartup.addListener(() => {
+            logger.log('📱 Extension startup event');
+        });
+        
+        browser.runtime.onInstalled.addListener((details) => {
+            logger.log('📦 Extension installed/updated event', details.reason);
+            
+            // Clear any error states on install/update
+            clearErrorStates();
+            
+            // Log available commands
+            if (browser.commands && browser.commands.getAll) {
+                browser.commands.getAll((commands) => {
+                    logger.log('📋 Available commands:', commands);
+                });
+            }
+        });
+        
+        // Handle extension icon clicks
+        if (browser.action && browser.action.onClicked) {
+            browser.action.onClicked.addListener(async (tab) => {
+                logger.log('🔧 Extension icon clicked, opening side panel');
+                
+                try {
+                    // Open the side panel if available
+                    if (browser.sidePanel && browser.sidePanel.open) {
+                        await browser.sidePanel.open({ windowId: tab.windowId });
+                        logger.log('✅ Side panel opened successfully');
+                    } else {
+                        logger.warn('⚠️ Side panel API not available');
+                    }
+  } catch (error) {
+                    logger.error('❌ Error opening side panel:', error);
+                }
+            });
+        }
+        
+        // Listen for keyboard shortcuts
+        if (browser.commands && browser.commands.onCommand) {
+            browser.commands.onCommand.addListener((command) => {
+                logger.log('⌨️ Keyboard command received:', command);
+                
+                if (command === 'trigger_action') {
+                    logger.log('🎯 Trigger action command - starting text extraction...');
+                    browser.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+                        if (tabs[0]) {
+                            extractAndSavePageText(tabs[0]);
+                        }
+                    });
+                }
+            });
+        }
+        
+        // Message handler
+        browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+            logger.log('📨 Background received message:', message.action);
+            
+            try {
+                switch (message.action) {
+                    case 'ping':
+                        sendResponse({ status: 'ok', timestamp: Date.now() });
+                        return true;
+                        
+                    case 'get_entries':
+                        handleGetEntries(sendResponse);
+                        return true;
+                        
+                    case 'search_keywords':
+                        handleKeywordSearch(message.query, sendResponse);
+                        return true;
+                        
+                    case 'search_similar':
+                        handleSemanticSearch(message.query, message.filters, sendResponse);
+                        return true;
+                        
+                    case 'clear_entries':
+                        handleClearEntries(sendResponse);
+                        return true;
+                        
+                    case 'get_stats':
+                        handleGetStats(sendResponse);
+                        return true;
+                        
+                    case 'clear_error_states':
+                        handleClearErrorStates(sendResponse);
+                        return true;
+                        
+                    case 'captureAndOpenNotebookLM':
+                        handleCaptureAndOpenNotebookLM(message.tabId, sendResponse);
+                        return true;
+                        
+                    default:
+                        logger.warn('❓ Unknown message action:', message.action);
+                        sendResponse({ error: 'Unknown action' });
+                        return false;
+    }
+  } catch (error) {
+                logger.error('❌ Error in message handler:', error);
+                sendResponse({ error: error.message });
+                return false;
+            }
+        });
+        
+        logger.log('✅ Background script initialized successfully');
     }
     
-    console.log('✅ Persistent state cleared successfully');
-  } catch (error) {
-    console.error('❌ Error clearing persistent state:', error);
-  }
-}
-
-// Simple initialization for NotebookLM integration
-async function initializeModules() {
-  try {
-    console.log('📚 Initializing for NotebookLM integration...');
-    
-    // Clear persistent state first
-    await clearPersistentState();
-    
-    console.log('✅ Initialization completed successfully');
-    
-  } catch (error) {
-    console.error('❌ Error during initialization:', error);
-    throw error;
-  }
-}
-
-// Simple startup check
-try {
-  console.log('✅ Background script loaded successfully');
-  console.log('Chrome runtime available:', !!chrome.runtime);
-  console.log('Chrome storage available:', !!chrome.storage);
-  console.log('Chrome tabs available:', !!chrome.tabs);
-  console.log('Chrome commands available:', !!chrome.commands);
-  console.log('Chrome scripting available:', !!chrome.scripting);
-} catch (error) {
-  console.error('❌ Error during background script startup:', error);
-}
-
-// Extension lifecycle events
-chrome.runtime.onStartup.addListener(() => {
-  console.log('📱 Extension startup event');
-  initializeModules().catch(console.error);
-});
-
-chrome.runtime.onInstalled.addListener(() => {
-  console.log('📦 Extension installed/updated event');
-  
-  // Log available commands
-  chrome.commands.getAll((commands) => {
-    console.log('📋 Available commands:', commands);
-  });
-  
-  // Initialize modules on install
-  initializeModules().catch(console.error);
-});
-
-// Handle side panel - open when extension icon is clicked
-chrome.action.onClicked.addListener(async (tab) => {
-  console.log('🔧 Extension icon clicked, opening side panel');
-  
-  try {
-    // Open the side panel if the API is available
-    if (chrome.sidePanel && chrome.sidePanel.open) {
-    await chrome.sidePanel.open({ windowId: tab.windowId });
-    console.log('✅ Side panel opened successfully');
-    } else {
-      console.warn('⚠️ chrome.sidePanel.open is not available in this Chrome version. Please open the side panel manually.');
+    // Clear error states
+    async function clearErrorStates() {
+        try {
+            const keysToClear = [
+                'searchState',
+                'setupNoteDismissed', 
+                'userAnswerContentHeight',
+                'lastError',
+                'errorState',
+                'searchError',
+                'semanticError'
+            ];
+            
+            await browser.storage.local.remove(keysToClear);
+            logger.log('🧹 Error states cleared');
+        } catch (error) {
+            logger.error('❌ Error clearing states:', error);
+        }
     }
-  } catch (error) {
-    console.error('❌ Error opening side panel:', error);
-  }
-});
-
-// Listen for keyboard shortcut commands
-chrome.commands.onCommand.addListener((command) => {
-  console.log('⌨️ *** KEYBOARD COMMAND RECEIVED ***:', command);
-  
-  if (command === 'trigger_action') {
-    console.log('🎯 Trigger action command detected - starting text extraction...');
-    // Get the active tab and extract text
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs[0]) {
-        console.log('📄 Active tab found:', tabs[0].url);
-        extractAndSavePageText(tabs[0]);
-      } else {
-        console.log('❌ No active tab found');
-      }
-    });
-  } else {
-    console.log('❓ Unknown command received:', command);
-  }
-});
-
-// Function to ensure content script is injected
+    
+    // Ensure content script is injected
 async function ensureContentScript(tabId) {
   try {
-    console.log('🔍 Checking if content script exists on tab:', tabId);
     // Try to ping the content script first
-    const response = await chrome.tabs.sendMessage(tabId, { action: 'ping' });
+            const response = await browser.tabs.sendMessage(tabId, { action: 'ping' });
     if (response && response.status === 'ready') {
-      console.log('✅ Content script already loaded');
-      return true; // Content script is already loaded
+                return true;
     }
   } catch (error) {
     // Content script not loaded, inject it
-    console.log('📥 Content script not found, injecting...', error.message);
+            logger.log('📥 Injecting content script...');
   }
   
   try {
-    await chrome.scripting.executeScript({
+            await browser.scripting.executeScript({
       target: { tabId: tabId },
       files: ['content.js']
     });
-    console.log('✅ Content script injected successfully');
     
-    // Wait a moment for the script to initialize
+            // Wait for initialization
     await new Promise(resolve => setTimeout(resolve, 100));
     return true;
   } catch (error) {
-    console.error('❌ Failed to inject content script:', error);
+            logger.error('❌ Failed to inject content script:', error);
     return false;
   }
 }
 
-// Function to extract and save page text
+    // Extract and save page text
 async function extractAndSavePageText(tab) {
   try {
-    console.log('📄 Starting text extraction from:', tab.url);
-    
-    // Initialize if needed
-      await initializeModules();
+            logger.log('📄 Starting text extraction from:', tab.url);
     
     // Check if this is a supported page
-    if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('edge://') || tab.url.startsWith('about:')) {
-      console.log('⚠️ Cannot extract text from system pages');
+            if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || 
+                tab.url.startsWith('edge://') || tab.url.startsWith('about:')) {
+                logger.warn('⚠️ Cannot extract text from system pages');
       showNotification('❌ Cannot extract text from system pages');
       return;
     }
@@ -182,28 +190,22 @@ async function extractAndSavePageText(tab) {
     // Ensure content script is loaded
     const scriptReady = await ensureContentScript(tab.id);
     if (!scriptReady) {
-      console.log('❌ Could not load content script');
+                logger.error('❌ Could not load content script');
       showNotification('❌ Could not load content script');
       return;
     }
     
-    console.log('📤 Sending extract_text message to content script...');
-    // Send message to content script to extract visible text
-    const response = await chrome.tabs.sendMessage(tab.id, {
+            // Send message to content script to extract text
+            const response = await browser.tabs.sendMessage(tab.id, {
       action: 'extract_text'
-    }).catch(error => {
-      console.log('❌ Content script communication failed:', error.message);
-      return null;
     });
     
-    console.log('📥 Received response from content script:', response ? 'Success' : 'Failed');
-    
     if (response && response.text) {
-      console.log(`📝 Text extracted: ${response.text.length} characters`);
+                logger.log(`📝 Text extracted: ${response.text.length} characters`);
       
       // Create entry object
       const entry = {
-        id: Date.now(), // Simple ID based on timestamp
+                    id: Date.now(),
         url: tab.url,
         title: tab.title,
         text: response.text,
@@ -211,83 +213,31 @@ async function extractAndSavePageText(tab) {
         wordCount: response.text.split(/\s+/).filter(word => word.length > 0).length
       };
       
-      console.log('💾 Saving entry...');
       await saveTextEntry(entry);
-      
-      // Show success notification - this is handled later in saveTextEntry based on whether it's new or replacement
-      
-      console.log('✅ Text entry saved successfully:', {
-        id: entry.id,
-        url: entry.url,
-        wordCount: entry.wordCount,
-        timestamp: entry.timestamp
-      });
+                logger.log('✅ Text entry saved successfully');
       
     } else {
-      console.log('❌ No text extracted from page');
+                logger.warn('❌ No text extracted from page');
       showNotification('❌ No text found on this page');
     }
     
   } catch (error) {
-    console.error('❌ Error extracting text:', error);
+            logger.error('❌ Error extracting text:', error);
     showNotification('❌ Error extracting text: ' + error.message);
   }
 }
 
-// Function to ask user if they want to replace existing entry
-async function askUserForReplacement(newEntry, existingEntry) {
-  try {
-    console.log('❓ Asking user for replacement decision...');
-    
-    // Get the active tab to show the confirmation
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tabs[0]) {
-      console.log('❌ No active tab found for user prompt');
-      return false;
-    }
-    
-    // Ensure content script is loaded
-    await ensureContentScript(tabs[0].id);
-    
-    // Prepare the confirmation message
-    const existingDate = new Date(existingEntry.timestamp).toLocaleDateString();
-    const newWordCount = newEntry.wordCount;
-    const existingWordCount = existingEntry.wordCount;
-    
-    const message = `📄 You already have this page saved!\n\n` +
-      `Existing: ${existingEntry.title}\n` +
-      `Saved: ${existingDate} (${existingWordCount} words)\n\n` +
-      `New version: ${newWordCount} words\n\n` +
-      `Replace with new version?`;
-    
-    // Send confirmation request to content script
-    const response = await chrome.tabs.sendMessage(tabs[0].id, {
-      action: 'confirm_replacement',
-      message: message
-    });
-    
-    console.log('✅ User response received:', response?.replace ? 'Replace' : 'Keep existing');
-    return response?.replace || false;
-    
-  } catch (error) {
-    console.error('❌ Error asking user for replacement:', error);
-    // Default to not replacing if we can't ask
-    return false;
-  }
-}
-
-// Function to save text entry to SQLite database
+         // Save text entry with AI processing
 async function saveTextEntry(entry) {
   try {
-    console.log('💾 Saving entry...');
-    console.log('🔍 DEBUG: Entry to save:', { id: entry.id, title: entry.title, wordCount: entry.wordCount });
+             logger.log('💾 Saving entry...');
     
     // Clean the text using AI before saving
-    console.log('🧹 Cleaning text before saving to local storage...');
+             logger.log('🧹 Cleaning text before saving...');
     const cleanedText = await cleanTextForSemanticSearch(entry.text);
     
     if (!cleanedText || cleanedText.trim().length === 0) {
-      console.log('⚠️ No meaningful content after cleaning, skipping save');
+                 logger.warn('⚠️ No meaningful content after cleaning, skipping save');
       showNotification('⚠️ No meaningful content found to save');
       return;
     }
@@ -299,51 +249,48 @@ async function saveTextEntry(entry) {
       wordCount: cleanedText.split(/\s+/).filter(word => word.length > 0).length
     };
     
-    console.log('📊 Text cleaned:', {
+             logger.log('📊 Text cleaned:', {
       originalLength: entry.text.length,
       cleanedLength: cleanedText.length,
       reduction: Math.round((1 - cleanedText.length / entry.text.length) * 100) + '%'
     });
     
-    // Check for duplicates first
-    console.log('🔍 Checking for duplicates...');
-    const result = await chrome.storage.local.get(['textEntries']);
+             // Get existing entries
+             const result = await browser.storage.local.get(['textEntries']);
     const existingEntries = result.textEntries || [];
-    console.log('🔍 DEBUG: Existing entries in storage:', existingEntries.length);
     
-    // Find duplicate by URL
+             // Check for duplicates by URL
     const duplicateEntry = existingEntries.find(existing => existing.url === cleanedEntry.url);
     
     if (duplicateEntry) {
-      console.log('⚠️ Duplicate found for URL:', cleanedEntry.url);
-      console.log('🔍 DEBUG: Existing entry:', { id: duplicateEntry.id, title: duplicateEntry.title, wordCount: duplicateEntry.wordCount });
+                 logger.log('⚠️ Duplicate found for URL:', cleanedEntry.url);
       
-      // Show notification about duplicate and ask user
+                 // Ask user for replacement
       const userChoice = await askUserForReplacement(cleanedEntry, duplicateEntry);
       
       if (!userChoice) {
-        console.log('ℹ️ User chose to keep existing entry');
+                     logger.log('ℹ️ User chose to keep existing entry');
         showNotification(`📄 Keeping ${duplicateEntry.title}`);
         return;
       }
       
-      console.log('🔄 User chose to replace existing entry');
+                 logger.log('🔄 User chose to replace existing entry');
       
       // Remove existing embedding since we're replacing the entry
       try {
-        const embeddingResult = await chrome.storage.local.get(['embeddings']);
+                     const embeddingResult = await browser.storage.local.get(['embeddings']);
         const existingEmbeddings = embeddingResult.embeddings || {};
         if (existingEmbeddings[duplicateEntry.id]) {
           delete existingEmbeddings[duplicateEntry.id];
-          await chrome.storage.local.set({ embeddings: existingEmbeddings });
-          console.log('🗑️ AUTO-EMBEDDING: Removed old embedding for replaced entry');
+                         await browser.storage.local.set({ embeddings: existingEmbeddings });
+                         logger.log('🗑️ Removed old embedding for replaced entry');
         }
       } catch (error) {
-        console.warn('⚠️ AUTO-EMBEDDING: Failed to remove old embedding:', error);
+                     logger.warn('⚠️ Failed to remove old embedding:', error);
       }
     }
     
-    // Remove duplicate if exists (either for replacement or initial save)
+             // Remove duplicate if exists
     const filteredEntries = existingEntries.filter(e => e.url !== cleanedEntry.url);
     filteredEntries.unshift(cleanedEntry);
     
@@ -352,377 +299,241 @@ async function saveTextEntry(entry) {
       filteredEntries.splice(100);
     }
     
-    await chrome.storage.local.set({ textEntries: filteredEntries });
+             await browser.storage.local.set({ textEntries: filteredEntries });
     
     const isReplacement = !!duplicateEntry;
     
     if (isReplacement) {
-      console.log('✅ Entry replaced in chrome.storage, total entries now:', filteredEntries.length);
-    } else {
-      console.log('✅ Entry saved to chrome.storage, total entries now:', filteredEntries.length);
-    }
-    
-    // Verify the save
-    const verification = await chrome.storage.local.get(['textEntries']);
-    console.log('🔍 DEBUG: Verification - entries in storage after save:', (verification.textEntries || []).length);
-    
-    // Show appropriate notification based on whether this is new or replacement
-    if (isReplacement) {
+                 logger.log('✅ Entry replaced, total entries now:', filteredEntries.length);
       showNotification(`🔄 Replaced ${cleanedEntry.title} (${cleanedEntry.wordCount} words)`);
     } else {
+                 logger.log('✅ Entry saved, total entries now:', filteredEntries.length);
       showNotification(`✅ Saved ${cleanedEntry.wordCount} words from ${cleanedEntry.title} (🧠 generating embedding...)`);
     }
     
-    // Entry saved successfully - ready for NotebookLM integration
+             // Generate embedding for semantic search
+             await generateEmbeddingForEntry(cleanedEntry);
     
   } catch (error) {
-    console.error('❌ Error saving text entry:', error);
+             logger.error('❌ Error saving text entry:', error);
     showNotification('❌ Error saving text: ' + error.message);
     throw error;
   }
 }
 
-// Function to show notification
+    // Show notification
 async function showNotification(message) {
-  console.log('📢 Showing notification:', message);
-  
   try {
-    // Get the active tab
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+            const tabs = await browser.tabs.query({ active: true, currentWindow: true });
     if (tabs[0]) {
-      // Ensure content script is loaded for notifications
       await ensureContentScript(tabs[0].id);
-      
-      // Send notification message
-      await chrome.tabs.sendMessage(tabs[0].id, {
+                await browser.tabs.sendMessage(tabs[0].id, {
         action: 'show_notification',
         message: message
       });
-      console.log('✅ Notification sent to page');
     }
   } catch (error) {
-    console.log('❌ Could not show notification on page:', error.message);
-  }
-}
-
-// Message handler with full functionality
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.log('📨 Background received message:', message);
-  
-  try {
-    if (message.action === 'ping') {
-      console.log('🏓 Ping received, sending pong');
-      sendResponse({ status: 'ok', timestamp: Date.now(), message: 'Background script is working!' });
-      return true;
+            logger.warn('❌ Could not show notification:', error.message);
+        }
     }
     
-    if (message.action === 'get_entries') {
-      console.log('📚 Getting entries request');
-      handleGetEntries(sendResponse);
-      return true;
-    }
-    
-    if (message.action === 'search_keywords') {
-      console.log('🔍 Keyword search request:', message.query);
-      handleKeywordSearch(message.query, sendResponse);
-      return true;
-    }
-    
-    if (message.action === 'search_similar') {
-      console.log('🧠 Fallback semantic search request:', message.query);
-      handleFallbackSemanticSearch(message.query, message.filters, sendResponse);
-      return true;
-    }
-    
-    // Semantic search will be replaced with NotebookLM integration
-    
-    if (message.action === 'clear_entries') {
-      console.log('🗑️ Clearing all entries');
-      handleClearEntries(sendResponse);
-      return true;
-    }
-    
-    if (message.action === 'get_stats') {
-      console.log('📊 Getting stats');
-      handleGetStats(sendResponse);
-      return true;
-    }
-    
-    if (message.action === 'clear_error_states') {
-      console.log('🧹 Clearing error states');
-      handleClearErrorStates(sendResponse);
-      return true;
-    }
-    
-    if (message.action === 'captureAndOpenNotebookLM') {
-      console.log('📄 Capture and open NotebookLM request');
-      handleCaptureAndOpenNotebookLM(message.tabId, sendResponse);
-      return true;
-    }
-    
-    // importToNotebookLM is now handled by content script
-    
-    console.log('❓ Unknown message action:', message.action);
-    sendResponse({ error: 'Unknown action', received: message });
-    
-  } catch (error) {
-    console.error('❌ Error in message handler:', error);
-    sendResponse({ error: error.message, stack: error.stack });
-  }
-  
-  return false;
-});
-
-// Handler functions for different message types
+    // Message handlers
 async function handleGetEntries(sendResponse) {
   try {
-    console.log('📚 DEBUG: handleGetEntries called');
-    
-    // TEMPORARY: Use chrome.storage directly to bypass SQLite issues
-    console.log('💾 DEBUG: Using chrome.storage directly (bypassing SQLite)...');
-    const result = await chrome.storage.local.get(['textEntries']);
+            const result = await browser.storage.local.get(['textEntries']);
     const entries = result.textEntries || [];
-    console.log('📤 DEBUG: Chrome.storage contains:', entries.length, 'entries');
-    console.log('📤 Sending entries to popup:', entries.length);
     sendResponse({ entries });
-    
   } catch (error) {
-    console.error('❌ DEBUG: Error getting entries from chrome.storage:', error);
+            logger.error('❌ Error getting entries:', error);
     sendResponse({ entries: [], error: error.message });
   }
 }
 
 async function handleKeywordSearch(query, sendResponse) {
   try {
-    console.log('🔍 DEBUG: Keyword search using chrome.storage...');
-    const result = await chrome.storage.local.get(['textEntries']);
+            const result = await browser.storage.local.get(['textEntries']);
     const allEntries = result.textEntries || [];
     
-    if (!query) {
-      sendResponse({ results: allEntries });
-      return;
-    }
-    
     // Simple keyword search
-    const searchTerms = query.toLowerCase().split(' ').filter(term => term.length > 0);
+            const searchTerms = query.toLowerCase().split(/\s+/);
     const results = allEntries.filter(entry => {
-      const searchableText = [
-        entry.title || '',
-        entry.url || '',
-        entry.text || ''
-      ].join(' ').toLowerCase();
-      
-      return searchTerms.every(term => searchableText.includes(term));
-    });
-    
-    console.log('🎯 Keyword search results:', results.length);
+                const searchText = (entry.title + ' ' + entry.text).toLowerCase();
+                return searchTerms.some(term => searchText.includes(term));
+            });
+            
     sendResponse({ results });
   } catch (error) {
-    console.error('Error in keyword search:', error);
+            logger.error('❌ Error in keyword search:', error);
     sendResponse({ results: [], error: error.message });
   }
 }
 
-// Semantic search functionality will be replaced with NotebookLM integration
-
-// Semantic answer generation removed - will be replaced with NotebookLM integration
-
-// GPT-4 answer generation removed - will be replaced with NotebookLM integration
-
-// Direct OpenAI answer generation removed - will be replaced with NotebookLM integration
-
-// Server response parsing removed - will be replaced with NotebookLM integration
-
-// GPT-4 response parsing removed - will be replaced with NotebookLM integration
-
-// All semantic search helper functions removed - will be replaced with NotebookLM integration
-
-// Apply time-based filtering in backend
-function applyTimeFilterBackend(entries, filters) {
-  const now = new Date();
-  let cutoffDate;
-  
-  console.log('⏰ BACKEND TIME FILTER DEBUG:');
-  console.log('  - Current time:', now.toISOString());
-  console.log('  - Filter type:', filters.timeFilter);
-  console.log('  - Input entries count:', entries.length);
-  
-  switch (filters.timeFilter) {
-    case 'hour':
-      cutoffDate = new Date(now.getTime() - (60 * 60 * 1000));
-      break;
-    case 'day':
-      cutoffDate = new Date(now.getTime() - (24 * 60 * 60 * 1000));
-      break;
-    case 'week':
-      cutoffDate = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
-      break;
-    case 'month':
-      cutoffDate = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
-      break;
-    case 'year':
-      cutoffDate = new Date(now.getTime() - (365 * 24 * 60 * 60 * 1000));
-      break;
-    case 'custom':
-      if (filters.dateFrom && filters.dateTo) {
-        const fromDate = new Date(filters.dateFrom);
-        const toDate = new Date(filters.dateTo);
-        toDate.setHours(23, 59, 59, 999);
-        
-        console.log('  - Custom date range:', fromDate.toISOString(), 'to', toDate.toISOString());
-        
-        return entries.filter(entry => {
-          const entryDate = new Date(entry.timestamp);
-          const isInRange = entryDate >= fromDate && entryDate <= toDate;
-          console.log('  - Entry:', entry.title || 'Untitled', 'Date:', entryDate.toISOString(), 'In range:', isInRange);
-          return isInRange;
-        });
-      }
-      return entries;
-    default:
-      return entries;
-  }
-  
-  console.log('  - Cutoff date:', cutoffDate.toISOString());
-  console.log('  - Checking each entry:');
-  
-  const filteredEntries = entries.filter(entry => {
-    const entryDate = new Date(entry.timestamp);
-    const isAfterCutoff = entryDate >= cutoffDate;
-    const hoursDiff = (now - entryDate) / (1000 * 60 * 60);
-    
-    console.log(`    - "${entry.title || 'Untitled'}": ${entryDate.toISOString()} (${hoursDiff.toFixed(1)} hours ago) → ${isAfterCutoff ? 'KEEP' : 'FILTER OUT'}`);
-    
-    return isAfterCutoff;
-  });
-  
-  console.log('  - Backend filtered entries count:', filteredEntries.length);
-  return filteredEntries;
-}
-
-// Cosine similarity function
-function cosineSimilarity(vecA, vecB) {
-  if (!vecA || !vecB || vecA.length !== vecB.length) {
-    return 0;
-  }
-  
-  let dotProduct = 0;
-  let normA = 0;
-  let normB = 0;
-  
-  for (let i = 0; i < vecA.length; i++) {
-    dotProduct += vecA[i] * vecB[i];
-    normA += vecA[i] * vecA[i];
-    normB += vecB[i] * vecB[i];
-  }
-  
-  if (normA === 0 || normB === 0) {
-    return 0;
-  }
-  
-  return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+         async function handleSemanticSearch(query, filters, sendResponse) {
+         try {
+             logger.log('🧠 Performing semantic search...');
+             const result = await browser.storage.local.get(['textEntries', 'embeddings']);
+             let allEntries = result.textEntries || [];
+             const embeddings = result.embeddings || {};
+             
+             // Apply time filter if present
+             if (filters && filters.timeFilter && filters.timeFilter !== 'any') {
+                 allEntries = applyTimeFilterBackend(allEntries, filters);
+             }
+             
+             if (!query || query.trim().length === 0) {
+                 sendResponse({ results: allEntries });
+                 return;
+             }
+             
+             // Try semantic search with embeddings
+             try {
+                 const queryEmbedding = await generateEmbedding(query);
+                 if (queryEmbedding) {
+                     const semanticResults = [];
+                     
+                     for (const entry of allEntries) {
+                         if (embeddings[entry.id]) {
+                             const similarity = cosineSimilarity(queryEmbedding, embeddings[entry.id]);
+                             if (similarity > 0.1) { // Threshold for relevance
+                                 semanticResults.push({ ...entry, similarity });
+                             }
+                         }
+                     }
+                     
+                     // Sort by similarity, descending
+                     semanticResults.sort((a, b) => b.similarity - a.similarity);
+                     const topResults = semanticResults.slice(0, 10);
+                     
+                     logger.log('🧠 Semantic search results:', topResults.length);
+                     sendResponse({ results: topResults });
+                     return;
+                 }
+             } catch (embeddingError) {
+                 logger.warn('⚠️ Embedding search failed, falling back to keyword search:', embeddingError.message);
+             }
+             
+             // Fallback to keyword-based semantic search
+             await handleFallbackSemanticSearch(query, filters, sendResponse);
+             
+         } catch (error) {
+             logger.error('❌ Error in semantic search:', error);
+             sendResponse({ results: [], error: error.message });
+         }
 }
 
 async function handleClearEntries(sendResponse) {
   try {
-    console.log('🗑️ DEBUG: Clearing chrome.storage entries and embeddings...');
-    await chrome.storage.local.set({ 
-      textEntries: [],
-      embeddings: {}
-    });
-    console.log('✅ All entries and embeddings cleared from chrome.storage');
+            await browser.storage.local.remove(['textEntries']);
     sendResponse({ success: true });
   } catch (error) {
-    console.error('Error clearing entries:', error);
+            logger.error('❌ Error clearing entries:', error);
     sendResponse({ success: false, error: error.message });
   }
 }
 
-// All embedding-related functions removed - will be replaced with NotebookLM integration
-
 async function handleGetStats(sendResponse) {
   try {
-    console.log('📊 Getting stats from chrome.storage...');
-    const result = await chrome.storage.local.get(['textEntries']);
+            const result = await browser.storage.local.get(['textEntries']);
     const entries = result.textEntries || [];
-    
-    // Calculate total word count across all entries
-    const totalWords = entries.reduce((sum, entry) => {
-      if (entry.wordCount) {
-        return sum + entry.wordCount;
-      }
-      // Fallback: calculate word count if not stored
-      return sum + (entry.text ? entry.text.split(/\s+/).filter(word => word.length > 0).length : 0);
-    }, 0);
     
     const stats = {
       totalEntries: entries.length,
-      totalWords: totalWords
+                totalWords: entries.reduce((sum, entry) => sum + (entry.wordCount || 0), 0),
+                oldestEntry: entries.length > 0 ? entries[entries.length - 1].timestamp : null,
+                newestEntry: entries.length > 0 ? entries[0].timestamp : null
     };
     
-    console.log('📊 Chrome.storage stats:', stats);
     sendResponse({ stats });
   } catch (error) {
-    console.error('Error getting stats:', error);
+            logger.error('❌ Error getting stats:', error);
     sendResponse({ stats: null, error: error.message });
   }
 }
 
-// Handler for clearing error states
 async function handleClearErrorStates(sendResponse) {
   try {
-    console.log('🧹 Clearing all error states and temporary data...');
-    
-    // Clear error-related storage keys
-    const errorKeys = [
-      'lastError',
-      'errorState', 
-      'searchError',
-      'semanticError',
-      'searchState',
-      'lastSearchResults'
-    ];
-    
-    // Get current storage
-    const currentStorage = await chrome.storage.local.get(null);
-    
-    // Clear error states
-    for (const key of errorKeys) {
-      if (currentStorage[key] !== undefined) {
-        await chrome.storage.local.remove(key);
-        console.log(`🗑️ Cleared error state: ${key}`);
-      }
+            await clearErrorStates();
+            sendResponse({ success: true });
+        } catch (error) {
+            logger.error('❌ Error clearing error states:', error);
+            sendResponse({ success: false, error: error.message });
+        }
     }
     
-    console.log('✅ All error states cleared successfully');
-    sendResponse({ success: true, message: 'Error states cleared' });
-    
+    async function handleCaptureAndOpenNotebookLM(tabId, sendResponse) {
+        try {
+            logger.log('📄 Capture and open NotebookLM request');
+            
+            // Get the tab
+            const tab = await browser.tabs.get(tabId);
+            
+            // Extract text from the page
+            await extractAndSavePageText(tab);
+            
+            // Open NotebookLM
+            await browser.tabs.create({ 
+                url: 'https://notebooklm.google.com/', 
+                active: true 
+            });
+            
+            sendResponse({ success: true });
   } catch (error) {
-    console.error('❌ Error clearing error states:', error);
+            logger.error('❌ Error in capture and open NotebookLM:', error);
     sendResponse({ success: false, error: error.message });
   }
 }
 
-// Global error handlers
-self.addEventListener('error', (event) => {
-  console.error('🔥 Global error in background script:', event.error);
-});
-
-self.addEventListener('unhandledrejection', (event) => {
-  console.error('🔥 Unhandled promise rejection in background script:', event.reason);
-});
-
-// Vector store upload functionality removed - will be replaced with NotebookLM integration
-
-// Simple text cleaning for NotebookLM integration
+         // Ask user for replacement
+     async function askUserForReplacement(newEntry, existingEntry) {
+         try {
+             logger.log('❓ Asking user for replacement decision...');
+             
+             // Get the active tab to show the confirmation
+             const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+             if (!tabs[0]) {
+                 logger.log('❌ No active tab found for user prompt');
+                 return false;
+             }
+             
+             // Ensure content script is loaded
+             await ensureContentScript(tabs[0].id);
+             
+             // Prepare the confirmation message
+             const existingDate = new Date(existingEntry.timestamp).toLocaleDateString();
+             const newWordCount = newEntry.wordCount;
+             const existingWordCount = existingEntry.wordCount;
+             
+             const message = `📄 You already have this page saved!\n\n` +
+                 `Existing: ${existingEntry.title}\n` +
+                 `Saved: ${existingDate} (${existingWordCount} words)\n\n` +
+                 `New version: ${newWordCount} words\n\n` +
+                 `Replace with new version?`;
+             
+             // Send confirmation request to content script
+             const response = await browser.tabs.sendMessage(tabs[0].id, {
+                 action: 'confirm_replacement',
+                 message: message
+             });
+             
+             logger.log('✅ User response received:', response?.replace ? 'Replace' : 'Keep existing');
+             return response?.replace || false;
+             
+         } catch (error) {
+             logger.error('❌ Error asking user for replacement:', error);
+             // Default to not replacing if we can't ask
+             return false;
+         }
+     }
+     
+     // AI text cleaning function
 async function cleanTextForSemanticSearch(rawText) {
   if (!rawText || typeof rawText !== 'string') {
     return '';
   }
   
-  console.log('🧹 Basic text cleaning for NotebookLM...');
+         logger.log('🧹 Cleaning text for semantic search...');
   
-  // Basic HTML cleanup only (no AI processing)
+         // Basic HTML cleanup
   const cleanedText = rawText
     .replace(/<[^>]*>/g, ' ') // Remove HTML tags
     .replace(/&[a-zA-Z0-9#]+;/g, ' ') // Remove HTML entities
@@ -735,284 +546,213 @@ async function cleanTextForSemanticSearch(rawText) {
     .replace(/\s+/g, ' ') // Normalize whitespace
     .trim();
   
-  console.log('📊 Basic cleaned text length:', cleanedText.length);
+         logger.log('📊 Text cleaned, length:', cleanedText.length);
   return cleanedText;
 }
 
-// NotebookLM integration functions will be added here
-
-// Fallback semantic search handler (word overlap)
-async function handleFallbackSemanticSearch(query, filters, sendResponse) {
-  try {
-    console.log('🧠 Performing fallback semantic search...');
-    const result = await chrome.storage.local.get(['textEntries']);
-    let allEntries = result.textEntries || [];
-
-    // Apply time filter if present
-    if (filters && filters.timeFilter && filters.timeFilter !== 'any') {
-      allEntries = applyTimeFilterBackend(allEntries, filters);
-    }
-
-    if (!query || query.trim().length === 0) {
-      sendResponse({ results: allEntries });
+     // Generate embedding for entry
+     async function generateEmbeddingForEntry(entry) {
+         try {
+             logger.log('🧠 Generating embedding for entry:', entry.title);
+             
+             const embedding = await generateEmbedding(entry.text);
+             if (embedding) {
+                 // Store embedding
+                 const result = await browser.storage.local.get(['embeddings']);
+                 const embeddings = result.embeddings || {};
+                 embeddings[entry.id] = embedding;
+                 
+                 await browser.storage.local.set({ embeddings });
+                 logger.log('✅ Embedding generated and stored for entry:', entry.id);
+             }
+  } catch (error) {
+             logger.warn('⚠️ Failed to generate embedding:', error.message);
+         }
+     }
+     
+     // Generate embedding using OpenAI API
+     async function generateEmbedding(text) {
+         try {
+             // Get API key
+             const result = await browser.storage.local.get(['openaiApiKey']);
+             const apiKey = result.openaiApiKey;
+             
+             if (!apiKey) {
+                 logger.warn('⚠️ No OpenAI API key found for embedding generation');
+                 return null;
+             }
+             
+             const response = await fetch('https://api.openai.com/v1/embeddings', {
+                 method: 'POST',
+                 headers: {
+                     'Content-Type': 'application/json',
+                     'Authorization': `Bearer ${apiKey}`
+                 },
+                 body: JSON.stringify({
+                     model: 'text-embedding-3-small',
+                     input: text.substring(0, 8000), // Limit text length
+                     encoding_format: 'float'
+                 })
+             });
+             
+             if (!response.ok) {
+                 throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+             }
+             
+             const data = await response.json();
+             return data.data[0].embedding;
+             
+  } catch (error) {
+             logger.error('❌ Error generating embedding:', error);
+             return null;
+         }
+     }
+     
+     // Cosine similarity function
+     function cosineSimilarity(vecA, vecB) {
+         if (!vecA || !vecB || vecA.length !== vecB.length) {
+             return 0;
+         }
+         
+         let dotProduct = 0;
+         let normA = 0;
+         let normB = 0;
+         
+         for (let i = 0; i < vecA.length; i++) {
+             dotProduct += vecA[i] * vecB[i];
+             normA += vecA[i] * vecA[i];
+             normB += vecB[i] * vecB[i];
+         }
+         
+         if (normA === 0 || normB === 0) {
+             return 0;
+         }
+         
+         return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+     }
+     
+     // Apply time-based filtering
+     function applyTimeFilterBackend(entries, filters) {
+         const now = new Date();
+         let cutoffDate;
+         
+         logger.log('⏰ Applying time filter:', filters.timeFilter);
+         
+         switch (filters.timeFilter) {
+             case 'hour':
+                 cutoffDate = new Date(now.getTime() - (60 * 60 * 1000));
+                 break;
+             case 'day':
+                 cutoffDate = new Date(now.getTime() - (24 * 60 * 60 * 1000));
+                 break;
+             case 'week':
+                 cutoffDate = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
+                 break;
+             case 'month':
+                 cutoffDate = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
+                 break;
+             case 'year':
+                 cutoffDate = new Date(now.getTime() - (365 * 24 * 60 * 60 * 1000));
+                 break;
+             case 'custom':
+                 if (filters.dateFrom && filters.dateTo) {
+                     const fromDate = new Date(filters.dateFrom);
+                     const toDate = new Date(filters.dateTo);
+                     toDate.setHours(23, 59, 59, 999);
+                     
+                     return entries.filter(entry => {
+                         const entryDate = new Date(entry.timestamp);
+                         return entryDate >= fromDate && entryDate <= toDate;
+                     });
+                 }
+                 return entries;
+             default:
+                 return entries;
+         }
+         
+         const filteredEntries = entries.filter(entry => {
+             const entryDate = new Date(entry.timestamp);
+             return entryDate >= cutoffDate;
+         });
+         
+         logger.log('⏰ Time filter results:', entries.length, '->', filteredEntries.length);
+         return filteredEntries;
+     }
+     
+     // Fallback semantic search (word overlap)
+     async function handleFallbackSemanticSearch(query, filters, sendResponse) {
+         try {
+             logger.log('🧠 Performing fallback semantic search...');
+             const result = await browser.storage.local.get(['textEntries']);
+             let allEntries = result.textEntries || [];
+             
+             // Apply time filter if present
+             if (filters && filters.timeFilter && filters.timeFilter !== 'any') {
+                 allEntries = applyTimeFilterBackend(allEntries, filters);
+             }
+             
+             if (!query || query.trim().length === 0) {
+                 sendResponse({ results: allEntries });
       return;
     }
     
-    // Tokenize query (remove stopwords, lowercase)
-    const stopwords = new Set([
-      'the','is','at','which','on','a','an','and','or','for','to','of','in','with','by','as','from','that','this','it','be','are','was','were','has','have','had','but','not','so','if','then','than','too','very','can','will','just','do','does','did','about','into','over','after','before','such','no','yes','you','your','we','our','they','their','i','me','my','he','him','his','she','her','them','us','who','what','when','where','why','how'
-    ]);
-    const queryWords = query.toLowerCase().split(/\W+/).filter(w => w && !stopwords.has(w));
-    if (queryWords.length === 0) {
-      sendResponse({ results: [] });
-      return;
-    }
-
-    // Score entries by word overlap
-    const scored = allEntries.map(entry => {
-      const text = [entry.title || '', entry.text || ''].join(' ').toLowerCase();
-      const entryWords = new Set(text.split(/\W+/).filter(w => w && !stopwords.has(w)));
-      let overlap = 0;
-      queryWords.forEach(qw => { if (entryWords.has(qw)) overlap++; });
-      // Simple similarity: overlap / queryWords.length
-      const similarity = queryWords.length > 0 ? overlap / queryWords.length : 0;
-      return { ...entry, similarity };
-    });
-
-    // Sort by similarity, descending
-    scored.sort((a, b) => b.similarity - a.similarity);
-    // Only keep entries with some overlap
-    const filtered = scored.filter(e => e.similarity > 0);
-    // Return top 10
-    const topResults = filtered.slice(0, 10);
-    console.log('🧠 Fallback semantic search results:', topResults.length);
-    sendResponse({ results: topResults });
-  } catch (error) {
-    console.error('Error in fallback semantic search:', error);
-    sendResponse({ results: [], error: error.message });
-  }
-}
-
-// NotebookLM Export Manager
-class NotebookLMExportManager {
-  constructor() {
-    // Initialize the exporter for direct capture functionality
-  }
-
-  // Format article for NotebookLM (for direct capture functionality)
-  formatArticleForNotebookLM(article) {
-    const content = article.text
-      .replace(/\n\s*\n/g, '\n\n') // Clean up extra line breaks
-      .trim();
-    
-    return `# ${article.title}
-
-**Source:** ${article.url}  
-**Captured:** ${new Date(article.timestamp).toLocaleString()}  
-**Word Count:** ${article.wordCount}
-
----
-
-${content}
-
----
-
-*Captured by SmartGrab - NotebookLM Connector*`;
-  }
-}
-
-// Initialize NotebookLM Export Manager
-const notebookLMExporter = new NotebookLMExportManager();
-
-// Export Status Handler
-async function handleGetExportStatus(sendResponse) {
-  try {
-    const exportHistory = await getExportHistory();
-    sendResponse({ 
-      success: true, 
-      driveAuthenticated: false, // Always false since we removed Google Drive
-      exportHistory: exportHistory
-    });
-  } catch (error) {
-    console.error('❌ Error getting export status:', error);
-    sendResponse({
-      success: false,
-      error: error.message,
-      driveAuthenticated: false, // Always false since we removed Google Drive
-      exportHistory: []
-    });
-  }
-}
-
-async function handleCaptureAndOpenNotebookLM(tabId, sendResponse) {
-  try {
-    console.log('📄 Capturing and opening NotebookLM for tab:', tabId);
-    
-    // Get the tab information
-    const tab = await chrome.tabs.get(tabId);
-    console.log('🔍 Tab URL:', tab.url);
-    
-    // Check if this is a supported page
-    if (tab.url.startsWith('chrome://') || 
-        tab.url.startsWith('chrome-extension://') ||
-        tab.url.startsWith('about:') ||
-        tab.url.startsWith('moz-extension://') ||
-        tab.url.startsWith('edge://') ||
-        tab.url === 'about:blank') {
-      sendResponse({ 
-        success: false, 
-        error: 'Cannot capture system pages. Please navigate to a regular webpage (http:// or https://) and try again.' 
-      });
-      return;
-    }
-
-    // Check if URL is a regular web page
-    if (!tab.url.startsWith('http://') && !tab.url.startsWith('https://')) {
-      sendResponse({ 
-        success: false, 
-        error: 'Please navigate to a regular webpage (starting with http:// or https://) and try again.' 
-      });
+             // Tokenize query (remove stopwords, lowercase)
+             const stopwords = new Set([
+                 'the','is','at','which','on','a','an','and','or','for','to','of','in','with','by','as','from','that','this','it','be','are','was','were','has','have','had','but','not','so','if','then','than','too','very','can','will','just','do','does','did','about','into','over','after','before','such','no','yes','you','your','we','our','they','their','i','me','my','he','him','his','she','her','them','us','who','what','when','where','why','how'
+             ]);
+             const queryWords = query.toLowerCase().split(/\W+/).filter(w => w && !stopwords.has(w));
+             if (queryWords.length === 0) {
+                 sendResponse({ results: [] });
       return;
     }
     
-    // Ensure content script is loaded
-    await ensureContentScript(tabId);
-    
-    // Extract page content
-    const response = await chrome.tabs.sendMessage(tabId, {
-      action: 'extract_text'
-    });
-    
-    if (response && response.success) {
-      const article = {
-        id: Date.now(),
-        title: response.title || tab.title,
-        url: tab.url,
-        text: response.text,
-        timestamp: new Date().toISOString(),
-        wordCount: response.text.split(' ').length
-      };
-      
-      // Save to local storage
-      await saveTextEntry(article);
-      
-      // Format content for NotebookLM using the exporter
-      const notebookLMExporter = new NotebookLMExportManager();
-      const markdownContent = notebookLMExporter.formatArticleForNotebookLM(article);
-      
-      // Store the content for the popup to access
-      await chrome.storage.local.set({ 
-        lastCapturedContent: markdownContent,
-        lastCapturedArticle: article
-      });
-      
-      // Open NotebookLM in a new tab
-      await chrome.tabs.create({
-        url: 'https://notebooklm.google.com/',
-        active: true
-      });
-      
-      // Show success notification
-      showNotification(`✅ Captured: ${article.title}`);
-      
-      sendResponse({ success: true, article: article });
-      
-    } else {
-      sendResponse({ 
-        success: false, 
-        error: 'Failed to extract content from this page. The page might not be fully loaded or may have restrictions.' 
-      });
-    }
-    
+             // Score entries by word overlap
+             const scored = allEntries.map(entry => {
+                 const text = [entry.title || '', entry.text || ''].join(' ').toLowerCase();
+                 const entryWords = new Set(text.split(/\W+/).filter(w => w && !stopwords.has(w)));
+                 let overlap = 0;
+                 queryWords.forEach(qw => { if (entryWords.has(qw)) overlap++; });
+                 const similarity = queryWords.length > 0 ? overlap / queryWords.length : 0;
+                 return { ...entry, similarity };
+             });
+             
+             // Sort by similarity, descending
+             scored.sort((a, b) => b.similarity - a.similarity);
+             const filtered = scored.filter(e => e.similarity > 0);
+             const topResults = filtered.slice(0, 10);
+             
+             logger.log('🧠 Fallback semantic search results:', topResults.length);
+             sendResponse({ results: topResults });
   } catch (error) {
-    console.error('❌ Error capturing and opening NotebookLM:', error);
-    
-    // Provide more specific error messages
-    let errorMessage = error.message;
-    if (error.message.includes('Could not establish connection')) {
-      errorMessage = 'Unable to connect to the page. Please refresh the page and try again.';
-    } else if (error.message.includes('Receiving end does not exist')) {
-      errorMessage = 'Page is not ready for capture. Please refresh the page and try again.';
-    }
-    
-    sendResponse({ success: false, error: errorMessage });
-  }
-}
-
-async function handleImportToNotebookLM(articles, sendResponse) {
-  try {
-    console.log('📚 Importing articles to NotebookLM:', articles.length);
-    
-    if (!articles || articles.length === 0) {
-      sendResponse({ success: false, error: 'No articles provided for import' });
-      return;
-    }
-    
-    // Limit to reasonable number for NotebookLM
-    if (articles.length > 20) {
-      sendResponse({ 
-        success: false, 
-        error: 'Too many articles selected. Please select 20 or fewer articles for optimal performance.' 
-      });
-      return;
-    }
-    
-    // Prepare the import payload (mimic official NotebookLM Web Importer)
-    const sources = articles.map(article => ({
-      title: article.title,
-      url: article.url,
-      text: article.text,
-      timestamp: article.timestamp
-    }));
-    
-    // Encode the sources as a base64 JSON string for transfer
-    const payload = btoa(unescape(encodeURIComponent(JSON.stringify(sources))));
-    
-    // Open NotebookLM import page with the payload as a query param
-    const importUrl = `https://notebooklm.google.com/import?sources=${payload}`;
-    await chrome.tabs.create({ url: importUrl, active: true });
-    
-    sendResponse({ 
-      success: true, 
-      articleCount: articles.length,
-      message: `Successfully sent ${articles.length} articles to NotebookLM for import`,
-      instructions: 'NotebookLM will open in a new tab and import your sources.'
-    });
-    
+             logger.error('❌ Error in fallback semantic search:', error);
+             sendResponse({ results: [], error: error.message });
+         }
+     }
+     
+     // Add API key management
+     browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+         if (message.action === 'set_api_key') {
+             handleSetApiKey(message.apiKey, sendResponse);
+             return true;
+         }
+     });
+     
+     async function handleSetApiKey(apiKey, sendResponse) {
+         try {
+             await browser.storage.local.set({ openaiApiKey: apiKey });
+             logger.log('✅ API key saved successfully');
+             sendResponse({ success: true });
   } catch (error) {
-    console.error('❌ Error importing to NotebookLM:', error);
-    sendResponse({ success: false, error: error.message });
-  }
-}
-
-// Export Record Management
-async function saveExportRecord(exportRecord) {
-  try {
-    const result = await chrome.storage.local.get(['exportHistory']);
-    const history = result.exportHistory || [];
-    
-    history.unshift(exportRecord);
-    
-    // Keep only last 50 export records
-    if (history.length > 50) {
-      history.splice(50);
-    }
-    
-    await chrome.storage.local.set({ exportHistory: history });
-    console.log('✅ Export record saved');
-  } catch (error) {
-    console.error('❌ Error saving export record:', error);
-  }
-}
-
-async function getExportHistory() {
-  try {
-    const result = await chrome.storage.local.get(['exportHistory']);
-    return result.exportHistory || [];
-  } catch (error) {
-    console.error('❌ Error getting export history:', error);
-    return [];
-  }
-}
-
-console.log('🎉 Background script setup complete'); 
+             logger.error('❌ Error saving API key:', error);
+             sendResponse({ success: false, error: error.message });
+         }
+     }
+     
+     // Initialize the extension
+     return initializeExtension();
+ }();
+ 
+ // Export for compatibility
+ if (typeof module !== 'undefined' && module.exports) {
+     module.exports = background;
+ } 
