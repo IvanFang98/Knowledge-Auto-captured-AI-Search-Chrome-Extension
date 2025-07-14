@@ -1,5 +1,8 @@
 // notebooklm-proxy.js
 
+// === BROWSER COMPATIBILITY ===
+const browser = globalThis.chrome || globalThis.browser;
+
 console.log('notebooklm-proxy.js loaded');
 
 // Relay MAIN world results to the extension

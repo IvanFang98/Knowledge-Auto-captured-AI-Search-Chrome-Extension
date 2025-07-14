@@ -220,11 +220,8 @@ const TextExtractor = {
       // Find content container
       const container = Utils.findContentContainer();
       if (!container) {
-        console.log('No content container found, trying best text content method...');
-        return this.findBestTextContent();
+        return this.extractFallback();
       }
-      
-      console.log('Found content container:', container.tagName, container.className);
       
       // Clone container to avoid modifying the page
       const clone = container.cloneNode(true);
@@ -243,98 +240,43 @@ const TextExtractor = {
         return text;
       }
       
-      console.log('Content container text too short, trying best text content method...');
-      return this.findBestTextContent();
+      console.log('No meaningful content found, trying fallback...');
+      return this.extractFallback();
       
     } catch (error) {
       console.error('General extraction error:', error);
-      return this.findBestTextContent();
+      return this.extractFallback();
     }
   },
   
   findBestTextContent() {
     console.log('Searching for best text content...');
     
-    // Try different element types in order of preference
-    const selectors = [
-      'article', 'main', '[role="main"]', 
-      '.content', '.post-content', '.entry-content', '.article-content',
-      '.story-body', '.article-body', '.post-body',
-      'div', 'section', 'p'
-    ];
-    
+    const allDivs = document.querySelectorAll('div, p, section');
     let bestText = '';
     let bestScore = 0;
-    let bestElement = null;
     
-    for (const selector of selectors) {
-      const elements = document.querySelectorAll(selector);
-      console.log(`Checking ${elements.length} elements for selector: ${selector}`);
+    for (const element of allDivs) {
+      const text = element.textContent?.trim();
+      if (!text || text.length < CONFIG.MIN_CONTENT_LENGTH) continue;
       
-      for (const element of elements) {
-        // Skip if element is inside excluded areas
-        if (this.isExcludedElement(element)) continue;
-        
-        const text = element.textContent?.trim();
-        if (!text || text.length < CONFIG.MIN_CONTENT_LENGTH) continue;
-        
-        // Score based on length and content quality
-        const lengthScore = Math.min(text.length / 1000, 5); // Max 5 points for length
-        const qualityScore = this.calculateContentQuality(text);
-        const selectorScore = this.getSelectorScore(selector);
-        const totalScore = lengthScore + qualityScore + selectorScore;
-        
-        if (totalScore > bestScore) {
-          bestText = text;
-          bestScore = totalScore;
-          bestElement = element;
-        }
-      }
+      // Score based on length and content quality
+      const lengthScore = Math.min(text.length / 1000, 5); // Max 5 points for length
+      const qualityScore = this.calculateContentQuality(text);
+      const totalScore = lengthScore + qualityScore;
       
-      // If we found good content with high-priority selectors, use it
-      if (bestScore > 3 && ['article', 'main', '[role="main"]'].includes(selector)) {
-        break;
+      if (totalScore > bestScore) {
+        bestText = text;
+        bestScore = totalScore;
       }
     }
     
     if (Utils.isValidText(bestText)) {
-      console.log(`Found best content: ${bestText.length} characters, score: ${bestScore}, element: ${bestElement?.tagName}`);
+      console.log(`Found best content: ${bestText.length} characters, score: ${bestScore}`);
       return Utils.cleanText(bestText);
     }
     
-    console.log('No good content found, trying document body...');
     return this.extractFallback();
-  },
-  
-  isExcludedElement(element) {
-    // Check if element or its parent matches exclusion selectors
-    const excludeSelectors = ['nav', 'header', 'footer', 'aside', '.sidebar', '.menu', '.navigation'];
-    
-    for (const selector of excludeSelectors) {
-      if (element.matches(selector) || element.closest(selector)) {
-        return true;
-      }
-    }
-    return false;
-  },
-  
-  getSelectorScore(selector) {
-    const scores = {
-      'article': 3,
-      'main': 3,
-      '[role="main"]': 3,
-      '.content': 2,
-      '.post-content': 2,
-      '.entry-content': 2,
-      '.article-content': 2,
-      '.story-body': 2,
-      '.article-body': 2,
-      '.post-body': 2,
-      'div': 1,
-      'section': 1,
-      'p': 0.5
-    };
-    return scores[selector] || 0;
   },
   
   calculateContentQuality(text) {
@@ -364,159 +306,27 @@ const TextExtractor = {
     console.log('Using fallback text extraction...');
     
     try {
-      // Try multiple fallback approaches
-      const fallbackMethods = [
-        () => this.extractFromSpecificElements(),
-        () => this.extractFromBodyWithFiltering(),
-        () => this.extractFromVisibleText(),
-        () => this.extractMinimalContent()
-      ];
+      // Simple body text extraction as last resort
+      const bodyText = document.body?.textContent || '';
+      const cleaned = Utils.cleanText(bodyText);
       
-      for (const method of fallbackMethods) {
-        const result = method();
-        if (result && result !== 'No readable content found on this page.') {
-          return result;
-        }
+      if (Utils.isValidText(cleaned)) {
+        // Truncate if too long
+        const truncated = cleaned.length > CONFIG.MAX_CONTENT_LENGTH 
+          ? cleaned.substring(0, CONFIG.MAX_CONTENT_LENGTH) + '...'
+          : cleaned;
+        
+        console.log(`Fallback extraction: ${truncated.length} characters`);
+        return truncated;
       }
       
-      console.log('All fallback methods failed');
+      console.log('No extractable text found on page');
       return 'No readable content found on this page.';
       
     } catch (error) {
       console.error('Fallback extraction failed:', error);
       return 'Text extraction failed.';
     }
-  },
-  
-  extractFromSpecificElements() {
-    console.log('Trying extraction from specific elements...');
-    
-    // Try to find text in specific elements
-    const specificSelectors = [
-      'h1, h2, h3, h4, h5, h6',
-      'p:not(.sidebar p):not(.menu p):not(.nav p)',
-      'li:not(.sidebar li):not(.menu li):not(.nav li)',
-      'blockquote',
-      'pre',
-      'span:not(.icon):not(.button)'
-    ];
-    
-    let combinedText = '';
-    
-    for (const selector of specificSelectors) {
-      const elements = document.querySelectorAll(selector);
-      for (const element of elements) {
-        if (this.isExcludedElement(element)) continue;
-        const text = element.textContent?.trim();
-        if (text && text.length > 10) {
-          combinedText += text + ' ';
-        }
-      }
-    }
-    
-    const cleaned = Utils.cleanText(combinedText);
-    if (Utils.isValidText(cleaned)) {
-      console.log(`Specific elements extraction: ${cleaned.length} characters`);
-      return cleaned;
-    }
-    
-    return null;
-  },
-  
-  extractFromBodyWithFiltering() {
-    console.log('Trying body extraction with filtering...');
-    
-    // Clone body and remove unwanted elements
-    const body = document.body.cloneNode(true);
-    Utils.removeElements(body, CONFIG.EXCLUDE_SELECTORS);
-    
-    // Also remove specific unwanted elements
-    const additionalExcludes = [
-      'script', 'style', 'noscript', 'iframe', 'object', 'embed',
-      '.cookie-notice', '.popup', '.modal', '.overlay'
-    ];
-    Utils.removeElements(body, additionalExcludes);
-    
-    const text = body.textContent || '';
-    const cleaned = Utils.cleanText(text);
-    
-    if (Utils.isValidText(cleaned)) {
-      const truncated = cleaned.length > CONFIG.MAX_CONTENT_LENGTH 
-        ? cleaned.substring(0, CONFIG.MAX_CONTENT_LENGTH) + '...'
-        : cleaned;
-      console.log(`Body filtering extraction: ${truncated.length} characters`);
-      return truncated;
-    }
-    
-    return null;
-  },
-  
-  extractFromVisibleText() {
-    console.log('Trying visible text extraction...');
-    
-    // Get all visible text elements
-    const walker = document.createTreeWalker(
-      document.body,
-      NodeFilter.SHOW_TEXT,
-      {
-        acceptNode: (node) => {
-          const parent = node.parentElement;
-          if (!parent) return NodeFilter.FILTER_REJECT;
-          
-          // Skip hidden elements
-          const style = window.getComputedStyle(parent);
-          if (style.display === 'none' || style.visibility === 'hidden') {
-            return NodeFilter.FILTER_REJECT;
-          }
-          
-          // Skip excluded elements
-          if (this.isExcludedElement(parent)) {
-            return NodeFilter.FILTER_REJECT;
-          }
-          
-          return NodeFilter.FILTER_ACCEPT;
-        }
-      }
-    );
-    
-    let combinedText = '';
-    let node;
-    
-    while (node = walker.nextNode()) {
-      const text = node.textContent?.trim();
-      if (text && text.length > 5) {
-        combinedText += text + ' ';
-      }
-    }
-    
-    const cleaned = Utils.cleanText(combinedText);
-    if (Utils.isValidText(cleaned)) {
-      console.log(`Visible text extraction: ${cleaned.length} characters`);
-      return cleaned;
-    }
-    
-    return null;
-  },
-  
-  extractMinimalContent() {
-    console.log('Trying minimal content extraction...');
-    
-    // As a last resort, try to get any meaningful text
-    const title = document.title || '';
-    const bodyText = document.body?.textContent || '';
-    const cleaned = Utils.cleanText(bodyText);
-    
-    // Lower the minimum content length requirement for fallback
-    if (cleaned.length >= 10) {
-      const result = title ? `Title: ${title}\n\n${cleaned}` : cleaned;
-      const truncated = result.length > CONFIG.MAX_CONTENT_LENGTH 
-        ? result.substring(0, CONFIG.MAX_CONTENT_LENGTH) + '...'
-        : result;
-      console.log(`Minimal content extraction: ${truncated.length} characters`);
-      return truncated;
-    }
-    
-    return null;
   }
 };
 

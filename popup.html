@@ -1223,7 +1223,7 @@
       <span role="img" aria-label="Settings">⚙️</span>
     </button>
     <div class="shortcut-info">
-      Press <span class="shortcut">Cmd+Shift+G</span> to grab visible text
+      Press <span class="shortcut">Cmd+Shift+S</span> to grab visible text
     </div>
   </div>
   
@@ -1244,8 +1244,11 @@
     </div>
 
     <div class="tab-content active" id="searchTab">
-      <!-- Selection Mode Button -->
-      <div style="display: flex; justify-content: flex-end; margin-bottom: 8px;">
+      <!-- Capture and Selection Controls -->
+      <div style="display: flex; justify-content: space-between; margin-bottom: 8px; gap: 8px;">
+        <button id="capturePageBtn" class="button" style="background: linear-gradient(135deg, #4CAF50, #45a049); font-weight: 600; flex: 1;">
+          📄 Capture Page
+        </button>
         <button id="toggleSelectionBtn" class="selection-btn" style="font-weight: 600;">
           Select Articles
         </button>
@@ -1388,7 +1391,7 @@
       
       <div id="emptyState" class="empty-state">
         <p>📄 No text saved yet</p>
-        <p>Visit any webpage and press <strong>Cmd+Shift+G</strong> to start grabbing text!</p>
+        <p>Visit any webpage and click <strong>📄 Capture Page</strong> or press <strong>Cmd+Shift+S</strong> to start grabbing text!</p>
       </div>
       
       <div id="noResults" class="no-results" style="display: none;">
@@ -1429,19 +1432,25 @@
         </div>
       </div>
 
-      <!-- Google Drive Connection Status -->
+      <!-- NotebookLM Connection Status -->
       <div class="export-controls">
         <div class="export-section">
           <div class="export-section-title">
-            <span>☁️</span>
-            <span>Google Drive Connection</span>
+            <span>🧠</span>
+            <span>NotebookLM Connection</span>
           </div>
           <div id="driveStatus" class="google-drive-status disconnected">
             <span>⚠️</span>
-            <span>Not connected to Google Drive</span>
+            <span>Not connected to NotebookLM</span>
           </div>
           <button id="connectDriveBtn" class="button" style="width: 100%; margin-top: 10px;">
-            Connect Google Drive
+            🔗 Connect to NotebookLM
+          </button>
+          <button id="debugTokensBtn" class="button secondary" style="width: 100%; margin-top: 5px; font-size: 12px;" title="Debug authentication tokens">
+            🔍 Debug Tokens
+          </button>
+          <button id="testGraphQLBtn2" class="button" style="width: 100%; margin-top: 5px; background: rgba(76, 175, 80, 0.2); border-color: rgba(76, 175, 80, 0.5); font-size: 12px;" title="Test the NotebookLM API integration">
+            🧪 Test NotebookLM API
           </button>
         </div>
 
@@ -1551,6 +1560,8 @@
         <button class="button" id="exportBtn">📤 Export Data</button>
                   <button class="button" id="clearErrorStatesBtn" style="margin-top: 8px; width: 100%; background: rgba(255, 193, 7, 0.2); border-color: rgba(255, 193, 7, 0.5);">🧹 Clear Error States</button>
           <button class="button" id="debugNotebookLMBtn" style="margin-top: 8px; width: 100%; background: rgba(156, 39, 176, 0.2); border-color: rgba(156, 39, 176, 0.5);">🔍 Debug NotebookLM API</button>
+          <button class="button" id="testGraphQLBtn" style="margin-top: 8px; width: 100%; background: rgba(76, 175, 80, 0.2); border-color: rgba(76, 175, 80, 0.5);">🧪 Test NotebookLM API</button>
+          <button class="button" id="showReloadBtn" style="margin-top: 8px; width: 100%; background: rgba(255, 152, 0, 0.2); border-color: rgba(255, 152, 0, 0.5);">📋 Show Reload Instructions</button>
       </div>
       
       <div style="margin-top: 20px; padding: 15px; background: rgba(244, 67, 54, 0.1); border: 1px solid rgba(244, 67, 54, 0.3); border-radius: 8px;">

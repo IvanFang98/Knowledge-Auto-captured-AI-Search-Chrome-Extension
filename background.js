@@ -1,758 +1,713 @@
-// Background script for SmartGrab AI Search Extension
-// Based on working NotebookLM Web Importer pattern
+// SmartGrab AI Search Extension - Background Script
+'use strict';
 
-var background = function() {
-    "use strict";
-    
-    // Browser compatibility layer
-    const browser = globalThis.chrome || globalThis.browser;
-    
-    // Simple logging utility
-    const logger = {
-        debug: (...args) => console.debug('[SmartGrab]', ...args),
-        log: (...args) => console.log('[SmartGrab]', ...args),
-        warn: (...args) => console.warn('[SmartGrab]', ...args),
-        error: (...args) => console.error('[SmartGrab]', ...args)
-    };
-    
-    // Main initialization function
-    function initializeExtension() {
-        logger.log('🚀 SmartGrab AI Search Extension - Background script starting...');
-        
-        // Extension lifecycle events
-        browser.runtime.onStartup.addListener(() => {
-            logger.log('📱 Extension startup event');
-        });
-        
-        browser.runtime.onInstalled.addListener((details) => {
-            logger.log('📦 Extension installed/updated event', details.reason);
-            
-            // Clear any error states on install/update
-            clearErrorStates();
-            
-            // Log available commands
-            if (browser.commands && browser.commands.getAll) {
-                browser.commands.getAll((commands) => {
-                    logger.log('📋 Available commands:', commands);
-                });
-            }
-        });
-        
-        // Handle extension icon clicks
-        if (browser.action && browser.action.onClicked) {
-            browser.action.onClicked.addListener(async (tab) => {
-                logger.log('🔧 Extension icon clicked, opening side panel');
-                
-                try {
-                    // Open the side panel if available
-                    if (browser.sidePanel && browser.sidePanel.open) {
-                        await browser.sidePanel.open({ windowId: tab.windowId });
-                        logger.log('✅ Side panel opened successfully');
-                    } else {
-                        logger.warn('⚠️ Side panel API not available');
-                    }
-  } catch (error) {
-                    logger.error('❌ Error opening side panel:', error);
-                }
-            });
-        }
-        
-        // Listen for keyboard shortcuts
-        if (browser.commands && browser.commands.onCommand) {
-            browser.commands.onCommand.addListener((command) => {
-                logger.log('⌨️ Keyboard command received:', command);
-                
-                if (command === 'trigger_action') {
-                    logger.log('🎯 Trigger action command - starting text extraction...');
-                    browser.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                        if (tabs[0]) {
-                            extractAndSavePageText(tabs[0]);
-                        }
-                    });
-                }
-            });
-        }
-        
-        // Message handler
-        browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
-            logger.log('📨 Background received message:', message.action);
-            
-            try {
-                switch (message.action) {
-                    case 'ping':
-                        sendResponse({ status: 'ok', timestamp: Date.now() });
-                        return true;
-                        
-                    case 'get_entries':
-                        handleGetEntries(sendResponse);
-                        return true;
-                        
-                    case 'search_keywords':
-                        handleKeywordSearch(message.query, sendResponse);
-                        return true;
-                        
-                    case 'search_similar':
-                        handleSemanticSearch(message.query, message.filters, sendResponse);
-                        return true;
-                        
-                    case 'clear_entries':
-                        handleClearEntries(sendResponse);
-                        return true;
-                        
-                    case 'get_stats':
-                        handleGetStats(sendResponse);
-                        return true;
-                        
-                    case 'clear_error_states':
-                        handleClearErrorStates(sendResponse);
-                        return true;
-                        
-                    case 'captureAndOpenNotebookLM':
-                        handleCaptureAndOpenNotebookLM(message.tabId, sendResponse);
-                        return true;
-                        
-                    default:
-                        logger.warn('❓ Unknown message action:', message.action);
-                        sendResponse({ error: 'Unknown action' });
-                        return false;
-    }
-  } catch (error) {
-                logger.error('❌ Error in message handler:', error);
-                sendResponse({ error: error.message });
-                return false;
-            }
-        });
-        
-        logger.log('✅ Background script initialized successfully');
-    }
-    
-    // Clear error states
-    async function clearErrorStates() {
-        try {
-            const keysToClear = [
-                'searchState',
-                'setupNoteDismissed', 
-                'userAnswerContentHeight',
-                'lastError',
-                'errorState',
-                'searchError',
-                'semanticError'
-            ];
-            
-            await browser.storage.local.remove(keysToClear);
-            logger.log('🧹 Error states cleared');
-        } catch (error) {
-            logger.error('❌ Error clearing states:', error);
-        }
-    }
-    
-    // Ensure content script is injected
-async function ensureContentScript(tabId) {
-  try {
-    // Try to ping the content script first
-            const response = await browser.tabs.sendMessage(tabId, { action: 'ping' });
-    if (response && response.status === 'ready') {
-                return true;
-    }
-  } catch (error) {
-    // Content script not loaded, inject it
-            logger.log('📥 Injecting content script...');
-  }
+// === CONFIGURATION ===
+const CONFIG = {
+  SUPPORTED_PROTOCOLS: ['http:', 'https:'],
+  UNSUPPORTED_PROTOCOLS: ['chrome:', 'chrome-extension:', 'edge:', 'about:'],
+  EMBEDDING_DIMENSIONS: 1536,
+  MAX_TEXT_LENGTH: 10000,
+  SEARCH_RESULTS_LIMIT: 50,
+  CLEANUP_INTERVAL: 24 * 60 * 60 * 1000, // 24 hours
+  NOTIFICATION_DURATION: 5000
+};
+
+// === BROWSER COMPATIBILITY ===
+const browser = globalThis.chrome || globalThis.browser;
+
+// === UTILITIES ===
+const Utils = {
+  // Storage utilities
+    async get(key) {
+    return new Promise(resolve => {
+      chrome.storage.local.get([key], result => resolve(result[key]));
+    });
+  },
+
+  async set(key, value) {
+    return new Promise(resolve => {
+      chrome.storage.local.set({ [key]: value }, resolve);
+    });
+  },
+
+  async remove(keys) {
+    return new Promise(resolve => {
+      chrome.storage.local.remove(keys, resolve);
+    });
+  },
   
-  try {
-            await browser.scripting.executeScript({
-      target: { tabId: tabId },
+  // Text processing utilities
+  cleanText(text) {
+    return text
+      .replace(/\s+/g, ' ')
+      .replace(/[^\w\s.,!?;:()-]/g, '')
+      .trim();
+  },
+  
+  truncateText(text, maxLength) {
+    return text.length > maxLength 
+      ? text.substring(0, maxLength) + '...'
+      : text;
+  },
+  
+  countWords(text) {
+    return text.split(/\s+/).filter(word => word.length > 0).length;
+  },
+  
+  // URL utilities
+  isValidUrl(url) {
+    try {
+      const urlObj = new URL(url);
+      return CONFIG.SUPPORTED_PROTOCOLS.includes(urlObj.protocol);
+    } catch {
+      return false;
+    }
+  },
+  
+  isSystemPage(url) {
+    return CONFIG.UNSUPPORTED_PROTOCOLS.some(protocol => url.startsWith(protocol));
+  },
+  
+  // Time utilities
+  getCurrentTimestamp() {
+    return Date.now();
+  },
+  
+  // Math utilities
+  cosineSimilarity(vecA, vecB) {
+    if (vecA.length !== vecB.length) return 0;
+    
+    let dotProduct = 0;
+    let normA = 0;
+    let normB = 0;
+    
+    for (let i = 0; i < vecA.length; i++) {
+      dotProduct += vecA[i] * vecB[i];
+      normA += vecA[i] * vecA[i];
+      normB += vecB[i] * vecB[i];
+    }
+    
+    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+  },
+  
+  // Async utilities
+  async withTimeout(promise, timeoutMs) {
+    const timeout = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Operation timed out')), timeoutMs)
+    );
+    return Promise.race([promise, timeout]);
+  },
+  
+  // Notification utilities
+  async showNotification(message, type = 'basic') {
+    try {
+      await chrome.notifications.create({
+        type: type,
+        iconUrl: 'icon48.png',
+        title: 'SmartGrab AI Search',
+        message: message
+      });
+    } catch (error) {
+      console.error('Failed to show notification:', error);
+    }
+  }
+};
+
+// === STORAGE MANAGER ===
+const Storage = {
+  KEYS: {
+    ENTRIES: 'entries',
+    API_KEY: 'openai_api_key',
+    SEARCH_STATE: 'searchState',
+    SETUP_NOTE: 'setupNoteDismissed',
+    USER_HEIGHT: 'userAnswerContentHeight',
+    LAST_ERROR: 'lastError'
+  },
+  
+  async getEntries() {
+    return await Utils.get(this.KEYS.ENTRIES) || [];
+  },
+  
+  async setEntries(entries) {
+    await Utils.set(this.KEYS.ENTRIES, entries);
+  },
+  
+  async addEntry(entry) {
+    const entries = await this.getEntries();
+    entries.push(entry);
+    await this.setEntries(entries);
+  },
+  
+  async updateEntry(entryId, updates) {
+    const entries = await this.getEntries();
+    const index = entries.findIndex(e => e.id === entryId);
+    if (index !== -1) {
+      entries[index] = { ...entries[index], ...updates };
+      await this.setEntries(entries);
+    }
+  },
+  
+  async deleteEntry(entryId) {
+    const entries = await this.getEntries();
+    const filtered = entries.filter(e => e.id !== entryId);
+    await this.setEntries(filtered);
+  },
+  
+  async clearEntries() {
+    await this.setEntries([]);
+  },
+  
+  async getApiKey() {
+    return await Utils.get(this.KEYS.API_KEY);
+  },
+  
+  async setApiKey(apiKey) {
+    await Utils.set(this.KEYS.API_KEY, apiKey);
+  },
+  
+  async clearErrorStates() {
+    const errorKeys = [
+      this.KEYS.SEARCH_STATE,
+      this.KEYS.LAST_ERROR,
+      'errorState',
+      'searchError',
+      'semanticError'
+    ];
+    await Utils.remove(errorKeys);
+  },
+  
+  async getStats() {
+    const entries = await this.getEntries();
+    const entryCount = entries.length;
+    const totalWords = entries.reduce((sum, entry) => sum + (entry.wordCount || 0), 0);
+    const totalSize = JSON.stringify(entries).length;
+    
+    return { entryCount, totalWords, totalSize };
+  }
+};
+
+// === CONTENT SCRIPT MANAGER ===
+const ContentScript = {
+  async isReady(tabId) {
+    try {
+      const response = await chrome.tabs.sendMessage(tabId, { action: 'ping' });
+      return response?.status === 'ready';
+    } catch {
+      return false;
+    }
+  },
+  
+  async inject(tabId) {
+    try {
+          await chrome.scripting.executeScript({
+      target: { tabId },
       files: ['content.js']
     });
-    
-            // Wait for initialization
-    await new Promise(resolve => setTimeout(resolve, 100));
-    return true;
-  } catch (error) {
-            logger.error('❌ Failed to inject content script:', error);
-    return false;
-  }
-}
-
-    // Extract and save page text
-async function extractAndSavePageText(tab) {
-  try {
-            logger.log('📄 Starting text extraction from:', tab.url);
-    
-    // Check if this is a supported page
-            if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || 
-                tab.url.startsWith('edge://') || tab.url.startsWith('about:')) {
-                logger.warn('⚠️ Cannot extract text from system pages');
-      showNotification('❌ Cannot extract text from system pages');
-      return;
+      
+      // Wait for initialization
+      await new Promise(resolve => setTimeout(resolve, 100));
+      return true;
+    } catch (error) {
+      console.error('Content script injection failed:', error);
+      return false;
+    }
+  },
+  
+  async ensureReady(tabId) {
+    if (await this.isReady(tabId)) {
+      return true;
+    }
+    return await this.inject(tabId);
+  },
+  
+  async extractText(tabId) {
+    if (!await this.ensureReady(tabId)) {
+      throw new Error('Content script not available');
     }
     
-    // Ensure content script is loaded
-    const scriptReady = await ensureContentScript(tab.id);
-    if (!scriptReady) {
-                logger.error('❌ Could not load content script');
-      showNotification('❌ Could not load content script');
-      return;
-    }
-    
-            // Send message to content script to extract text
-            const response = await browser.tabs.sendMessage(tab.id, {
+    const response = await chrome.tabs.sendMessage(tabId, {
       action: 'extract_text'
     });
     
-    if (response && response.text) {
-                logger.log(`📝 Text extracted: ${response.text.length} characters`);
-      
-      // Create entry object
-      const entry = {
-                    id: Date.now(),
-        url: tab.url,
-        title: tab.title,
-        text: response.text,
-        timestamp: new Date().toISOString(),
-        wordCount: response.text.split(/\s+/).filter(word => word.length > 0).length
-      };
-      
-      await saveTextEntry(entry);
-                logger.log('✅ Text entry saved successfully');
-      
-    } else {
-                logger.warn('❌ No text extracted from page');
-      showNotification('❌ No text found on this page');
+    if (!response?.text) {
+      throw new Error('No text extracted from page');
     }
     
-  } catch (error) {
-            logger.error('❌ Error extracting text:', error);
-    showNotification('❌ Error extracting text: ' + error.message);
+    return response.text;
   }
-}
+};
 
-         // Save text entry with AI processing
-async function saveTextEntry(entry) {
-  try {
-             logger.log('💾 Saving entry...');
-    
-    // Clean the text using AI before saving
-             logger.log('🧹 Cleaning text before saving...');
-    const cleanedText = await cleanTextForSemanticSearch(entry.text);
-    
-    if (!cleanedText || cleanedText.trim().length === 0) {
-                 logger.warn('⚠️ No meaningful content after cleaning, skipping save');
-      showNotification('⚠️ No meaningful content found to save');
-      return;
+// === AI PROCESSING ===
+const AI = {
+  async getApiKey() {
+    const apiKey = await Storage.getApiKey();
+    if (!apiKey) {
+      throw new Error('OpenAI API key not configured');
+    }
+    return apiKey;
+  },
+  
+  async cleanText(rawText) {
+    if (!rawText || rawText.trim().length === 0) {
+      return '';
     }
     
-    // Update the entry with cleaned text
-    const cleanedEntry = {
-      ...entry,
-      text: cleanedText,
-      wordCount: cleanedText.split(/\s+/).filter(word => word.length > 0).length
-    };
+    // Basic cleaning first
+    let cleaned = Utils.cleanText(rawText);
     
-             logger.log('📊 Text cleaned:', {
-      originalLength: entry.text.length,
-      cleanedLength: cleanedText.length,
-      reduction: Math.round((1 - cleanedText.length / entry.text.length) * 100) + '%'
+    // If text is too long, truncate
+    if (cleaned.length > CONFIG.MAX_TEXT_LENGTH) {
+      cleaned = Utils.truncateText(cleaned, CONFIG.MAX_TEXT_LENGTH);
+    }
+    
+    // Try AI cleaning if API key is available
+    try {
+      const apiKey = await this.getApiKey();
+      return await this.aiCleanText(cleaned, apiKey);
+    } catch (error) {
+      console.warn('AI cleaning failed, using basic cleaning:', error.message);
+      return cleaned;
+    }
+  },
+  
+  async aiCleanText(text, apiKey) {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-3.5-turbo',
+        messages: [{
+          role: 'system',
+          content: 'Clean and format this text for better readability. Remove navigation elements, ads, and irrelevant content. Keep only the main content.'
+        }, {
+          role: 'user',
+          content: text
+        }],
+        max_tokens: 2000,
+        temperature: 0.1
+      })
     });
     
-             // Get existing entries
-             const result = await browser.storage.local.get(['textEntries']);
-    const existingEntries = result.textEntries || [];
+    if (!response.ok) {
+      throw new Error(`OpenAI API error: ${response.status}`);
+    }
     
-             // Check for duplicates by URL
-    const duplicateEntry = existingEntries.find(existing => existing.url === cleanedEntry.url);
-    
-    if (duplicateEntry) {
-                 logger.log('⚠️ Duplicate found for URL:', cleanedEntry.url);
+    const data = await response.json();
+    return data.choices[0]?.message?.content || text;
+  },
+  
+  async generateEmbedding(text) {
+    try {
+      const apiKey = await this.getApiKey();
       
-                 // Ask user for replacement
-      const userChoice = await askUserForReplacement(cleanedEntry, duplicateEntry);
+      const response = await fetch('https://api.openai.com/v1/embeddings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'text-embedding-ada-002',
+          input: text
+        })
+      });
       
-      if (!userChoice) {
-                     logger.log('ℹ️ User chose to keep existing entry');
-        showNotification(`📄 Keeping ${duplicateEntry.title}`);
-        return;
+      if (!response.ok) {
+        throw new Error(`OpenAI API error: ${response.status}`);
       }
       
-                 logger.log('🔄 User chose to replace existing entry');
+      const data = await response.json();
+      return data.data[0]?.embedding;
+    } catch (error) {
+      console.log('Embedding generation skipped:', error.message);
+      return null; // Return null instead of throwing error
+    }
+  },
+  
+  async generateEmbeddingForEntry(entry) {
+    try {
+      const textForEmbedding = `${entry.title} ${entry.text}`.slice(0, 8000);
+      const embedding = await this.generateEmbedding(textForEmbedding);
       
-      // Remove existing embedding since we're replacing the entry
+      if (embedding) {
+        await Storage.updateEntry(entry.id, { embedding });
+        console.log(`Generated embedding for entry: ${entry.title}`);
+      } else {
+        console.log(`Skipped embedding generation for entry: ${entry.title}`);
+      }
+      
+      return embedding;
+    } catch (error) {
+      console.log('Embedding generation skipped:', error.message);
+      return null;
+    }
+  }
+};
+
+// === SEARCH ENGINE ===
+const Search = {
+  async keywordSearch(query) {
+    const entries = await Storage.getEntries();
+    const queryLower = query.toLowerCase();
+    
+    const results = entries
+      .map(entry => {
+        const titleMatch = entry.title.toLowerCase().includes(queryLower);
+        const textMatch = entry.text.toLowerCase().includes(queryLower);
+        
+        if (!titleMatch && !textMatch) return null;
+        
+        // Calculate relevance score
+        const titleScore = titleMatch ? 10 : 0;
+        const textScore = textMatch ? 5 : 0;
+        const recencyScore = (Date.now() - new Date(entry.timestamp).getTime()) / (1000 * 60 * 60 * 24);
+        
+        return {
+          ...entry,
+          relevanceScore: titleScore + textScore - recencyScore * 0.1
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.relevanceScore - a.relevanceScore)
+      .slice(0, CONFIG.SEARCH_RESULTS_LIMIT);
+    
+    return results;
+  },
+  
+  async semanticSearch(query, filters = {}) {
+    const entries = await Storage.getEntries();
+    
+    // Generate embedding for query
+    const queryEmbedding = await AI.generateEmbedding(query);
+    if (!queryEmbedding) {
+      console.log('No query embedding available, using fallback search');
+      return await this.fallbackSemanticSearch(query, filters);
+    }
+    
+    // Count entries with embeddings
+    const entriesWithEmbeddings = entries.filter(entry => entry.embedding);
+    console.log(`Found ${entriesWithEmbeddings.length} entries with embeddings out of ${entries.length} total`);
+    
+    // If less than 3 entries have embeddings, use fallback
+    if (entriesWithEmbeddings.length < 3) {
+      console.log('Too few entries with embeddings, using fallback search');
+      return await this.fallbackSemanticSearch(query, filters);
+    }
+    
+    // Find similar entries
+    const results = entriesWithEmbeddings
+      .map(entry => {
+        const similarity = Utils.cosineSimilarity(queryEmbedding, entry.embedding);
+        return { ...entry, similarity };
+      })
+      .filter(entry => entry.similarity > 0.1) // Minimum similarity threshold
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, 20);
+    
+    // If no good matches, use fallback
+    if (results.length === 0) {
+      console.log('No semantic matches found, using fallback search');
+      return await this.fallbackSemanticSearch(query, filters);
+    }
+    
+    console.log(`Found ${results.length} semantic search results`);
+    return this.applyFilters(results, filters);
+  },
+  
+  async fallbackSemanticSearch(query, filters) {
+    // Fallback to enhanced keyword search
+    const entries = await Storage.getEntries();
+    const queryWords = query.toLowerCase().split(/\s+/);
+    
+    const results = entries
+      .map(entry => {
+        const content = `${entry.title} ${entry.text}`.toLowerCase();
+        const matchScore = queryWords.reduce((score, word) => {
+          const occurrences = (content.match(new RegExp(word, 'g')) || []).length;
+          return score + occurrences;
+        }, 0);
+        
+        return matchScore > 0 ? { ...entry, similarity: matchScore / queryWords.length } : null;
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, 20);
+    
+    return this.applyFilters(results, filters);
+  },
+  
+  applyFilters(results, filters) {
+    if (!filters) return results;
+    
+    let filtered = [...results];
+    
+    // Apply time filter
+    if (filters.timeFilter && filters.timeFilter !== 'any') {
+      const now = Date.now();
+      const timeRanges = {
+        hour: 60 * 60 * 1000,
+        day: 24 * 60 * 60 * 1000,
+        week: 7 * 24 * 60 * 60 * 1000,
+        month: 30 * 24 * 60 * 60 * 1000,
+        year: 365 * 24 * 60 * 60 * 1000
+      };
+      
+      const timeRange = timeRanges[filters.timeFilter];
+      if (timeRange) {
+        filtered = filtered.filter(entry => {
+          const entryTime = new Date(entry.timestamp).getTime();
+          return (now - entryTime) <= timeRange;
+        });
+      }
+    }
+    
+    return filtered;
+  }
+};
+
+// === TEXT EXTRACTION ===
+const TextExtractor = {
+  async extractFromTab(tab) {
+    if (!this.isValidTab(tab)) {
+      throw new Error('Cannot extract text from system pages');
+    }
+    
+    const text = await ContentScript.extractText(tab.id);
+    const cleanedText = await AI.cleanText(text);
+    
+    if (!cleanedText || cleanedText.trim().length === 0) {
+      throw new Error('No meaningful content found');
+    }
+    
+    return this.createEntry(tab, cleanedText);
+  },
+  
+  isValidTab(tab) {
+    return Utils.isValidUrl(tab.url) && !Utils.isSystemPage(tab.url);
+  },
+  
+  createEntry(tab, text) {
+    return {
+      id: Utils.getCurrentTimestamp(),
+      url: tab.url,
+      title: tab.title || 'Untitled',
+      text: text,
+      timestamp: new Date().toISOString(),
+      wordCount: Utils.countWords(text)
+    };
+  },
+  
+  async saveEntry(entry) {
+    // Check for duplicates
+    const entries = await Storage.getEntries();
+    const existing = entries.find(e => e.url === entry.url);
+    
+    if (existing) {
+      const shouldReplace = await this.askUserForReplacement(entry, existing);
+      if (!shouldReplace) {
+        return false;
+      }
+      await Storage.deleteEntry(existing.id);
+    }
+    
+    await Storage.addEntry(entry);
+    
+    // Generate embedding in background
+    AI.generateEmbeddingForEntry(entry).catch(console.error);
+    
+    return true;
+  },
+  
+  async askUserForReplacement(newEntry, existingEntry) {
+    // For now, always replace (in a real implementation, you'd show a dialog)
+    return true;
+  }
+};
+
+// === MESSAGE HANDLERS ===
+const MessageHandler = {
+  handlers: {
+    ping: () => ({ status: 'ok', timestamp: Date.now() }),
+    
+    get_entries: async () => {
+      const entries = await Storage.getEntries();
+      return { entries };
+    },
+    
+    search_keywords: async (message) => {
+      const results = await Search.keywordSearch(message.query);
+      return { results };
+    },
+    
+    search_similar: async (message) => {
+      const results = await Search.semanticSearch(message.query, message.filters);
+      return { results };
+    },
+    
+    clear_entries: async () => {
+      await Storage.clearEntries();
+      return { success: true };
+    },
+    
+    get_stats: async () => {
+      const stats = await Storage.getStats();
+      return { stats };
+    },
+    
+    clear_error_states: async () => {
+      await Storage.clearErrorStates();
+      return { success: true };
+    },
+    
+    set_api_key: async (message) => {
+      await Storage.setApiKey(message.apiKey);
+      return { success: true };
+    },
+    
+    delete_entry: async (message) => {
+      await Storage.deleteEntry(message.entryId);
+      return { success: true };
+    },
+    
+    capture_page: async (message) => {
       try {
-                     const embeddingResult = await browser.storage.local.get(['embeddings']);
-        const existingEmbeddings = embeddingResult.embeddings || {};
-        if (existingEmbeddings[duplicateEntry.id]) {
-          delete existingEmbeddings[duplicateEntry.id];
-                         await browser.storage.local.set({ embeddings: existingEmbeddings });
-                         logger.log('🗑️ Removed old embedding for replaced entry');
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tab) {
+          throw new Error('No active tab found');
+        }
+        
+        const entry = await TextExtractor.extractFromTab(tab);
+        const saved = await TextExtractor.saveEntry(entry);
+        
+        if (saved) {
+          return { success: true, entry: entry };
+        } else {
+          return { success: false, error: 'Text capture cancelled' };
         }
       } catch (error) {
-                     logger.warn('⚠️ Failed to remove old embedding:', error);
+        console.error('Page capture failed:', error);
+        return { success: false, error: error.message };
       }
     }
-    
-             // Remove duplicate if exists
-    const filteredEntries = existingEntries.filter(e => e.url !== cleanedEntry.url);
-    filteredEntries.unshift(cleanedEntry);
-    
-    // Keep only last 100 entries
-    if (filteredEntries.length > 100) {
-      filteredEntries.splice(100);
+  },
+  
+  async handle(message, sender, sendResponse) {
+    try {
+      const handler = this.handlers[message.action];
+      if (!handler) {
+        throw new Error(`Unknown action: ${message.action}`);
+      }
+      
+      const result = await handler(message, sender);
+      sendResponse(result);
+    } catch (error) {
+      console.error('Message handler error:', error);
+      sendResponse({ error: error.message });
     }
-    
-             await browser.storage.local.set({ textEntries: filteredEntries });
-    
-    const isReplacement = !!duplicateEntry;
-    
-    if (isReplacement) {
-                 logger.log('✅ Entry replaced, total entries now:', filteredEntries.length);
-      showNotification(`🔄 Replaced ${cleanedEntry.title} (${cleanedEntry.wordCount} words)`);
-    } else {
-                 logger.log('✅ Entry saved, total entries now:', filteredEntries.length);
-      showNotification(`✅ Saved ${cleanedEntry.wordCount} words from ${cleanedEntry.title} (🧠 generating embedding...)`);
-    }
-    
-             // Generate embedding for semantic search
-             await generateEmbeddingForEntry(cleanedEntry);
-    
-  } catch (error) {
-             logger.error('❌ Error saving text entry:', error);
-    showNotification('❌ Error saving text: ' + error.message);
-    throw error;
   }
-}
+};
 
-    // Show notification
-async function showNotification(message) {
-  try {
-            const tabs = await browser.tabs.query({ active: true, currentWindow: true });
-    if (tabs[0]) {
-      await ensureContentScript(tabs[0].id);
-                await browser.tabs.sendMessage(tabs[0].id, {
-        action: 'show_notification',
-        message: message
-      });
+// === EXTENSION LIFECYCLE ===
+const ExtensionManager = {
+  init() {
+    this.setupEventListeners();
+    this.scheduleCleanup();
+    console.log('SmartGrab AI Search Extension - Background script initialized');
+  },
+  
+  setupEventListeners() {
+    // Extension lifecycle
+    chrome.runtime.onStartup.addListener(this.onStartup.bind(this));
+    chrome.runtime.onInstalled.addListener(this.onInstalled.bind(this));
+    
+    // User interactions
+    chrome.action?.onClicked.addListener(this.onActionClicked.bind(this));
+    chrome.commands?.onCommand.addListener(this.onCommand.bind(this));
+    
+    // Message handling
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      MessageHandler.handle(message, sender, sendResponse);
+      return true; // Keep sendResponse alive for async operations
+    });
+  },
+  
+  onStartup() {
+    console.log('Extension startup');
+  },
+  
+  onInstalled(details) {
+    console.log('Extension installed/updated:', details.reason);
+    Storage.clearErrorStates();
+    
+    // Log available commands
+    chrome.commands?.getAll().then(commands => {
+      console.log('Available commands:', commands);
+    });
+  },
+  
+  async onActionClicked(tab) {
+    try {
+      if (chrome.sidePanel?.open) {
+        await chrome.sidePanel.open({ windowId: tab.windowId });
+      }
+    } catch (error) {
+      console.error('Failed to open side panel:', error);
     }
-  } catch (error) {
-            logger.warn('❌ Could not show notification:', error.message);
+  },
+  
+  async onCommand(command) {
+    if (command === 'trigger_action') {
+      try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (tab) {
+          await this.extractTextFromTab(tab);
         }
+      } catch (error) {
+        console.error('Command execution failed:', error);
+        Utils.showNotification('Failed to capture page text');
+      }
     }
-    
-    // Message handlers
-async function handleGetEntries(sendResponse) {
-  try {
-            const result = await browser.storage.local.get(['textEntries']);
-    const entries = result.textEntries || [];
-    sendResponse({ entries });
-  } catch (error) {
-            logger.error('❌ Error getting entries:', error);
-    sendResponse({ entries: [], error: error.message });
-  }
-}
-
-async function handleKeywordSearch(query, sendResponse) {
-  try {
-            const result = await browser.storage.local.get(['textEntries']);
-    const allEntries = result.textEntries || [];
-    
-    // Simple keyword search
-            const searchTerms = query.toLowerCase().split(/\s+/);
-    const results = allEntries.filter(entry => {
-                const searchText = (entry.title + ' ' + entry.text).toLowerCase();
-                return searchTerms.some(term => searchText.includes(term));
-            });
-            
-    sendResponse({ results });
-  } catch (error) {
-            logger.error('❌ Error in keyword search:', error);
-    sendResponse({ results: [], error: error.message });
-  }
-}
-
-         async function handleSemanticSearch(query, filters, sendResponse) {
-         try {
-             logger.log('🧠 Performing semantic search...');
-             const result = await browser.storage.local.get(['textEntries', 'embeddings']);
-             let allEntries = result.textEntries || [];
-             const embeddings = result.embeddings || {};
-             
-             // Apply time filter if present
-             if (filters && filters.timeFilter && filters.timeFilter !== 'any') {
-                 allEntries = applyTimeFilterBackend(allEntries, filters);
-             }
-             
-             if (!query || query.trim().length === 0) {
-                 sendResponse({ results: allEntries });
-                 return;
-             }
-             
-             // Try semantic search with embeddings
-             try {
-                 const queryEmbedding = await generateEmbedding(query);
-                 if (queryEmbedding) {
-                     const semanticResults = [];
-                     
-                     for (const entry of allEntries) {
-                         if (embeddings[entry.id]) {
-                             const similarity = cosineSimilarity(queryEmbedding, embeddings[entry.id]);
-                             if (similarity > 0.1) { // Threshold for relevance
-                                 semanticResults.push({ ...entry, similarity });
-                             }
-                         }
-                     }
-                     
-                     // Sort by similarity, descending
-                     semanticResults.sort((a, b) => b.similarity - a.similarity);
-                     const topResults = semanticResults.slice(0, 10);
-                     
-                     logger.log('🧠 Semantic search results:', topResults.length);
-                     sendResponse({ results: topResults });
-                     return;
-                 }
-             } catch (embeddingError) {
-                 logger.warn('⚠️ Embedding search failed, falling back to keyword search:', embeddingError.message);
-             }
-             
-             // Fallback to keyword-based semantic search
-             await handleFallbackSemanticSearch(query, filters, sendResponse);
-             
-         } catch (error) {
-             logger.error('❌ Error in semantic search:', error);
-             sendResponse({ results: [], error: error.message });
-         }
-}
-
-async function handleClearEntries(sendResponse) {
-  try {
-            await browser.storage.local.remove(['textEntries']);
-    sendResponse({ success: true });
-  } catch (error) {
-            logger.error('❌ Error clearing entries:', error);
-    sendResponse({ success: false, error: error.message });
-  }
-}
-
-async function handleGetStats(sendResponse) {
-  try {
-            const result = await browser.storage.local.get(['textEntries']);
-    const entries = result.textEntries || [];
-    
-    const stats = {
-      totalEntries: entries.length,
-                totalWords: entries.reduce((sum, entry) => sum + (entry.wordCount || 0), 0),
-                oldestEntry: entries.length > 0 ? entries[entries.length - 1].timestamp : null,
-                newestEntry: entries.length > 0 ? entries[0].timestamp : null
-    };
-    
-    sendResponse({ stats });
-  } catch (error) {
-            logger.error('❌ Error getting stats:', error);
-    sendResponse({ stats: null, error: error.message });
-  }
-}
-
-async function handleClearErrorStates(sendResponse) {
-  try {
-            await clearErrorStates();
-            sendResponse({ success: true });
-        } catch (error) {
-            logger.error('❌ Error clearing error states:', error);
-            sendResponse({ success: false, error: error.message });
+  },
+  
+  async extractTextFromTab(tab) {
+    try {
+      const entry = await TextExtractor.extractFromTab(tab);
+      const saved = await TextExtractor.saveEntry(entry);
+      
+      if (saved) {
+        Utils.showNotification(`Captured: ${entry.title}`);
+      } else {
+        Utils.showNotification('Text capture cancelled');
+      }
+    } catch (error) {
+      console.error('Text extraction failed:', error);
+      Utils.showNotification(`Failed to capture text: ${error.message}`);
+    }
+  },
+  
+  scheduleCleanup() {
+    // Run cleanup every 24 hours
+    setInterval(async () => {
+      try {
+        await Storage.clearErrorStates();
+        
+        // Clean up old entries if needed
+        const stats = await Storage.getStats();
+        if (stats.totalSize > 50 * 1024 * 1024) { // 50MB limit
+          console.log('Storage cleanup needed');
+          // Implement cleanup logic here
         }
-    }
-    
-    async function handleCaptureAndOpenNotebookLM(tabId, sendResponse) {
-        try {
-            logger.log('📄 Capture and open NotebookLM request');
-            
-            // Get the tab
-            const tab = await browser.tabs.get(tabId);
-            
-            // Extract text from the page
-            await extractAndSavePageText(tab);
-            
-            // Open NotebookLM
-            await browser.tabs.create({ 
-                url: 'https://notebooklm.google.com/', 
-                active: true 
-            });
-            
-            sendResponse({ success: true });
-  } catch (error) {
-            logger.error('❌ Error in capture and open NotebookLM:', error);
-    sendResponse({ success: false, error: error.message });
+      } catch (error) {
+        console.error('Cleanup failed:', error);
+      }
+    }, CONFIG.CLEANUP_INTERVAL);
   }
-}
+};
 
-         // Ask user for replacement
-     async function askUserForReplacement(newEntry, existingEntry) {
-         try {
-             logger.log('❓ Asking user for replacement decision...');
-             
-             // Get the active tab to show the confirmation
-             const tabs = await browser.tabs.query({ active: true, currentWindow: true });
-             if (!tabs[0]) {
-                 logger.log('❌ No active tab found for user prompt');
-                 return false;
-             }
-             
-             // Ensure content script is loaded
-             await ensureContentScript(tabs[0].id);
-             
-             // Prepare the confirmation message
-             const existingDate = new Date(existingEntry.timestamp).toLocaleDateString();
-             const newWordCount = newEntry.wordCount;
-             const existingWordCount = existingEntry.wordCount;
-             
-             const message = `📄 You already have this page saved!\n\n` +
-                 `Existing: ${existingEntry.title}\n` +
-                 `Saved: ${existingDate} (${existingWordCount} words)\n\n` +
-                 `New version: ${newWordCount} words\n\n` +
-                 `Replace with new version?`;
-             
-             // Send confirmation request to content script
-             const response = await browser.tabs.sendMessage(tabs[0].id, {
-                 action: 'confirm_replacement',
-                 message: message
-             });
-             
-             logger.log('✅ User response received:', response?.replace ? 'Replace' : 'Keep existing');
-             return response?.replace || false;
-             
-         } catch (error) {
-             logger.error('❌ Error asking user for replacement:', error);
-             // Default to not replacing if we can't ask
-             return false;
-         }
-     }
-     
-     // AI text cleaning function
-async function cleanTextForSemanticSearch(rawText) {
-  if (!rawText || typeof rawText !== 'string') {
-    return '';
-  }
-  
-         logger.log('🧹 Cleaning text for semantic search...');
-  
-         // Basic HTML cleanup
-  const cleanedText = rawText
-    .replace(/<[^>]*>/g, ' ') // Remove HTML tags
-    .replace(/&[a-zA-Z0-9#]+;/g, ' ') // Remove HTML entities
-    .replace(/&nbsp;/g, ' ') // Replace non-breaking spaces
-    .replace(/&amp;/g, '&') // Replace ampersand entities
-    .replace(/&lt;/g, '<') // Replace less than entities
-    .replace(/&gt;/g, '>') // Replace greater than entities
-    .replace(/&quot;/g, '"') // Replace quote entities
-    .replace(/&#39;/g, "'") // Replace apostrophe entities
-    .replace(/\s+/g, ' ') // Normalize whitespace
-    .trim();
-  
-         logger.log('📊 Text cleaned, length:', cleanedText.length);
-  return cleanedText;
-}
-
-     // Generate embedding for entry
-     async function generateEmbeddingForEntry(entry) {
-         try {
-             logger.log('🧠 Generating embedding for entry:', entry.title);
-             
-             const embedding = await generateEmbedding(entry.text);
-             if (embedding) {
-                 // Store embedding
-                 const result = await browser.storage.local.get(['embeddings']);
-                 const embeddings = result.embeddings || {};
-                 embeddings[entry.id] = embedding;
-                 
-                 await browser.storage.local.set({ embeddings });
-                 logger.log('✅ Embedding generated and stored for entry:', entry.id);
-             }
-  } catch (error) {
-             logger.warn('⚠️ Failed to generate embedding:', error.message);
-         }
-     }
-     
-     // Generate embedding using OpenAI API
-     async function generateEmbedding(text) {
-         try {
-             // Get API key
-             const result = await browser.storage.local.get(['openaiApiKey']);
-             const apiKey = result.openaiApiKey;
-             
-             if (!apiKey) {
-                 logger.warn('⚠️ No OpenAI API key found for embedding generation');
-                 return null;
-             }
-             
-             const response = await fetch('https://api.openai.com/v1/embeddings', {
-                 method: 'POST',
-                 headers: {
-                     'Content-Type': 'application/json',
-                     'Authorization': `Bearer ${apiKey}`
-                 },
-                 body: JSON.stringify({
-                     model: 'text-embedding-3-small',
-                     input: text.substring(0, 8000), // Limit text length
-                     encoding_format: 'float'
-                 })
-             });
-             
-             if (!response.ok) {
-                 throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
-             }
-             
-             const data = await response.json();
-             return data.data[0].embedding;
-             
-  } catch (error) {
-             logger.error('❌ Error generating embedding:', error);
-             return null;
-         }
-     }
-     
-     // Cosine similarity function
-     function cosineSimilarity(vecA, vecB) {
-         if (!vecA || !vecB || vecA.length !== vecB.length) {
-             return 0;
-         }
-         
-         let dotProduct = 0;
-         let normA = 0;
-         let normB = 0;
-         
-         for (let i = 0; i < vecA.length; i++) {
-             dotProduct += vecA[i] * vecB[i];
-             normA += vecA[i] * vecA[i];
-             normB += vecB[i] * vecB[i];
-         }
-         
-         if (normA === 0 || normB === 0) {
-             return 0;
-         }
-         
-         return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
-     }
-     
-     // Apply time-based filtering
-     function applyTimeFilterBackend(entries, filters) {
-         const now = new Date();
-         let cutoffDate;
-         
-         logger.log('⏰ Applying time filter:', filters.timeFilter);
-         
-         switch (filters.timeFilter) {
-             case 'hour':
-                 cutoffDate = new Date(now.getTime() - (60 * 60 * 1000));
-                 break;
-             case 'day':
-                 cutoffDate = new Date(now.getTime() - (24 * 60 * 60 * 1000));
-                 break;
-             case 'week':
-                 cutoffDate = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
-                 break;
-             case 'month':
-                 cutoffDate = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
-                 break;
-             case 'year':
-                 cutoffDate = new Date(now.getTime() - (365 * 24 * 60 * 60 * 1000));
-                 break;
-             case 'custom':
-                 if (filters.dateFrom && filters.dateTo) {
-                     const fromDate = new Date(filters.dateFrom);
-                     const toDate = new Date(filters.dateTo);
-                     toDate.setHours(23, 59, 59, 999);
-                     
-                     return entries.filter(entry => {
-                         const entryDate = new Date(entry.timestamp);
-                         return entryDate >= fromDate && entryDate <= toDate;
-                     });
-                 }
-                 return entries;
-             default:
-                 return entries;
-         }
-         
-         const filteredEntries = entries.filter(entry => {
-             const entryDate = new Date(entry.timestamp);
-             return entryDate >= cutoffDate;
-         });
-         
-         logger.log('⏰ Time filter results:', entries.length, '->', filteredEntries.length);
-         return filteredEntries;
-     }
-     
-     // Fallback semantic search (word overlap)
-     async function handleFallbackSemanticSearch(query, filters, sendResponse) {
-         try {
-             logger.log('🧠 Performing fallback semantic search...');
-             const result = await browser.storage.local.get(['textEntries']);
-             let allEntries = result.textEntries || [];
-             
-             // Apply time filter if present
-             if (filters && filters.timeFilter && filters.timeFilter !== 'any') {
-                 allEntries = applyTimeFilterBackend(allEntries, filters);
-             }
-             
-             if (!query || query.trim().length === 0) {
-                 sendResponse({ results: allEntries });
-      return;
-    }
-    
-             // Tokenize query (remove stopwords, lowercase)
-             const stopwords = new Set([
-                 'the','is','at','which','on','a','an','and','or','for','to','of','in','with','by','as','from','that','this','it','be','are','was','were','has','have','had','but','not','so','if','then','than','too','very','can','will','just','do','does','did','about','into','over','after','before','such','no','yes','you','your','we','our','they','their','i','me','my','he','him','his','she','her','them','us','who','what','when','where','why','how'
-             ]);
-             const queryWords = query.toLowerCase().split(/\W+/).filter(w => w && !stopwords.has(w));
-             if (queryWords.length === 0) {
-                 sendResponse({ results: [] });
-      return;
-    }
-    
-             // Score entries by word overlap
-             const scored = allEntries.map(entry => {
-                 const text = [entry.title || '', entry.text || ''].join(' ').toLowerCase();
-                 const entryWords = new Set(text.split(/\W+/).filter(w => w && !stopwords.has(w)));
-                 let overlap = 0;
-                 queryWords.forEach(qw => { if (entryWords.has(qw)) overlap++; });
-                 const similarity = queryWords.length > 0 ? overlap / queryWords.length : 0;
-                 return { ...entry, similarity };
-             });
-             
-             // Sort by similarity, descending
-             scored.sort((a, b) => b.similarity - a.similarity);
-             const filtered = scored.filter(e => e.similarity > 0);
-             const topResults = filtered.slice(0, 10);
-             
-             logger.log('🧠 Fallback semantic search results:', topResults.length);
-             sendResponse({ results: topResults });
-  } catch (error) {
-             logger.error('❌ Error in fallback semantic search:', error);
-             sendResponse({ results: [], error: error.message });
-         }
-     }
-     
-     // Add API key management
-     browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
-         if (message.action === 'set_api_key') {
-             handleSetApiKey(message.apiKey, sendResponse);
-             return true;
-         }
-     });
-     
-     async function handleSetApiKey(apiKey, sendResponse) {
-         try {
-             await browser.storage.local.set({ openaiApiKey: apiKey });
-             logger.log('✅ API key saved successfully');
-             sendResponse({ success: true });
-  } catch (error) {
-             logger.error('❌ Error saving API key:', error);
-             sendResponse({ success: false, error: error.message });
-         }
-     }
-     
-     // Initialize the extension
-     return initializeExtension();
- }();
- 
- // Export for compatibility
- if (typeof module !== 'undefined' && module.exports) {
-     module.exports = background;
- } 
+// === INITIALIZATION ===
+(() => {
+  ExtensionManager.init();
+})(); 
