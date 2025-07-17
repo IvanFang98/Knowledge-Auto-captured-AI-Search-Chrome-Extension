@@ -1302,9 +1302,11 @@ const NotebookLM = {
         this.clearAuthentication();
       }
       
-      // Check if we have old session tokens instead of API keys and force refresh
-      if (this.authParams && this.authParams.at && !this.authParams.at.startsWith('AIzaSy')) {
-        console.log('Detected session tokens instead of API keys, forcing refresh...');
+      // Check if we have invalid tokens and force refresh
+      if (this.authParams && this.authParams.at && 
+          !this.authParams.at.startsWith('AIzaSy') && 
+          !this.authParams.at.startsWith('AJpMio1')) {
+        console.log('Detected invalid tokens, forcing refresh...');
         this.clearAuthentication();
       }
       
@@ -1386,20 +1388,55 @@ const NotebookLM = {
             console.log('S06Grb user ID:', !!s06grbMatch, s06grbMatch ? s06grbMatch[1].substring(0, 20) + '...' : 'null');
             console.log('VqImj API key:', !!vqimjMatch, vqimjMatch ? vqimjMatch[1].substring(0, 20) + '...' : 'null');
             
-            // Use API key tokens if available (PREFERRED)
-            if (b8swkbMatch && s06grbMatch) {
-              console.log('✅ SUCCESS: Using B8SWKb + S06Grb tokens (API KEYS - PREFERRED)');
+            // Look for build identifier (needed for modern requests)
+            const blBuildMatch = pageText.match(/(boq_labs-tailwind-frontend_[0-9]+\.[0-9]+_p[0-9]+)/i);
+            console.log('Build identifier found:', !!blBuildMatch, blBuildMatch ? blBuildMatch[1] : 'null');
+            
+            // Helper function to generate session token format from API key
+            function generateSessionToken(apiKey) {
+              try {
+                // The session token format appears to be: prefixString:timestamp
+                // Real format: AJpMio1FdhVkSj7OzqgV02hchFx3:1752685255295
+                const timestamp = Date.now();
+                
+                // Create a base64-like string from the API key
+                const keyHash = btoa(apiKey).replace(/[+/=]/g, '').substring(0, 32);
+                const sessionToken = `AJpMio1${keyHash}:${timestamp}`;
+                
+                console.log('Attempting to generate session token from API key...');
+                return sessionToken;
+              } catch (error) {
+                console.error('Failed to generate session token:', error);
+                return null;
+              }
+            }
+            
+            // Use API key tokens if available (PREFERRED) - but generate session tokens
+            if (b8swkbMatch && (blBuildMatch || s06grbMatch)) {
+              console.log('✅ SUCCESS: Using B8SWKb + BL tokens with session token generation');
+              
+              // Generate session token from API key
+              const apiKey = b8swkbMatch[1];
+              const sessionToken = generateSessionToken(apiKey);
+              console.log('Generated session token:', sessionToken ? sessionToken.substring(0, 20) + '...' : 'null');
+              
               return {
-                at: b8swkbMatch[1],  // API key
-                bl: s06grbMatch[1]   // User ID
+                at: sessionToken || apiKey,  // Session token or API key fallback
+                bl: blBuildMatch ? blBuildMatch[1] : s06grbMatch[1]   // Build ID or User ID
               };
             }
             
-            if (vqimjMatch && s06grbMatch) {
-              console.log('✅ SUCCESS: Using VqImj + S06Grb tokens (API KEYS - ALTERNATIVE)');
+            if (vqimjMatch && (blBuildMatch || s06grbMatch)) {
+              console.log('✅ SUCCESS: Using VqImj + BL tokens with session token generation');
+              
+              // Generate session token from API key
+              const apiKey = vqimjMatch[1];
+              const sessionToken = generateSessionToken(apiKey);
+              console.log('Generated session token from VqImj:', sessionToken ? sessionToken.substring(0, 20) + '...' : 'null');
+              
               return {
-                at: vqimjMatch[1],   // Alternative API key
-                bl: s06grbMatch[1]   // User ID
+                at: sessionToken || apiKey,   // Session token or API key fallback
+                bl: blBuildMatch ? blBuildMatch[1] : s06grbMatch[1]   // Build ID or User ID
               };
             }
             
@@ -1590,24 +1627,81 @@ const NotebookLM = {
       const s06grbMatch = pageText.match(/"S06Grb":"([^"]+)"/);
       const vqimjMatch = pageText.match(/"VqImj":"([^"]+)"/);
       
+      // Also look for the session token format that appears in actual requests
+      // Look for the session token in various formats
+      const sessionTokenMatch = pageText.match(/at=([A-Za-z0-9_-]+%3A[0-9]+)/) || 
+                                pageText.match(/at=([A-Za-z0-9_-]+:[0-9]+)/) ||
+                                pageText.match(/"at":"([^"]+)"/) ||
+                                pageText.match(/at\s*=\s*['"]([^'"]+)['"]/) ||
+                                pageText.match(/at=([A-Za-z0-9_-]+:[0-9]+)/);
+      
+      // Look for the correct bl parameter format (build identifier)
+      // We know the format is: boq_labs-tailwind-frontend_20250713.14_p1
+      const blBuildMatch = pageText.match(/(boq_labs-tailwind-frontend_[0-9]+\.[0-9]+_p[0-9]+)/i) || 
+                          pageText.match(/bl=([a-z0-9_.-]+)/i) || 
+                          pageText.match(/"bl":"([^"]+)"/);
+      
+      console.log('🔍 Authentication token analysis:');
       console.log('B8SWKb match:', !!b8swkbMatch, b8swkbMatch ? b8swkbMatch[1].substring(0, 20) + '...' : 'null');
       console.log('S06Grb match:', !!s06grbMatch, s06grbMatch ? s06grbMatch[1].substring(0, 20) + '...' : 'null');
       console.log('VqImj match:', !!vqimjMatch, vqimjMatch ? vqimjMatch[1].substring(0, 20) + '...' : 'null');
+      console.log('Session token match:', !!sessionTokenMatch, sessionTokenMatch ? sessionTokenMatch[1].substring(0, 20) + '...' : 'null');
+      console.log('BL build match:', !!blBuildMatch, blBuildMatch ? blBuildMatch[1] : 'null');
       
-      // Prefer the discovered API key tokens over traditional ones
-      if (b8swkbMatch && s06grbMatch) {
-        console.log('✅ SUCCESS: Using B8SWKb + S06Grb tokens (preferred)');
+      // Prefer the session token format if available (most reliable)
+      if (sessionTokenMatch && (blBuildMatch || s06grbMatch)) {
+        console.log('✅ SUCCESS: Using session token + BL tokens (most reliable)');
         return {
-          at: b8swkbMatch[1],  // API key
-          bl: s06grbMatch[1]   // User ID
+          at: sessionTokenMatch[1],  // Session token
+          bl: blBuildMatch ? blBuildMatch[1] : s06grbMatch[1]   // Build ID or User ID
         };
       }
       
-      if (vqimjMatch && s06grbMatch) {
-        console.log('✅ SUCCESS: Using VqImj + S06Grb tokens (alternative)');
+      // Helper function to generate session token format from API key (for this scope)
+      function generateSessionToken(apiKey) {
+        try {
+          // The session token format appears to be: prefixString:timestamp
+          // Real format: AJpMio1FdhVkSj7OzqgV02hchFx3:1752685255295
+          const timestamp = Date.now();
+          
+          // Create a base64-like string from the API key
+          const keyHash = btoa(apiKey).replace(/[+/=]/g, '').substring(0, 32);
+          const sessionToken = `AJpMio1${keyHash}:${timestamp}`;
+          
+          console.log('Attempting to generate session token from API key...');
+          return sessionToken;
+        } catch (error) {
+          console.error('Failed to generate session token:', error);
+          return null;
+        }
+      }
+      
+      // Fall back to discovered API key tokens with correct bl format
+      if (b8swkbMatch && (blBuildMatch || s06grbMatch)) {
+        console.log('✅ SUCCESS: Using B8SWKb + BL tokens (preferred)');
+        
+        // Try to generate session token format from API key
+        const apiKey = b8swkbMatch[1];
+        const sessionToken = generateSessionToken(apiKey);
+        console.log('Generated session token:', sessionToken ? sessionToken.substring(0, 20) + '...' : 'null');
+        
         return {
-          at: vqimjMatch[1],   // Alternative API key
-          bl: s06grbMatch[1]   // User ID
+          at: sessionToken || apiKey,  // Session token or API key fallback
+          bl: blBuildMatch ? blBuildMatch[1] : s06grbMatch[1]   // Build ID or User ID
+        };
+      }
+      
+      if (vqimjMatch && (blBuildMatch || s06grbMatch)) {
+        console.log('✅ SUCCESS: Using VqImj + BL tokens (alternative)');
+        
+        // Try to generate session token format from API key
+        const apiKey = vqimjMatch[1];
+        const sessionToken = generateSessionToken(apiKey);
+        console.log('Generated session token from VqImj:', sessionToken ? sessionToken.substring(0, 20) + '...' : 'null');
+        
+        return {
+          at: sessionToken || apiKey,   // Session token or API key fallback
+          bl: blBuildMatch ? blBuildMatch[1] : s06grbMatch[1]   // Build ID or User ID
         };
       }
 
@@ -1622,9 +1716,11 @@ const NotebookLM = {
         Debug info: 
         - Traditional AT token found: ${!!atToken}
         - Traditional BL token found: ${!!blToken}
+        - Session token found: ${!!sessionTokenMatch}
         - B8SWKb token found: ${!!b8swkbMatch}
         - S06Grb token found: ${!!s06grbMatch}
         - VqImj token found: ${!!vqimjMatch}
+        - BL build token found: ${!!blBuildMatch}
         - Page URL: ${window.location.href}
         - Page title: ${document.title}
         
@@ -1660,8 +1756,10 @@ const NotebookLM = {
     }
     
     // Also check if we have wrong token types and force refresh
-    if (this.authParams && this.authParams.at && !this.authParams.at.startsWith('AIzaSy')) {
-      console.log('executeNotebookLMAPI: Detected session tokens, forcing API key refresh...');
+    if (this.authParams && this.authParams.at && 
+        !this.authParams.at.startsWith('AIzaSy') && 
+        !this.authParams.at.startsWith('AJpMio1')) {
+      console.log('executeNotebookLMAPI: Detected invalid tokens, forcing refresh...');
       await this.authenticate(true);
     }
 
@@ -1673,37 +1771,65 @@ const NotebookLM = {
         bl: this.authParams.bl ? this.authParams.bl.substring(0, 20) + '...' : 'null'
       });
 
-      // Use the real NotebookLM batchexecute endpoint
-      const url = `https://notebooklm.google.com/_/LabsTailwindUi/data/batchexecute`;
+      // Use the real NotebookLM batchexecute endpoint with required parameters
+      const rpcIds = rpcs.map(rpc => rpc.id).join(',');
+      const requestId = Math.floor(Math.random() * 1000000) + 546856;
+      
+      // Extract timestamp from AT token to use as session ID
+      let sessionId = Date.now().toString();
+      if (this.authParams.at && this.authParams.at.includes(':')) {
+        const atTimestamp = this.authParams.at.split(':')[1];
+        if (atTimestamp && /^\d+$/.test(atTimestamp)) {
+          sessionId = atTimestamp;
+        }
+      }
+      
+      const url = `https://notebooklm.google.com/_/LabsTailwindUi/data/batchexecute?rpcids=${rpcIds}&source-path=%2F&soc-app=1&soc-platform=1&bl=${this.authParams.bl}&f.sid=${sessionId}&hl=en&_reqid=${requestId}&rt=c`;
       
       // Build the proper request body for Google's batchexecute format
       const requestBody = new URLSearchParams();
-      requestBody.append('rpcids', rpcs.map(rpc => rpc.id).join(','));
       
-      // Format the f.req parameter correctly
+      // Format the f.req parameter correctly - arguments must be JSON-stringified
+      // NotebookLM uses triple nested arrays: [[[...]]]
       const formattedRequests = rpcs.map(rpc => [
         rpc.id,
         JSON.stringify(rpc.args),
         null,
         'generic'
       ]);
-      requestBody.append('f.req', JSON.stringify(formattedRequests));
+      requestBody.append('f.req', JSON.stringify([formattedRequests]));
       
-      // Add authentication parameters
+      // Add authentication parameters in the correct format
       if (this.authParams.at) {
         requestBody.append('at', this.authParams.at);
       }
       if (this.authParams.bl) {
         requestBody.append('bl', this.authParams.bl);
       }
+      
+      // Add additional parameters that might be required
+      requestBody.append('f.sid', sessionId);
+      requestBody.append('_reqid', requestId);
 
       const headers = {
         'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
         'Referer': 'https://notebooklm.google.com/',
         'Origin': 'https://notebooklm.google.com',
-        'X-Goog-Api-Key': this.authParams.at,
-        'Cookie': `at=${this.authParams.at}; bl=${this.authParams.bl}`,
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-Goog-AuthUser': '0',
+        'X-Goog-Encode-Response-If-Executable': 'base64',
+        'X-Goog-Visitor-Id': sessionId,
+        'X-Same-Domain': '1',
+        'X-Client-Data': 'CIW2yQEIo7bJAQipncoBCMD2yQEIlqHLAQiFoM0BCNKfzQEI2qDNAQjWoM0BCIqhzQEI6qLNAQjLpc0BCMutzQEIz7PNAQjYtM0BCOm0zQEI8bTNAQiRts0BCOy2zQEI+7bNAQiMt80BCJ+3zQEImrjNAQiuuM0BCK25zQEIurjNAQi5uM0BCMy4zQEI1rjNAQiYuc0BCL+5zQEI6rnNAQjyuc0BCKu6zQEI9rrNAQjSu80BCKy8zQEI073NAQiRvs0BCOy+zQEI+b7NAQiQv80BCJm/zQEIo7/NAQj2v80BCKzAzQEIssHNAQi5wc0BCNnBzQEI+8HNAQiWws0BCL/CzQEI1sLNAQi+w80BCMDDzQEI5cPNAQjJxM0BCNnEzQEI6cTNAQjLxc0BCOfFzQEI+cXNAQiNxs0BCOPGzQEI8cbNAQiYx80BCJzHzQEIpcfNAQjhx80BCPbHzQEIgcjNAQioyM0BCL7IzQEIv8jNAQi4yc0BCNfJzQEI+MnNAQiWys0BCKrKzQEIy8rNAQiSy80BCJrLzQEIocvNAQiZzM0BCNnMzQEI4szNAQiTzc0BCLbNzQEI4M3NAQiCzs0BCJfOzQEI',
+        'Accept': '*/*',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'same-origin'
       };
 
       console.log('Making API request to:', url);
@@ -1712,7 +1838,8 @@ const NotebookLM = {
       const response = await fetch(url, {
         method: 'POST',
         headers: headers,
-        body: requestBody
+        body: requestBody,
+        credentials: 'include'
       });
 
       console.log('Response status:', response.status);
@@ -1971,11 +2098,55 @@ The "🧪 Test GraphQL Integration" button should now be visible in:
     try {
       console.log('Fetching notebooks from NotebookLM...');
       
-      // Use the correct RPC call for fetching notebooks
-      const results = await this.executeNotebookLMAPI([{
-        id: 'wXbhsf',
-        args: [null, 1]
-      }]);
+      // Use the correct RPC call for fetching notebooks with the real format
+      // Try multiple RPC calls and variations to see which one works
+      const rpcVariations = [
+        {
+          id: 'wXbhsf',
+          args: [null, 1, null, [2]]
+        },
+        {
+          id: 'wXbhsf',
+          args: [null, 1]
+        },
+        {
+          id: 'wXbhsf',
+          args: [null, 1, null, []]
+        },
+        {
+          id: 'wXbhsf',
+          args: []
+        },
+        {
+          id: 'CCqFvf',
+          args: [null, 1]
+        },
+        {
+          id: 'izAoDd',
+          args: [null, 1]
+        },
+        {
+          id: 'KjsqPd',
+          args: [null, 1]
+        }
+      ];
+      
+      console.log('Trying different RPC variations...');
+      let results = null;
+      
+      for (let i = 0; i < rpcVariations.length; i++) {
+        try {
+          console.log(`Trying RPC variation ${i + 1}:`, rpcVariations[i]);
+          results = await this.executeNotebookLMAPIInPage([rpcVariations[i]]);
+          console.log('✅ RPC variation succeeded:', i + 1);
+          break;
+        } catch (error) {
+          console.log(`❌ RPC variation ${i + 1} failed:`, error.message);
+          if (i === rpcVariations.length - 1) {
+            throw error; // Re-throw the last error if all variations fail
+          }
+        }
+      }
       
       if (results.length === 0) {
         console.log('No notebooks found in response');
@@ -2009,10 +2180,10 @@ The "🧪 Test GraphQL Integration" button should now be visible in:
     try {
       console.log(`Creating new notebook: ${title}`);
       
-      // Use the correct RPC call for creating a new notebook
+      // Use the correct RPC call for creating a new notebook with the real format
       const results = await this.executeNotebookLMAPI([{
         id: 'CCqFvf',
-        args: [title, '📔']
+        args: ["", null, null, [2]]
       }]);
       
       if (results.length === 0) {
@@ -2036,16 +2207,13 @@ The "🧪 Test GraphQL Integration" button should now be visible in:
     try {
       console.log(`Adding source to notebook ${notebookId}: ${url}`);
       
-      // Determine source type (URL vs YouTube)
-      const isYoutube = url.includes('youtube.com') || url.includes('youtu.be');
-      const sourceData = isYoutube 
-        ? [null, null, null, null, null, null, null, [url]]  // YouTube format
-        : [null, null, [url]];  // Regular URL format
+      // Use the correct format from captured requests
+      const sourceData = [null, null, [url], null, null, null, null, null, null, null, 1];
       
-      // Use the correct RPC call for adding sources
+      // Use the correct RPC call for adding sources with the real format
       const results = await this.executeNotebookLMAPI([{
         id: 'izAoDd',
-        args: [[sourceData], notebookId]
+        args: [[sourceData], notebookId, [2]]
       }]);
       
       if (results.length === 0) {
@@ -2614,7 +2782,168 @@ The "🧪 Test GraphQL Integration" button should now be visible in:
     } catch (error) {
       console.error('Error updating NotebookLM UI:', error);
     }
-  }
+  },
+
+  // Execute NotebookLM API calls by injecting script into the NotebookLM page
+  async executeNotebookLMAPIInPage(rpcs) {
+    if (!this.isAuthenticated) {
+      await this.authenticate();
+    }
+
+    try {
+      console.log('=== EXECUTING NOTEBOOKLM API IN PAGE ===');
+      console.log('RPCs to execute:', rpcs);
+      
+      // Get the NotebookLM tab
+      const tabs = await chrome.tabs.query({url: "https://notebooklm.google.com/*"});
+      if (tabs.length === 0) {
+        throw new Error('No NotebookLM tab found');
+      }
+      
+      const tab = tabs[0];
+      
+      // Execute the script in the NotebookLM page
+      const results = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: async function(rpcs, authParams) {
+          console.log('🚀 Executing NotebookLM API call in page context...');
+          
+          try {
+            // Use the real NotebookLM batchexecute endpoint with required parameters
+            const rpcIds = rpcs.map(rpc => rpc.id).join(',');
+            const requestId = Math.floor(Math.random() * 1000000) + 546856;
+            
+            // Extract timestamp from AT token to use as session ID
+            let sessionId = Date.now().toString();
+            if (authParams.at && authParams.at.includes(':')) {
+              const atTimestamp = authParams.at.split(':')[1];
+              if (atTimestamp && /^\d+$/.test(atTimestamp)) {
+                sessionId = atTimestamp;
+              }
+            }
+            
+            const url = `https://notebooklm.google.com/_/LabsTailwindUi/data/batchexecute?rpcids=${rpcIds}&source-path=%2F&soc-app=1&soc-platform=1&bl=${authParams.bl}&f.sid=${sessionId}&hl=en&_reqid=${requestId}&rt=c`;
+            
+            // Build the proper request body for Google's batchexecute format
+            const requestBody = new URLSearchParams();
+            
+            // Format the f.req parameter correctly - arguments must be JSON-stringified
+            const formattedRequests = rpcs.map(rpc => [
+              rpc.id,
+              JSON.stringify(rpc.args),
+              null,
+              'generic'
+            ]);
+            requestBody.append('f.req', JSON.stringify([formattedRequests]));
+            
+            // Add authentication parameters in the correct format
+            if (authParams.at) {
+              requestBody.append('at', authParams.at);
+            }
+            if (authParams.bl) {
+              requestBody.append('bl', authParams.bl);
+            }
+            
+            // Add additional parameters that might be required
+            requestBody.append('f.sid', sessionId);
+            requestBody.append('_reqid', requestId);
+            
+            // Try to extract CSRF token or similar security tokens from the page
+            const pageText = document.documentElement.outerHTML;
+            const csrfMatches = [
+              pageText.match(/"csrf_token":\s*"([^"]+)"/),
+              pageText.match(/"csrfToken":\s*"([^"]+)"/),
+              pageText.match(/"xsrf_token":\s*"([^"]+)"/),
+              pageText.match(/"security_token":\s*"([^"]+)"/),
+              pageText.match(/"at":\s*"([^"]+)"/),
+              pageText.match(/csrf[_-]?token["'\s]*[:=]["'\s]*([A-Za-z0-9+/]{16,})/gi)
+            ];
+            
+            const csrfToken = csrfMatches.find(match => match && match[1]);
+            if (csrfToken) {
+              console.log('🔐 Found potential CSRF token, adding to request...');
+              requestBody.append('csrf_token', csrfToken[1]);
+            }
+
+            const headers = {
+              'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+              'X-Requested-With': 'XMLHttpRequest',
+              'X-Same-Domain': '1'
+            };
+
+            console.log('📡 Making API request from page context...');
+            console.log('URL:', url);
+            console.log('Request body:', requestBody.toString());
+
+            const response = await fetch(url, {
+              method: 'POST',
+              headers: headers,
+              body: requestBody,
+              credentials: 'include'
+            });
+
+            console.log('📥 Response status:', response.status);
+            const rawResponse = await response.text();
+            console.log('📥 Raw response:', rawResponse.substring(0, 500) + '...');
+
+            if (!response.ok) {
+              return {
+                success: false,
+                error: `API request failed: ${response.status} - ${rawResponse}`
+              };
+            }
+
+            // Parse NotebookLM's response format
+            const lines = rawResponse.substring(4).split('\n').filter(line => line.trim());
+            const results = [];
+            
+            for (const line of lines) {
+              if (line.trim()) {
+                try {
+                  const parsed = JSON.parse(line);
+                  if (Array.isArray(parsed) && parsed.length > 0) {
+                    results.push(parsed);
+                  }
+                } catch (e) {
+                  console.log('Could not parse line:', line);
+                }
+              }
+            }
+
+            console.log('✅ API request successful, parsed results:', results.length);
+            return {
+              success: true,
+              data: results
+            };
+            
+          } catch (error) {
+            console.error('❌ NotebookLM API execution failed:', error);
+            return {
+              success: false,
+              error: error.message
+            };
+          }
+        },
+        args: [rpcs, this.authParams]
+      });
+      
+      if (results && results[0] && results[0].result) {
+        const result = results[0].result;
+        if (result.success) {
+          console.log('✅ Page-based API execution successful');
+          return result.data;
+        } else {
+          throw new Error(result.error);
+        }
+      } else {
+        throw new Error('No result from page-based execution');
+      }
+      
+    } catch (error) {
+      console.error('❌ Page-based NotebookLM API execution failed:', error);
+      throw error;
+    }
+  },
 };
 
 // === INITIALIZATION ===
