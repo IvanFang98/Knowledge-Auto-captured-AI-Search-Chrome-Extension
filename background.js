@@ -199,13 +199,8 @@ const ContentScript = {
   
   async inject(tabId) {
     try {
-          await chrome.scripting.executeScript({
-      target: { tabId },
-      files: ['content.js']
-    });
-      
-      // Wait for initialization
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Content script injection is now handled by manifest.json
+      // No need to manually inject content.js
       return true;
     } catch (error) {
       console.error('Content script injection failed:', error);
@@ -629,8 +624,28 @@ const ExtensionManager = {
     
     // Message handling
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-      MessageHandler.handle(message, sender, sendResponse);
-      return true; // Keep sendResponse alive for async operations
+      console.log('Background: Received message:', message);
+      
+      if (message.action === 'automateNotebookLM') {
+        console.log('Background: Handling automateNotebookLM action');
+        automateNotebookLM(message.notebookId);
+        sendResponse({ success: true });
+        return true; // Keep sendResponse alive for async operations
+      } else if (message.action === 'addArticlesToNotebookLM') {
+        console.log('Background: Handling addArticlesToNotebookLM action');
+        addArticlesToNotebookLM(message.notebookId, message.articles);
+        sendResponse({ success: true });
+        return true; // Keep sendResponse alive for async operations
+      } else if (message.action) {
+        console.log('Background: Handling other action:', message.action);
+        // Handle other messages with MessageHandler
+        MessageHandler.handle(message, sender, sendResponse);
+        return true; // Keep sendResponse alive for async operations
+      } else {
+        console.log('Background: Message without action property:', message);
+        sendResponse({ error: 'Message missing action property' });
+        return false;
+      }
     });
   },
   
@@ -706,6 +721,138 @@ const ExtensionManager = {
     }, CONFIG.CLEANUP_INTERVAL);
   }
 };
+
+/**
+ * Open NotebookLM notebook and trigger UI automation (based on NLM_YT_automator pattern)
+ * @param {string} notebookId - The NotebookLM notebook ID
+ * @param {Array} driveFiles - Optional, can be empty for now
+ */
+async function automateNotebookLM(notebookId, driveFiles = []) {
+  console.log('NotebookLM: Starting automation for notebook:', notebookId);
+  
+  try {
+    // 1. Open the notebook in a new tab
+    const url = `https://notebooklm.google.com/u/0/notebook/${notebookId}`;
+    console.log('NotebookLM: Opening URL:', url);
+    
+    const { id: tabId } = await chrome.tabs.create({ url });
+    console.log('NotebookLM: Created tab with ID:', tabId);
+
+    // 2. Wait for the tab to load and send the automation message
+    chrome.tabs.onUpdated.addListener(function listener(tId, info) {
+      if (tId === tabId && info.status === "complete") {
+        console.log('NotebookLM: Tab loaded, sending automation message');
+        
+        // Remove the listener to avoid multiple injections
+        chrome.tabs.onUpdated.removeListener(listener);
+        
+        // Wait a bit for the content script to initialize, then send the automation message
+        setTimeout(() => {
+          console.log('NotebookLM: Sending automation message to content script');
+          chrome.tabs.sendMessage(tabId, {
+            type: "AUTOMATE_ADD_SOURCES",
+            driveFiles: driveFiles || []
+          }, (response) => {
+            if (chrome.runtime.lastError) {
+              console.error('NotebookLM: Error sending message:', chrome.runtime.lastError.message);
+              // Try to show error in the tab
+              chrome.scripting.executeScript({
+                target: { tabId: tabId },
+                func: (errorMsg) => {
+                  const errorDiv = document.createElement('div');
+                  errorDiv.style.cssText = `
+                    position: fixed; top: 10px; right: 10px; z-index: 10000;
+                    background: #f44336; color: white; padding: 10px; border-radius: 5px;
+                    font-family: Arial, sans-serif; font-size: 14px; max-width: 300px;
+                  `;
+                  errorDiv.textContent = `Automation Error: ${errorMsg}`;
+                  document.body.appendChild(errorDiv);
+                  setTimeout(() => errorDiv.remove(), 10000);
+                },
+                args: [chrome.runtime.lastError.message]
+              });
+            } else if (response) {
+              console.log('NotebookLM: Content script response:', response);
+            } else {
+              console.log('NotebookLM: No immediate response from content script');
+            }
+          });
+        }, 1000); // Increased delay to ensure script is ready
+      }
+    });
+    
+  } catch (error) {
+    console.error('NotebookLM: Failed to start automation:', error);
+  }
+}
+
+/**
+ * Add all captured articles as sources to a NotebookLM notebook
+ * @param {string} notebookId - The NotebookLM notebook ID
+ * @param {Array} articles - Array of captured articles to add as sources
+ */
+async function addArticlesToNotebookLM(notebookId, articles) {
+  console.log('NotebookLM: Adding articles as sources to notebook:', notebookId);
+  console.log('NotebookLM: Articles to add:', articles);
+  
+  try {
+    // 1. Open the notebook in a new tab
+    const url = `https://notebooklm.google.com/u/0/notebook/${notebookId}`;
+    console.log('NotebookLM: Opening URL:', url);
+    
+    const { id: tabId } = await chrome.tabs.create({ url });
+    console.log('NotebookLM: Created tab with ID:', tabId);
+
+    // 2. Wait for the tab to load and send the automation message
+    chrome.tabs.onUpdated.addListener(function listener(tId, info) {
+      if (tId === tabId && info.status === "complete") {
+        console.log('NotebookLM: Tab loaded, sending automation message');
+        
+        // Remove the listener to avoid multiple injections
+        chrome.tabs.onUpdated.removeListener(listener);
+        
+        // Wait a bit for the content script to initialize, then send the automation message
+        setTimeout(() => {
+          console.log('NotebookLM: Sending automation message to content script');
+          chrome.tabs.sendMessage(tabId, {
+            type: "AUTOMATE_ADD_ARTICLES",
+            articles: articles
+          }, (response) => {
+            if (chrome.runtime.lastError) {
+              console.error('NotebookLM: Error sending message:', chrome.runtime.lastError.message);
+              // Try to show error in the tab
+              chrome.scripting.executeScript({
+                target: { tabId: tabId },
+                func: (errorMsg) => {
+                  const errorDiv = document.createElement('div');
+                  errorDiv.style.cssText = `
+                    position: fixed; top: 10px; right: 10px; z-index: 10000;
+                    background: #f44336; color: white; padding: 10px; border-radius: 5px;
+                    font-family: Arial, sans-serif; font-size: 14px; max-width: 300px;
+                  `;
+                  errorDiv.textContent = `Automation Error: ${errorMsg}`;
+                  document.body.appendChild(errorDiv);
+                  setTimeout(() => errorDiv.remove(), 10000);
+                },
+                args: [chrome.runtime.lastError.message]
+              });
+            } else if (response) {
+              console.log('NotebookLM: Content script response:', response);
+            } else {
+              console.log('NotebookLM: No immediate response from content script');
+            }
+          });
+        }, 1000); // Increased delay to ensure script is ready
+      }
+    });
+    
+  } catch (error) {
+    console.error('NotebookLM: Failed to add articles:', error);
+  }
+}
+
+// Example usage (call from popup or UI):
+// automateNotebookLM('your-notebook-id-here');
 
 // === INITIALIZATION ===
 (() => {

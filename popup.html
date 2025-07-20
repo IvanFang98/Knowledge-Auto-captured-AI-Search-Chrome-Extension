@@ -1360,14 +1360,6 @@
           <button id="selectAllHome" class="selection-btn">Select All</button>
           <button id="selectNoneHome" class="selection-btn">Select None</button>
           
-          <!-- Notebook Selection Dropdown -->
-          <div class="notebook-selector" style="display: flex; align-items: center; gap: 8px;">
-            <select id="notebookDropdown" class="notebook-select" style="background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; color: white; padding: 6px 8px; font-size: 11px; min-width: 120px;">
-              <option value="">🔄 Loading notebooks...</option>
-            </select>
-            <button id="refreshNotebooks" class="selection-btn" title="Refresh notebooks" style="padding: 6px 8px;">🔄</button>
-          </div>
-          
           <button id="importToNotebookLM" class="import-btn" disabled>
             🧠 Import to NotebookLM
           </button>
@@ -1505,11 +1497,34 @@
           </div>
         </div>
 
+        <!-- Notebook Selection -->
+        <div class="export-section">
+          <div class="export-section-title">
+            <span>📚</span>
+            <span>Select Notebook</span>
+          </div>
+          <div class="notebook-selector" style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+            <select id="notebookDropdown" class="notebook-select" style="background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; color: white; padding: 8px 12px; font-size: 12px; min-width: 200px; flex: 1;">
+              <option value="">🔄 Loading notebooks...</option>
+            </select>
+            <button id="refreshNotebooks" class="button secondary" title="Refresh notebooks" style="padding: 8px 12px;">🔄</button>
+          </div>
+        </div>
+
         <!-- Export Actions -->
         <div class="export-section">
           <div class="export-actions">
-            <button id="exportToNotebookLM" class="button" disabled style="width: 100%; background: linear-gradient(135deg, #4285F4, #34A853);">
+            <button id="addAllArticlesToNotebookLM" class="button" style="width: 100%; background: linear-gradient(135deg, #4CAF50, #45A049); font-size: 14px; font-weight: bold; padding: 12px;">
+              📄 Add All Articles to NotebookLM
+            </button>
+            <button id="exportToNotebookLM" class="button" disabled style="width: 100%; margin-top: 8px; background: linear-gradient(135deg, #4285F4, #34A853);">
               Export to NotebookLM
+            </button>
+            <button id="importToNotebookLM" class="button" disabled style="width: 100%; margin-top: 8px; background: linear-gradient(135deg, #9C27B0, #7B1FA2);">
+              🧠 Import to NotebookLM
+            </button>
+            <button id="automateNotebookLMBtn" class="button" style="width: 100%; margin-top: 8px; background: linear-gradient(135deg, #FFD600, #FFB300);">
+             🤖 Automate NotebookLM UI
             </button>
             <button id="openDriveFolder" class="button" style="width: 100%; margin-top: 8px; background: rgba(255, 255, 255, 0.1);" disabled>
               📁 Open Google Drive Folder

@@ -577,15 +577,16 @@ const UI = {
       Data.loadStats();
       Data.loadApiKeyStatus();
     } else if (tabName === 'notebooklm') {
-      NotebookLM.loadArticles();
-      NotebookLM.loadExportHistory();
-      
+      NotebookLM.initialLoad().catch(error => {
+        console.error('NotebookLM: Failed to initialize:', error);
+      });
+      // NotebookLM.loadExportHistory(); // Removed: no such function
       // Check connection status and load notebooks if connected
-      NotebookLM.checkConnectionStatus().then(isConnected => {
-        if (isConnected) {
-          NotebookLM.loadNotebooks();
-        }
-      }).catch(console.error);
+      // NotebookLM.checkConnectionStatus().then(isConnected => {
+      //   if (isConnected) {
+      //     NotebookLM.loadNotebooks();
+      //   }
+      // }).catch(console.error);
     }
   },
   
@@ -650,19 +651,55 @@ const UI = {
     Elements.resetFilters?.addEventListener('click', Filters.reset.bind(Filters));
     
     // NotebookLM listeners
+    console.log('UI: Setting up NotebookLM event listeners...');
+    console.log('UI: Elements.exportToNotebookLM:', Elements.exportToNotebookLM);
+    console.log('UI: Elements.importToNotebookLM:', Elements.importToNotebookLM);
+    
     Elements.refreshNotebooks?.addEventListener('click', NotebookLM.loadNotebooks.bind(NotebookLM));
-    Elements.captureAndOpenBtn?.addEventListener('click', NotebookLM.captureAndOpen.bind(NotebookLM));
-    Elements.connectDriveBtn?.addEventListener('click', NotebookLM.connectDrive.bind(NotebookLM));
-    Elements.debugTokensBtn?.addEventListener('click', (event) => {
-      console.log('=== DEBUG BUTTON CLICKED ===');
-      console.log('Event:', event);
-      console.log('Button element:', Elements.debugTokensBtn);
-      console.log('About to call debugTokens...');
-      NotebookLM.debugTokens();
-    });
-    Elements.exportToNotebookLM?.addEventListener('click', NotebookLM.performExport.bind(NotebookLM));
-    Elements.openDriveFolder?.addEventListener('click', NotebookLM.openDriveFolder.bind(NotebookLM));
-    Elements.importToNotebookLM?.addEventListener('click', NotebookLM.performImport.bind(NotebookLM));
+    Elements.connectDriveBtn?.addEventListener('click', NotebookLM.createNotebook.bind(NotebookLM));
+    
+    // Add event listeners with retry logic
+    const addButtonListeners = () => {
+      if (Elements.exportToNotebookLM) {
+        console.log('UI: Adding click listener to export button');
+        // Remove existing listeners to avoid duplicates
+        Elements.exportToNotebookLM.removeEventListener('click', handleExportClick);
+        Elements.exportToNotebookLM.addEventListener('click', handleExportClick);
+      } else {
+        console.error('UI: exportToNotebookLM element not found!');
+      }
+      
+      if (Elements.importToNotebookLM) {
+        console.log('UI: Adding click listener to import button');
+        // Remove existing listeners to avoid duplicates
+        Elements.importToNotebookLM.removeEventListener('click', handleImportClick);
+        Elements.importToNotebookLM.addEventListener('click', handleImportClick);
+      } else {
+        console.error('UI: importToNotebookLM element not found!');
+      }
+    };
+    
+    const handleExportClick = () => {
+      console.log('UI: Export button clicked!');
+      console.log('UI: NotebookLM object:', !!NotebookLM);
+      console.log('UI: NotebookLM.performExport:', !!NotebookLM?.performExport);
+      try {
+        NotebookLM.performExport();
+      } catch (error) {
+        console.error('UI: Error calling performExport:', error);
+      }
+    };
+    
+    const handleImportClick = () => {
+      console.log('UI: Import button clicked!');
+      NotebookLM.performImport();
+    };
+    
+    // Try to add listeners immediately
+    addButtonListeners();
+    
+    // Also try again after a short delay to ensure DOM is ready
+    setTimeout(addButtonListeners, 100);
     
     // Selection listeners
     Elements.toggleSelectionBtn?.addEventListener('click', this.toggleSelectionMode.bind(this));
@@ -686,10 +723,10 @@ const UI = {
     Elements.dismissSetupNote?.addEventListener('click', this.dismissSetupNote.bind(this));
     Elements.shortcutsLink?.addEventListener('click', this.openShortcutsPage.bind(this));
     Elements.clearErrorStatesBtn?.addEventListener('click', Data.clearErrorStates.bind(Data));
-    Elements.debugNotebookLMBtn?.addEventListener('click', NotebookLM.debug.bind(NotebookLM));
-    Elements.testGraphQLBtn?.addEventListener('click', NotebookLM.testNotebookLMAPI.bind(NotebookLM));
-    Elements.testGraphQLBtn2?.addEventListener('click', NotebookLM.testNotebookLMAPI.bind(NotebookLM));
-    Elements.showReloadBtn?.addEventListener('click', NotebookLM.showReloadInstructions.bind(NotebookLM));
+    // Elements.debugNotebookLMBtn?.addEventListener('click', NotebookLM.debug.bind(NotebookLM));
+    // Elements.testGraphQLBtn?.addEventListener('click', NotebookLM.testNotebookLMAPI.bind(NotebookLM));
+    // Elements.testGraphQLBtn2?.addEventListener('click', NotebookLM.testNotebookLMAPI.bind(NotebookLM));
+    // Elements.showReloadBtn?.addEventListener('click', NotebookLM.showReloadInstructions.bind(NotebookLM));
     
     // Global keyboard shortcuts
     document.addEventListener('keydown', (e) => {
@@ -779,6 +816,45 @@ const UI = {
     
     // Update selection toolbar
     Data.updateSelectionUI();
+  },
+
+  updateButtonStates() {
+    const hasNotebook = this.notebookDropdown?.value;
+    
+    if (this.importToNotebookBtn) {
+      this.importToNotebookBtn.disabled = !hasNotebook;
+      console.log('NotebookLM: Import button enabled:', !!hasNotebook);
+    }
+    if (this.exportToNotebookLMBtn) {
+      this.exportToNotebookLMBtn.disabled = !hasNotebook;
+      console.log('NotebookLM: Export button enabled:', !!hasNotebook);
+    }
+  },
+
+  async refreshButtonStates() {
+    // Update Add All Articles button state
+    const addAllArticlesBtn = document.getElementById('addAllArticlesToNotebookLM');
+    if (addAllArticlesBtn) {
+      try {
+        const hasArticles = AppState.allEntries && AppState.allEntries.length > 0;
+        const hasNotebook = document.getElementById('notebookDropdown')?.value;
+        
+        if (hasArticles && hasNotebook) {
+          addAllArticlesBtn.disabled = false;
+          addAllArticlesBtn.title = `Add ${AppState.allEntries.length} articles to the selected notebook`;
+        } else if (!hasArticles) {
+          addAllArticlesBtn.disabled = true;
+          addAllArticlesBtn.title = "No articles to add. Please capture some articles first.";
+        } else if (!hasNotebook) {
+          addAllArticlesBtn.disabled = true;
+          addAllArticlesBtn.title = "Please select a NotebookLM notebook first";
+        }
+      } catch (error) {
+        console.error('Error checking article count:', error);
+        addAllArticlesBtn.disabled = true;
+        addAllArticlesBtn.title = "Error checking articles";
+      }
+    }
   }
 };
 
@@ -1279,1669 +1355,507 @@ const Data = {
   }
 };
 
-// === NOTEBOOK LM INTEGRATION ===
+// === INLINED NOTEBOOKLM PROXY CLIENT ===
+// Use your local proxy server instead of the official one
+const SYNC_HOST = "http://localhost:3000";
+
+async function notebooklmApi(path, method = "GET", body) {
+  console.log(`NotebookLM API: ${method} ${SYNC_HOST}${path}`, body ? body : '');
+  const headers = {
+    "Content-Type": "application/json",
+  };
+  const opts = {
+    method,
+    headers,
+    credentials: "omit",
+  };
+  if (body) opts.body = JSON.stringify(body);
+  try {
+    const res = await fetch(`${SYNC_HOST}${path}`, opts);
+    console.log(`NotebookLM API: Response status: ${res.status}`);
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error(`NotebookLM API: Error response:`, errorText);
+      throw new Error(`Proxy API error: ${res.status} - ${errorText}`);
+    }
+    const data = await res.json();
+    console.log(`NotebookLM API: Response data:`, data);
+    return data;
+  } catch (error) {
+    console.error(`NotebookLM API: Fetch error:`, error);
+    throw error;
+  }
+}
+
+class NotebookLMProxyClient {
+  async listNotebooks() {
+    return notebooklmApi("/api/notebooks");
+  }
+
+  async addSource(notebookId, url) {
+    return notebooklmApi(`/api/notebooks/${notebookId}/sources`, "POST", { url });
+  }
+
+  async addTextSource(notebookId, text) {
+    return notebooklmApi(`/api/notebooks/${notebookId}/sources`, "POST", { text });
+  }
+
+  async createNotebook(title, emoji = "📔") {
+    return notebooklmApi("/api/notebooks", "POST", { title, emoji });
+  }
+}
+
+const notebooklmClient = new NotebookLMProxyClient();
+
+// === NOTEBOOKLM OBJECT (Unified Proxy Integration) ===
 const NotebookLM = {
-  // NotebookLM API client
-  authParams: null,
-  isAuthenticated: false,
+  // State
+  notebooks: [],
+  sources: [],
+  selectedNotebookId: '',
 
-  clearAuthentication() {
-    console.log('Clearing authentication cache...');
-    this.authParams = null;
-    this.isAuthenticated = false;
-  },
+  // UI Elements
+  get notebookDropdown() { return Elements.notebookDropdown; },
+  get refreshNotebooksBtn() { return Elements.refreshNotebooks; },
+  get importToNotebookBtn() { return Elements.importToNotebookLM; },
+  get exportToNotebookLMBtn() { return Elements.exportToNotebookLM; },
+  get createNotebookBtn() { return Elements.connectDriveBtn; },
+  get notebooklmEntries() { return Elements.notebooklmEntries; },
+  get selectionCount() { return Elements.selectedCount; },
+  get selectAllBtn() { return Elements.selectAll; },
+  get selectNoneBtn() { return Elements.selectNone; },
+  get selectRecentWeekBtn() { return Elements.selectRecentWeek; },
+  get selectHighSimilarityBtn() { return Elements.selectHighSimilarity; },
 
-  async authenticate(forceRefresh = false) {
+  // Load notebooks from proxy
+  async loadNotebooks() {
+    console.log('NotebookLM: Loading notebooks...');
+    console.log('NotebookLM: Using server:', SYNC_HOST);
+    
+    if (!this.notebookDropdown) {
+      console.error('NotebookLM: notebookDropdown element not found!');
+      return;
+    }
+    
+    this.notebookDropdown.innerHTML = '<option>Loading...</option>';
     try {
-      console.log('=== AUTHENTICATE FUNCTION CALLED ===');
-      console.log('Force refresh:', forceRefresh);
-      console.log('Current isAuthenticated:', this.isAuthenticated);
-      console.log('Current authParams:', this.authParams);
-      
-      if (forceRefresh) {
-        this.clearAuthentication();
-      }
-      
-      // Check if we have invalid tokens and force refresh
-      if (this.authParams && this.authParams.at && 
-          !this.authParams.at.startsWith('AIzaSy') && 
-          !this.authParams.at.startsWith('AJpMio1')) {
-        console.log('Detected invalid tokens, forcing refresh...');
-        this.clearAuthentication();
-      }
-      
-      console.log('Authenticating with NotebookLM...');
-      
-      // Check if NotebookLM tab is open
-      let tabs = await chrome.tabs.query({url: "https://notebooklm.google.com/*"});
-      if (tabs.length === 0) {
-        console.log('No NotebookLM tab found, opening one...');
-        Utils.showNotification('Opening NotebookLM for authentication...', 'info');
-        
-        // Open NotebookLM tab
-        await chrome.tabs.create({ 
-          url: 'https://notebooklm.google.com/',
-          active: false // Don't steal focus from extension popup
-        });
-        
-        // Wait for the tab to load
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        
-        // Check again for tabs
-                 tabs = await chrome.tabs.query({url: "https://notebooklm.google.com/*"});
-         if (tabs.length === 0) {
-           Utils.showNotification('⚠️ Please open NotebookLM manually: notebooklm.google.com', 'error');
-           throw new Error('Failed to open NotebookLM tab automatically. Please open https://notebooklm.google.com/ manually in a new tab and try again.');
-         }
-        
-        Utils.showNotification('NotebookLM tab opened, extracting tokens...', 'info');
-      }
-
-      console.log('About to execute extractAuthTokens script...');
-      console.log('Tab ID:', tabs[0].id);
-      console.log('Tab URL:', tabs[0].url);
-      
-      // Get auth tokens from NotebookLM page
-      const result = await chrome.scripting.executeScript({
-        target: { tabId: tabs[0].id },
-        world: 'MAIN',
-        func: () => {
-          // Standalone token extraction function (no 'this' context)
-          try {
-            const pageText = document.documentElement.innerHTML;
-            console.log('=== EXTRACT AUTH TOKENS CALLED ===');
-            console.log('Page text length:', pageText.length);
-            console.log('Extracting tokens from NotebookLM page...');
-            
-            // Try different token patterns that might be used
-            const tokenPatterns = [
-              { name: 'SNlM0e', regex: /"SNlM0e":"([^"]+)"/ },
-              { name: 'at', regex: /"at":"([^"]+)"/ },
-              { name: 'FdrFJe', regex: /"FdrFJe":"([^"]+)"/ },
-              { name: 'WIZ_global_data.SNlM0e', regex: /WIZ_global_data[.\s\S]*?"SNlM0e":"([^"]+)"/ },
-              // New patterns based on debug results
-              { name: 'B8SWKb', regex: /"B8SWKb":"([^"]+)"/ },
-              { name: 'VqImj', regex: /"VqImj":"([^"]+)"/ },
-              { name: 'APIKey1', regex: /"[A-Za-z0-9]{6}":"(AIzaSy[A-Za-z0-9_-]+)"/ },
-              { name: 'APIKey2', regex: /"[A-Za-z0-9]{6}":"(AIzaSy[A-Za-z0-9_-]+)"/ }
-            ];
-            
-            const authTokenPatterns = [
-              { name: 'cfb2h', regex: /"cfb2h":"([^"]+)"/ },
-              { name: 'bl', regex: /"bl":"([^"]+)"/ },
-              { name: 'WIZ_global_data.cfb2h', regex: /WIZ_global_data[.\s\S]*?"cfb2h":"([^"]+)"/ },
-              // New patterns based on debug results
-              { name: 'S06Grb', regex: /"S06Grb":"([^"]+)"/ },
-              { name: 'W3Yyqf', regex: /"W3Yyqf":"([^"]+)"/ },
-              { name: 'qDCSke', regex: /"qDCSke":"([^"]+)"/ },
-              { name: 'UserID', regex: /"[A-Za-z0-9]{6}":"([0-9]{18,})"/ }
-            ];
-            
-            // PRIORITY 1: Check for API key tokens FIRST (more reliable than session tokens)
-            console.log('🔍 PRIORITY CHECK: Looking for API key tokens first...');
-            
-            const b8swkbMatch = pageText.match(/"B8SWKb":"([^"]+)"/);
-            const s06grbMatch = pageText.match(/"S06Grb":"([^"]+)"/);
-            const vqimjMatch = pageText.match(/"VqImj":"([^"]+)"/);
-            
-            console.log('B8SWKb API key:', !!b8swkbMatch, b8swkbMatch ? b8swkbMatch[1].substring(0, 20) + '...' : 'null');
-            console.log('S06Grb user ID:', !!s06grbMatch, s06grbMatch ? s06grbMatch[1].substring(0, 20) + '...' : 'null');
-            console.log('VqImj API key:', !!vqimjMatch, vqimjMatch ? vqimjMatch[1].substring(0, 20) + '...' : 'null');
-            
-            // Look for build identifier (needed for modern requests)
-            const blBuildMatch = pageText.match(/(boq_labs-tailwind-frontend_[0-9]+\.[0-9]+_p[0-9]+)/i);
-            console.log('Build identifier found:', !!blBuildMatch, blBuildMatch ? blBuildMatch[1] : 'null');
-            
-            // Helper function to generate session token format from API key
-            function generateSessionToken(apiKey) {
-              try {
-                // The session token format appears to be: prefixString:timestamp
-                // Real format: AJpMio1FdhVkSj7OzqgV02hchFx3:1752685255295
-                const timestamp = Date.now();
-                
-                // Create a base64-like string from the API key
-                const keyHash = btoa(apiKey).replace(/[+/=]/g, '').substring(0, 32);
-                const sessionToken = `AJpMio1${keyHash}:${timestamp}`;
-                
-                console.log('Attempting to generate session token from API key...');
-                return sessionToken;
-              } catch (error) {
-                console.error('Failed to generate session token:', error);
-                return null;
-              }
-            }
-            
-            // Use API key tokens if available (PREFERRED) - but generate session tokens
-            if (b8swkbMatch && (blBuildMatch || s06grbMatch)) {
-              console.log('✅ SUCCESS: Using B8SWKb + BL tokens with session token generation');
-              
-              // Generate session token from API key
-              const apiKey = b8swkbMatch[1];
-              const sessionToken = generateSessionToken(apiKey);
-              console.log('Generated session token:', sessionToken ? sessionToken.substring(0, 20) + '...' : 'null');
-              
-              return {
-                at: sessionToken || apiKey,  // Session token or API key fallback
-                bl: blBuildMatch ? blBuildMatch[1] : s06grbMatch[1]   // Build ID or User ID
-              };
-            }
-            
-            if (vqimjMatch && (blBuildMatch || s06grbMatch)) {
-              console.log('✅ SUCCESS: Using VqImj + BL tokens with session token generation');
-              
-              // Generate session token from API key
-              const apiKey = vqimjMatch[1];
-              const sessionToken = generateSessionToken(apiKey);
-              console.log('Generated session token from VqImj:', sessionToken ? sessionToken.substring(0, 20) + '...' : 'null');
-              
-              return {
-                at: sessionToken || apiKey,   // Session token or API key fallback
-                bl: blBuildMatch ? blBuildMatch[1] : s06grbMatch[1]   // Build ID or User ID
-              };
-            }
-            
-            // PRIORITY 2: Fall back to traditional tokens only if API keys not found
-            console.log('⚠️ API key tokens not found, falling back to traditional session tokens...');
-            
-            let atToken = null;
-            let blToken = null;
-            
-            // Try to find AT token
-            console.log('Searching for traditional AT tokens...');
-            for (const pattern of tokenPatterns) {
-              const match = pageText.match(pattern.regex);
-              if (match) {
-                atToken = match[1];
-                console.log(`Found traditional AT token using pattern: ${pattern.name}: ${match[1].substring(0, 20)}...`);
-                console.log(`Token type: ${match[1].startsWith('AIzaSy') ? 'API Key' : 'Session Token'}`);
-                break;
-              }
-            }
-            
-            // Try to find BL token
-            console.log('Searching for traditional BL tokens...');
-            for (const pattern of authTokenPatterns) {
-              const match = pageText.match(pattern.regex);
-              if (match) {
-                blToken = match[1];
-                console.log(`Found traditional BL token using pattern: ${pattern.name}: ${match[1].substring(0, 20)}...`);
-                break;
-              }
-            }
-            
-            console.log(`Traditional token check - AT: ${!!atToken}, BL: ${!!blToken}`);
-            
-            // If we still don't have tokens, show error
-            if (!atToken || !blToken) {
-              console.log('❌ No usable tokens found anywhere');
-              console.log('AT token value:', atToken);
-              console.log('BL token value:', blToken);
-              
-              // Final error message (we already checked API keys first)
-              const errorMsg = `No authentication tokens found. Please make sure you are signed in to NotebookLM.
-              Debug info: 
-              - API key tokens: Not found (checked first)
-              - Traditional AT token found: ${!!atToken}
-              - Traditional BL token found: ${!!blToken}
-              - Page URL: ${window.location.href}
-              - Page title: ${document.title}
-              
-              Please try:
-              1. Refresh the NotebookLM page
-              2. Make sure you're signed in to your Google account
-              3. Navigate to https://notebooklm.google.com/
-              4. Try the connection again`;
-              
-              throw new Error(errorMsg);
-            }
-            
-            console.log('⚠️ FALLBACK: Using traditional session tokens (not ideal)');
-            console.log('AT token:', atToken ? atToken.substring(0, 20) + '...' : 'null');
-            console.log('BL token:', blToken ? blToken.substring(0, 20) + '...' : 'null');
-            
-            return {
-              at: atToken,
-              bl: blToken
-            };
-          } catch (error) {
-            console.error('❌ ERROR in extractAuthTokens:', error);
-            console.error('Error message:', error.message);
-            console.error('Error stack:', error.stack);
-            throw error;
-          }
-        }
-      });
-      
-      console.log('Script execution completed. Result:', result);
-
-      const authData = result?.[0]?.result;
-      console.log('Extracted authData:', authData);
-      console.log('authData.at exists:', !!authData?.at);
-      console.log('authData.bl exists:', !!authData?.bl);
-      
-      if (!authData || !authData.at || !authData.bl) {
-        console.log('❌ Authentication failed - missing or invalid authData');
-        console.log('authData:', authData);
-        throw new Error('Failed to get authentication tokens. Please make sure you are signed in to NotebookLM.');
-      }
-
-      this.authParams = authData;
-      this.isAuthenticated = true;
-      console.log('✅ NotebookLM authentication successful');
-      console.log('AT token length:', authData.at.length);
-      console.log('BL token length:', authData.bl.length);
-      return true;
-    } catch (error) {
-      console.error('NotebookLM authentication failed:', error);
-      this.isAuthenticated = false;
-      throw error;
+      this.notebooks = await notebooklmClient.listNotebooks();
+      console.log('NotebookLM: Loaded notebooks:', this.notebooks);
+      this.renderNotebooks();
+    } catch (e) {
+      console.error('NotebookLM: Error loading notebooks:', e);
+      this.notebookDropdown.innerHTML = '<option>Error loading</option>';
+      if (this.importToNotebookBtn) this.importToNotebookBtn.disabled = true;
+      if (this.exportToNotebookLMBtn) this.exportToNotebookLMBtn.disabled = true;
     }
   },
 
-  // Extract authentication tokens from NotebookLM page
-  extractAuthTokens() {
+  renderNotebooks() {
+    console.log('NotebookLM: Rendering notebooks...');
+    const dropdown = this.notebookDropdown;
+    if (!dropdown) {
+      console.error('NotebookLM: No notebook dropdown found');
+      return;
+    }
+
+    // Clear existing options
+    dropdown.innerHTML = '';
+    
+    console.log('NotebookLM: Notebooks to render:', this.notebooks);
+    
+    // Add notebooks to dropdown
+    this.notebooks.forEach(notebook => {
+      const option = document.createElement('option');
+      option.value = notebook.id;
+      option.textContent = `${notebook.emoji} ${notebook.title}`;
+      dropdown.appendChild(option);
+      console.log('NotebookLM: Added notebook option:', notebook.title);
+    });
+
+    // Try to select the real notebook by default, fallback to first notebook
+    const realNotebookId = '1f0075d4-a616-4258-87f7-3c62674d0ac4';
+    const realNotebook = this.notebooks.find(n => n.id === realNotebookId);
+    
+    if (realNotebook) {
+      dropdown.value = realNotebookId;
+      console.log('NotebookLM: Selected real notebook by default:', realNotebookId);
+    } else if (this.notebooks.length > 0) {
+      dropdown.value = this.notebooks[0].id;
+      console.log('NotebookLM: Selected first notebook:', this.notebooks[0].id);
+    }
+
+    // Enable/disable buttons based on selection
+    this.updateButtonStates();
+    
+    console.log('NotebookLM: Notebook rendering complete');
+  },
+
+  updateButtonStates() {
+    const hasNotebook = this.notebookDropdown?.value;
+    
+    if (this.importToNotebookBtn) {
+      this.importToNotebookBtn.disabled = !hasNotebook;
+      console.log('NotebookLM: Import button enabled:', !!hasNotebook);
+    }
+    if (this.exportToNotebookLMBtn) {
+      this.exportToNotebookLMBtn.disabled = !hasNotebook;
+      console.log('NotebookLM: Export button enabled:', !!hasNotebook);
+    }
+  },
+
+  // Create notebook
+  async createNotebook() {
+    const title = prompt('Notebook title:');
+    if (!title) return;
+    this.createNotebookBtn.disabled = true;
     try {
-      const pageText = document.documentElement.innerHTML;
-      console.log('=== EXTRACT AUTH TOKENS CALLED ===');
-      console.log('Page text length:', pageText.length);
-      console.log('Extracting tokens from NotebookLM page...');
-      
-      // Try different token patterns that might be used
-      const tokenPatterns = [
-        { name: 'SNlM0e', regex: /"SNlM0e":"([^"]+)"/ },
-        { name: 'at', regex: /"at":"([^"]+)"/ },
-        { name: 'FdrFJe', regex: /"FdrFJe":"([^"]+)"/ },
-        { name: 'WIZ_global_data.SNlM0e', regex: /WIZ_global_data[.\s\S]*?"SNlM0e":"([^"]+)"/ },
-        // New patterns based on debug results
-        { name: 'B8SWKb', regex: /"B8SWKb":"([^"]+)"/ },
-        { name: 'VqImj', regex: /"VqImj":"([^"]+)"/ },
-        { name: 'APIKey1', regex: /"[A-Za-z0-9]{6}":"(AIzaSy[A-Za-z0-9_-]+)"/ },
-        { name: 'APIKey2', regex: /"[A-Za-z0-9]{6}":"(AIzaSy[A-Za-z0-9_-]+)"/ }
-      ];
-      
-      const authTokenPatterns = [
-        { name: 'cfb2h', regex: /"cfb2h":"([^"]+)"/ },
-        { name: 'bl', regex: /"bl":"([^"]+)"/ },
-        { name: 'WIZ_global_data.cfb2h', regex: /WIZ_global_data[.\s\S]*?"cfb2h":"([^"]+)"/ },
-        // New patterns based on debug results
-        { name: 'S06Grb', regex: /"S06Grb":"([^"]+)"/ },
-        { name: 'W3Yyqf', regex: /"W3Yyqf":"([^"]+)"/ },
-        { name: 'qDCSke', regex: /"qDCSke":"([^"]+)"/ },
-        { name: 'UserID', regex: /"[A-Za-z0-9]{6}":"([0-9]{18,})"/ }
-      ];
-      
-      let atToken = null;
-      let blToken = null;
-      
-      // Try to find AT token
-      console.log('Searching for AT tokens...');
-      for (const pattern of tokenPatterns) {
-        const match = pageText.match(pattern.regex);
-        if (match) {
-          atToken = match[1];
-          console.log(`Found AT token using pattern: ${pattern.name}: ${match[1].substring(0, 20)}...`);
-          console.log(`Full AT token type: ${match[1].startsWith('AIzaSy') ? 'API Key' : 'Session Token'}`);
-          break;
-        }
-      }
-      
-      // Try to find BL token
-      console.log('Searching for BL tokens...');
-      for (const pattern of authTokenPatterns) {
-        const match = pageText.match(pattern.regex);
-        if (match) {
-          blToken = match[1];
-          console.log(`Found BL token using pattern: ${pattern.name}: ${match[1].substring(0, 20)}...`);
-          break;
-        } else {
-          console.log(`Pattern ${pattern.name} not found`);
-        }
-      }
-      
-      // Fallback: try to find any token-like patterns
-      if (!atToken || !blToken) {
-        console.log('Primary token search failed, trying fallback patterns...');
-        
-        // Look for common Google service tokens
-        const fallbackPatterns = [
-          /"[A-Za-z0-9]{6}":"[A-Za-z0-9_-]{20,}"/g,
-          /"[A-Za-z0-9]{5}":"[A-Za-z0-9_-]{30,}"/g
-        ];
-        
-        for (const pattern of fallbackPatterns) {
-          const matches = pageText.match(pattern);
-          if (matches) {
-            console.log(`Found potential tokens: ${matches.slice(0, 5).join(', ')}`);
-            // This is for debugging - we'll need the user to check what tokens are actually available
-          }
-        }
-      }
-      
-      console.log(`Final token check - AT: ${!!atToken}, BL: ${!!blToken}`);
-      
-      // Always check for the discovered tokens first (they're more reliable)
-      console.log('Checking for discovered token patterns...');
-      
-      // Use the actual tokens we found in debug
-      const b8swkbMatch = pageText.match(/"B8SWKb":"([^"]+)"/);
-      const s06grbMatch = pageText.match(/"S06Grb":"([^"]+)"/);
-      const vqimjMatch = pageText.match(/"VqImj":"([^"]+)"/);
-      
-      // Also look for the session token format that appears in actual requests
-      // Look for the session token in various formats
-      const sessionTokenMatch = pageText.match(/at=([A-Za-z0-9_-]+%3A[0-9]+)/) || 
-                                pageText.match(/at=([A-Za-z0-9_-]+:[0-9]+)/) ||
-                                pageText.match(/"at":"([^"]+)"/) ||
-                                pageText.match(/at\s*=\s*['"]([^'"]+)['"]/) ||
-                                pageText.match(/at=([A-Za-z0-9_-]+:[0-9]+)/);
-      
-      // Look for the correct bl parameter format (build identifier)
-      // We know the format is: boq_labs-tailwind-frontend_20250713.14_p1
-      const blBuildMatch = pageText.match(/(boq_labs-tailwind-frontend_[0-9]+\.[0-9]+_p[0-9]+)/i) || 
-                          pageText.match(/bl=([a-z0-9_.-]+)/i) || 
-                          pageText.match(/"bl":"([^"]+)"/);
-      
-      console.log('🔍 Authentication token analysis:');
-      console.log('B8SWKb match:', !!b8swkbMatch, b8swkbMatch ? b8swkbMatch[1].substring(0, 20) + '...' : 'null');
-      console.log('S06Grb match:', !!s06grbMatch, s06grbMatch ? s06grbMatch[1].substring(0, 20) + '...' : 'null');
-      console.log('VqImj match:', !!vqimjMatch, vqimjMatch ? vqimjMatch[1].substring(0, 20) + '...' : 'null');
-      console.log('Session token match:', !!sessionTokenMatch, sessionTokenMatch ? sessionTokenMatch[1].substring(0, 20) + '...' : 'null');
-      console.log('BL build match:', !!blBuildMatch, blBuildMatch ? blBuildMatch[1] : 'null');
-      
-      // Prefer the session token format if available (most reliable)
-      if (sessionTokenMatch && (blBuildMatch || s06grbMatch)) {
-        console.log('✅ SUCCESS: Using session token + BL tokens (most reliable)');
-        return {
-          at: sessionTokenMatch[1],  // Session token
-          bl: blBuildMatch ? blBuildMatch[1] : s06grbMatch[1]   // Build ID or User ID
-        };
-      }
-      
-      // Helper function to generate session token format from API key (for this scope)
-      function generateSessionToken(apiKey) {
-        try {
-          // The session token format appears to be: prefixString:timestamp
-          // Real format: AJpMio1FdhVkSj7OzqgV02hchFx3:1752685255295
-          const timestamp = Date.now();
-          
-          // Create a base64-like string from the API key
-          const keyHash = btoa(apiKey).replace(/[+/=]/g, '').substring(0, 32);
-          const sessionToken = `AJpMio1${keyHash}:${timestamp}`;
-          
-          console.log('Attempting to generate session token from API key...');
-          return sessionToken;
-        } catch (error) {
-          console.error('Failed to generate session token:', error);
-          return null;
-        }
-      }
-      
-      // Fall back to discovered API key tokens with correct bl format
-      if (b8swkbMatch && (blBuildMatch || s06grbMatch)) {
-        console.log('✅ SUCCESS: Using B8SWKb + BL tokens (preferred)');
-        
-        // Try to generate session token format from API key
-        const apiKey = b8swkbMatch[1];
-        const sessionToken = generateSessionToken(apiKey);
-        console.log('Generated session token:', sessionToken ? sessionToken.substring(0, 20) + '...' : 'null');
-        
-        return {
-          at: sessionToken || apiKey,  // Session token or API key fallback
-          bl: blBuildMatch ? blBuildMatch[1] : s06grbMatch[1]   // Build ID or User ID
-        };
-      }
-      
-      if (vqimjMatch && (blBuildMatch || s06grbMatch)) {
-        console.log('✅ SUCCESS: Using VqImj + BL tokens (alternative)');
-        
-        // Try to generate session token format from API key
-        const apiKey = vqimjMatch[1];
-        const sessionToken = generateSessionToken(apiKey);
-        console.log('Generated session token from VqImj:', sessionToken ? sessionToken.substring(0, 20) + '...' : 'null');
-        
-        return {
-          at: sessionToken || apiKey,   // Session token or API key fallback
-          bl: blBuildMatch ? blBuildMatch[1] : s06grbMatch[1]   // Build ID or User ID
-        };
-      }
-
-      // If we didn't find the discovered tokens, fall back to traditional tokens
-      if (!atToken || !blToken) {
-        console.log('Neither discovered nor traditional tokens found, trying more patterns...');
-        console.log('AT token value:', atToken);
-        console.log('BL token value:', blToken);
-        
-        // Enhanced error message with debugging info
-        const errorMsg = `Authentication tokens not found. Please make sure you are signed in to NotebookLM.
-        Debug info: 
-        - Traditional AT token found: ${!!atToken}
-        - Traditional BL token found: ${!!blToken}
-        - Session token found: ${!!sessionTokenMatch}
-        - B8SWKb token found: ${!!b8swkbMatch}
-        - S06Grb token found: ${!!s06grbMatch}
-        - VqImj token found: ${!!vqimjMatch}
-        - BL build token found: ${!!blBuildMatch}
-        - Page URL: ${window.location.href}
-        - Page title: ${document.title}
-        
-        Please try:
-        1. Refresh the NotebookLM page
-        2. Make sure you're signed in to your Google account
-        3. Navigate to https://notebooklm.google.com/
-        4. Try the connection again`;
-        
-        throw new Error(errorMsg);
-      }
-      
-      console.log('✅ SUCCESS: Using traditional tokens');
-      console.log('AT token:', atToken ? atToken.substring(0, 20) + '...' : 'null');
-      console.log('BL token:', blToken ? blToken.substring(0, 20) + '...' : 'null');
-      
-      return {
-        at: atToken,
-        bl: blToken
-      };
-    } catch (error) {
-      console.error('❌ ERROR in extractAuthTokens:', error);
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
-      throw error;
+      await notebooklmClient.createNotebook(title, '📔');
+      await this.loadNotebooks();
+      Utils.showNotification('Notebook created!', 'success');
+    } catch (e) {
+      Utils.showNotification('Failed to create notebook', 'error');
+    } finally {
+      this.createNotebookBtn.disabled = false;
     }
   },
 
-  // Execute NotebookLM API calls using the real batchexecute endpoint
-  async executeNotebookLMAPI(rpcs) {
-    if (!this.isAuthenticated) {
-      await this.authenticate();
-    }
+  // Render sources in NotebookLM tab
+  renderSources(sources) {
+    this.sources = sources;
+    const container = this.notebooklmEntries;
+    container.innerHTML = '';
     
-    // Also check if we have wrong token types and force refresh
-    if (this.authParams && this.authParams.at && 
-        !this.authParams.at.startsWith('AIzaSy') && 
-        !this.authParams.at.startsWith('AJpMio1')) {
-      console.log('executeNotebookLMAPI: Detected invalid tokens, forcing refresh...');
-      await this.authenticate(true);
-    }
-
-    try {
-      console.log('=== EXECUTING NOTEBOOKLM API ===');
-      console.log('RPCs to execute:', rpcs);
-      console.log('Auth params:', {
-        at: this.authParams.at ? this.authParams.at.substring(0, 20) + '...' : 'null',
-        bl: this.authParams.bl ? this.authParams.bl.substring(0, 20) + '...' : 'null'
-      });
-
-      // Use the real NotebookLM batchexecute endpoint with required parameters
-      const rpcIds = rpcs.map(rpc => rpc.id).join(',');
-      const requestId = Math.floor(Math.random() * 1000000) + 546856;
+    // Show entries from Home tab that can be imported
+    const homeEntries = AppState.allEntries || [];
+    console.log('NotebookLM: Rendering home entries for import:', homeEntries.length);
+    
+    homeEntries.forEach(entry => {
+      const div = document.createElement('div');
+      div.className = 'entry';
+      div.dataset.entryId = entry.id;
       
-      // Extract timestamp from AT token to use as session ID
-      let sessionId = Date.now().toString();
-      if (this.authParams.at && this.authParams.at.includes(':')) {
-        const atTimestamp = this.authParams.at.split(':')[1];
-        if (atTimestamp && /^\d+$/.test(atTimestamp)) {
-          sessionId = atTimestamp;
-        }
+      // Check if this entry is selected in Home tab
+      const isSelected = AppState.homeSelectedArticles && AppState.homeSelectedArticles.has(entry.id);
+      if (isSelected) {
+        div.classList.add('selected');
       }
       
-      const url = `https://notebooklm.google.com/_/LabsTailwindUi/data/batchexecute?rpcids=${rpcIds}&source-path=%2F&soc-app=1&soc-platform=1&bl=${this.authParams.bl}&f.sid=${sessionId}&hl=en&_reqid=${requestId}&rt=c`;
-      
-      // Build the proper request body for Google's batchexecute format
-      const requestBody = new URLSearchParams();
-      
-      // Format the f.req parameter correctly - arguments must be JSON-stringified
-      // NotebookLM uses triple nested arrays: [[[...]]]
-      const formattedRequests = rpcs.map(rpc => [
-        rpc.id,
-        JSON.stringify(rpc.args),
-        null,
-        'generic'
-      ]);
-      requestBody.append('f.req', JSON.stringify([formattedRequests]));
-      
-      // Add authentication parameters in the correct format
-      if (this.authParams.at) {
-        requestBody.append('at', this.authParams.at);
-      }
-      if (this.authParams.bl) {
-        requestBody.append('bl', this.authParams.bl);
-      }
-      
-      // Add additional parameters that might be required
-      requestBody.append('f.sid', sessionId);
-      requestBody.append('_reqid', requestId);
-
-      const headers = {
-        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-        'Referer': 'https://notebooklm.google.com/',
-        'Origin': 'https://notebooklm.google.com',
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'X-Requested-With': 'XMLHttpRequest',
-        'X-Goog-AuthUser': '0',
-        'X-Goog-Encode-Response-If-Executable': 'base64',
-        'X-Goog-Visitor-Id': sessionId,
-        'X-Same-Domain': '1',
-        'X-Client-Data': 'CIW2yQEIo7bJAQipncoBCMD2yQEIlqHLAQiFoM0BCNKfzQEI2qDNAQjWoM0BCIqhzQEI6qLNAQjLpc0BCMutzQEIz7PNAQjYtM0BCOm0zQEI8bTNAQiRts0BCOy2zQEI+7bNAQiMt80BCJ+3zQEImrjNAQiuuM0BCK25zQEIurjNAQi5uM0BCMy4zQEI1rjNAQiYuc0BCL+5zQEI6rnNAQjyuc0BCKu6zQEI9rrNAQjSu80BCKy8zQEI073NAQiRvs0BCOy+zQEI+b7NAQiQv80BCJm/zQEIo7/NAQj2v80BCKzAzQEIssHNAQi5wc0BCNnBzQEI+8HNAQiWws0BCL/CzQEI1sLNAQi+w80BCMDDzQEI5cPNAQjJxM0BCNnEzQEI6cTNAQjLxc0BCOfFzQEI+cXNAQiNxs0BCOPGzQEI8cbNAQiYx80BCJzHzQEIpcfNAQjhx80BCPbHzQEIgcjNAQioyM0BCL7IzQEIv8jNAQi4yc0BCNfJzQEI+MnNAQiWys0BCKrKzQEIy8rNAQiSy80BCJrLzQEIocvNAQiZzM0BCNnMzQEI4szNAQiTzc0BCLbNzQEI4M3NAQiCzs0BCJfOzQEI',
-        'Accept': '*/*',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache',
-        'Sec-Fetch-Dest': 'empty',
-        'Sec-Fetch-Mode': 'cors',
-        'Sec-Fetch-Site': 'same-origin'
-      };
-
-      console.log('Making API request to:', url);
-      console.log('Request body:', requestBody.toString());
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: headers,
-        body: requestBody,
-        credentials: 'include'
-      });
-
-      console.log('Response status:', response.status);
-      const rawResponse = await response.text();
-      console.log('Raw response:', rawResponse.substring(0, 500) + '...');
-
-      if (!response.ok) {
-        throw new Error(`API request failed: ${response.status} - ${rawResponse}`);
-      }
-
-      // Parse NotebookLM's response format
-      const results = this.parseNotebookLMResponse(rawResponse);
-      console.log('✅ API request successful, parsed results:', results.length);
-      return results;
-      
-    } catch (error) {
-      console.error('❌ NotebookLM API execution failed:', error);
-      throw error;
-    }
-  },
-
-  // Parse NotebookLM's batchexecute response format
-  parseNotebookLMResponse(text) {
-    try {
-      // Clean the response text (remove the security prefix)
-      const cleanedText = text.split('\n').slice(2).join('');
-      const parsed = JSON.parse(cleanedText);
-      
-      const results = [];
-      for (const item of parsed) {
-        if (item[0] !== 'wrb.fr') continue;
-        
-        let index;
-        if (item[6] === 'generic') {
-          index = 1;
-        } else {
-          index = parseInt(item[6], 10);
-        }
-        
-        const rpcId = item[1];
-        const data = JSON.parse(item[2]);
-        results.push({ index, rpcId, data });
-      }
-      
-      return results;
-    } catch (error) {
-      console.error('Failed to parse NotebookLM response:', error);
-      throw new Error('Failed to parse API response');
-    }
-  },
-
-  // Test the GraphQL integration with NotebookLM
-  async testNotebookLMAPI() {
-    try {
-      console.log('=== TESTING NOTEBOOKLM API INTEGRATION ===');
-      Utils.showNotification('🧪 Testing NotebookLM API integration...', 'info');
-      
-      // Test 1: Fetch notebooks
-      console.log('Test 1: Fetching notebooks...');
-      Utils.showNotification('Fetching notebooks...', 'info');
-      const notebooks = await this.fetchNotebooks();
-      console.log('✅ Notebooks fetched:', notebooks.length);
-      
-      if (notebooks.length > 0) {
-        console.log('Sample notebook:', notebooks[0]);
-        
-        // Test 2: Add a test source to the first notebook
-        console.log('Test 2: Adding test source...');
-        const testUrl = 'https://en.wikipedia.org/wiki/NotebookLM';
-        const result = await this.addSourceToNotebook(notebooks[0].id, testUrl);
-        
-        if (result.success) {
-          console.log('✅ Source added successfully:', result);
-          
-          // Update UI to show the changes
-          await this.updateNotebookLMUI(notebooks[0].id);
-        } else {
-          console.log('❌ Failed to add source:', result.error);
-        }
-      } else {
-        // Test 3: Create a new notebook if none exist
-        console.log('Test 3: Creating new notebook...');
-        const notebookId = await this.createNewNotebook('API Test Notebook');
-        console.log('✅ Notebook created:', notebookId);
-        
-        // Add a source to the new notebook
-        const testUrl = 'https://notebooklm.google.com/';
-        const result = await this.addSourceToNotebook(notebookId, testUrl);
-        console.log('Source addition result:', result);
-        
-        if (result.success) {
-          await this.updateNotebookLMUI(notebookId);
-        }
-      }
-      
-      console.log('✅ NotebookLM API integration test completed');
-      Utils.showNotification('✅ NotebookLM API integration test completed successfully!', 'success');
-      
-    } catch (error) {
-      console.error('❌ NotebookLM API integration test failed:', error);
-      Utils.showNotification(`❌ API test failed: ${error.message}`, 'error');
-      
-      // If authentication failed, show helpful message
-      if (error.message.includes('NotebookLM')) {
-        Utils.showNotification('💡 Tip: Make sure NotebookLM is open in a browser tab', 'info');
-      }
-    }
-  },
-
-  // Helper function to show extension reload instructions
-  showReloadInstructions() {
-    const message = `
-📋 To reload the extension:
-1. Go to chrome://extensions/
-2. Find "SmartGrab AI Search Extension"
-3. Click the reload/refresh button
-4. Come back to test the GraphQL integration
-
-The "🧪 Test GraphQL Integration" button should now be visible in:
-- NotebookLM tab (near connection status)
-- Settings tab (debug section)
-    `;
-    
-    console.log(message);
-    Utils.showNotification('Extension reload instructions logged to console', 'info');
-    
-    // Also copy instructions to clipboard if possible
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(message.trim()).then(() => {
-        Utils.showNotification('Instructions copied to clipboard!', 'success');
-      }).catch(() => {
-        console.log('Could not copy to clipboard, but instructions are in console');
-      });
-    }
-  },
-
-  async loadArticles() {
-    await Data.loadEntries();
-    this.updateSelectionUI();
-  },
-  
-  updateSelectionUI() {
-    const selectedCount = AppState.homeSelectedArticles.size;
-    const importButton = Elements.importToNotebookLM;
-    
-    if (importButton) {
-      Utils.setDisabled(importButton, selectedCount === 0);
-      importButton.textContent = selectedCount > 0 
-        ? `Import ${selectedCount} articles to NotebookLM`
-        : 'Select articles to import';
-    }
-    
-    // Update NotebookLM selection counts
-    if (Elements.selectedCount) {
-      Elements.selectedCount.textContent = selectedCount;
-    }
-    
-    if (Elements.exportToNotebookLM) {
-      Utils.setDisabled(Elements.exportToNotebookLM, selectedCount === 0);
-    }
-    
-    // Calculate estimated words and files
-    const selectedEntries = AppState.allEntries.filter(entry => 
-      AppState.homeSelectedArticles.has(entry.id)
-    );
-    
-    const totalWords = selectedEntries.reduce((sum, entry) => 
-      sum + (entry.text ? entry.text.split(' ').length : 0), 0
-    );
-    
-    const estimatedFiles = Math.ceil(totalWords / 1000); // Rough estimate
-    
-    if (Elements.selectedWords) {
-      Elements.selectedWords.textContent = totalWords.toLocaleString();
-    }
-    
-    if (Elements.estimatedFiles) {
-      Elements.estimatedFiles.textContent = estimatedFiles;
-    }
-  },
-  
-  selectArticlesBulk(mode) {
-    switch (mode) {
-      case 'all':
-        AppState.allEntries.forEach(entry => AppState.homeSelectedArticles.add(entry.id));
-        break;
-      case 'none':
-        AppState.homeSelectedArticles.clear();
-        break;
-      case 'recent':
-        const oneWeekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
-        AppState.allEntries
-          .filter(entry => entry.timestamp > oneWeekAgo)
-          .forEach(entry => AppState.homeSelectedArticles.add(entry.id));
-        break;
-      case 'high':
-        // Select top 10 most recent entries
-        const sortedEntries = [...AppState.allEntries]
-          .sort((a, b) => b.timestamp - a.timestamp)
-          .slice(0, 10);
-        AppState.homeSelectedArticles.clear();
-        sortedEntries.forEach(entry => AppState.homeSelectedArticles.add(entry.id));
-        break;
-    }
-    
-    // Update checkboxes
-    const checkboxes = Utils.$$('.entry-checkbox');
-    checkboxes.forEach(checkbox => {
-      const entryId = checkbox.closest('.entry').dataset.entryId;
-      checkbox.checked = AppState.homeSelectedArticles.has(entryId);
+      div.innerHTML = `
+        <div class="entry-header with-checkbox">
+          <input type="checkbox" class="entry-checkbox" data-entry-id="${entry.id}" ${isSelected ? 'checked' : ''}>
+          <span class="entry-title">${Utils.escapeHtml(entry.title || 'Untitled')}</span>
+        </div>
+        <div class="entry-text">${Utils.escapeHtml(entry.text || entry.url || '')}</div>
+      `;
+      container.appendChild(div);
     });
     
     this.updateSelectionUI();
   },
-  
-    async loadNotebooks() {
-    if (!Elements.notebookDropdown) return;
-    
-    try {
-      Elements.notebookDropdown.innerHTML = '<option value="">Loading notebooks...</option>';
-      
-      // Authenticate first
-      await this.authenticate();
-      
-      // Fetch notebooks using proper API
-      const notebooks = await this.fetchNotebooks();
-      
-      if (notebooks && notebooks.length > 0) {
-        Elements.notebookDropdown.innerHTML = '<option value="">Select a notebook...</option>';
-        
-        notebooks.forEach(notebook => {
-          const option = document.createElement('option');
-          option.value = notebook.id;
-          option.textContent = `${notebook.emoji || '📔'} ${notebook.title}`;
-          Elements.notebookDropdown.appendChild(option);
-        });
-        
-        const createOption = document.createElement('option');
-        createOption.value = 'CREATE_NEW';
-        createOption.textContent = '➕ Create New Notebook';
-        Elements.notebookDropdown.appendChild(createOption);
-      } else {
-        Elements.notebookDropdown.innerHTML = `
-          <option value="">No notebooks found</option>
-          <option value="CREATE_NEW">➕ Create New Notebook</option>
-        `;
-      }
-    } catch (error) {
-      console.error('Failed to load notebooks:', error);
-      Elements.notebookDropdown.innerHTML = '<option value="">❌ Error loading notebooks</option>';
-      Utils.showNotification(`Failed to load notebooks: ${error.message}`, 'error');
-    }
-  },
-  
-  async fetchNotebooks() {
-    try {
-      console.log('Fetching notebooks from NotebookLM...');
-      
-      // Use the correct RPC call for fetching notebooks with the real format
-      // Try multiple RPC calls and variations to see which one works
-      const rpcVariations = [
-        {
-          id: 'wXbhsf',
-          args: [null, 1, null, [2]]
-        },
-        {
-          id: 'wXbhsf',
-          args: [null, 1]
-        },
-        {
-          id: 'wXbhsf',
-          args: [null, 1, null, []]
-        },
-        {
-          id: 'wXbhsf',
-          args: []
-        },
-        {
-          id: 'CCqFvf',
-          args: [null, 1]
-        },
-        {
-          id: 'izAoDd',
-          args: [null, 1]
-        },
-        {
-          id: 'KjsqPd',
-          args: [null, 1]
-        }
-      ];
-      
-      console.log('Trying different RPC variations...');
-      let results = null;
-      
-      for (let i = 0; i < rpcVariations.length; i++) {
-        try {
-          console.log(`Trying RPC variation ${i + 1}:`, rpcVariations[i]);
-          results = await this.executeNotebookLMAPIInPage([rpcVariations[i]]);
-          console.log('✅ RPC variation succeeded:', i + 1);
-          break;
-        } catch (error) {
-          console.log(`❌ RPC variation ${i + 1} failed:`, error.message);
-          if (i === rpcVariations.length - 1) {
-            throw error; // Re-throw the last error if all variations fail
-          }
-        }
-      }
-      
-      if (results.length === 0) {
-        console.log('No notebooks found in response');
-        return [];
-      }
-      
-      const notebooksData = results[0].data[0];
-      if (!Array.isArray(notebooksData)) {
-        console.log('Invalid notebooks data format');
-        return [];
-      }
-      
-      // Parse and sort notebooks by creation date (newest first)
-      notebooksData.sort((a, b) => (b[5] && b[5][1] || 0) - (a[5] && a[5][1] || 0));
-      
-      const notebooks = notebooksData.map(notebook => ({
-        id: notebook[2],
-        title: notebook[0] || 'Untitled Notebook',
-        emoji: notebook[3] || '📔'
-      }));
-      
-      console.log(`Found ${notebooks.length} notebooks`);
-      return notebooks;
-    } catch (error) {
-      console.error('Error fetching notebooks:', error);
-      throw error;
-    }
-  },
-  
-  async createNewNotebook(title) {
-    try {
-      console.log(`Creating new notebook: ${title}`);
-      
-      // Use the correct RPC call for creating a new notebook with the real format
-      const results = await this.executeNotebookLMAPI([{
-        id: 'CCqFvf',
-        args: ["", null, null, [2]]
-      }]);
-      
-      if (results.length === 0) {
-        throw new Error('Failed to create notebook - no response');
-      }
-      
-      const notebookId = results[0].data[2];
-      if (!notebookId) {
-        throw new Error('Failed to create notebook - no ID returned');
-      }
-      
-      console.log(`Created notebook with ID: ${notebookId}`);
-      return notebookId;
-    } catch (error) {
-      console.error('Error creating notebook:', error);
-      throw error;
-    }
+
+  // Selection logic
+  updateSelectionUI() {
+    const selectedIds = this.getSelectedEntryIds();
+    this.selectionCount.textContent = selectedIds.length;
+    Array.from(this.notebooklmEntries.querySelectorAll('.entry')).forEach(entry => {
+      const id = entry.dataset.entryId;
+      entry.classList.toggle('selected', selectedIds.includes(id));
+      const checkbox = entry.querySelector('.entry-checkbox');
+      if (checkbox) checkbox.checked = selectedIds.includes(id);
+    });
   },
 
-  async addSourceToNotebook(notebookId, url) {
-    try {
-      console.log(`Adding source to notebook ${notebookId}: ${url}`);
-      
-      // Use the correct format from captured requests
-      const sourceData = [null, null, [url], null, null, null, null, null, null, null, 1];
-      
-      // Use the correct RPC call for adding sources with the real format
-      const results = await this.executeNotebookLMAPI([{
-        id: 'izAoDd',
-        args: [[sourceData], notebookId, [2]]
-      }]);
-      
-      if (results.length === 0) {
-        throw new Error('Failed to add source - no response');
-      }
-      
-      console.log(`Successfully added source to notebook`);
-      return { success: true, url };
-    } catch (error) {
-      console.error('Error adding source:', error);
-      return { success: false, url, error: error.message };
-    }
+  getSelectedEntryIds() {
+    // Get selected entries from NotebookLM tab
+    const notebooklmSelected = Array.from(this.notebooklmEntries.querySelectorAll('.entry.selected')).map(e => e.dataset.entryId);
+    
+    // Get selected entries from Home tab (if we're in selection mode)
+    const homeSelected = AppState.homeSelectedArticles ? Array.from(AppState.homeSelectedArticles) : [];
+    
+    // Combine both sources
+    const allSelected = [...notebooklmSelected, ...homeSelected];
+    
+    console.log('NotebookLM: Selected entry IDs:', allSelected);
+    console.log('NotebookLM: From NotebookLM tab:', notebooklmSelected);
+    console.log('NotebookLM: From Home tab:', homeSelected);
+    
+    return allSelected;
   },
 
-  async importArticlesToNotebook(notebookId, articles) {
-    const results = [];
+  getEntryById(id) {
+    id = String(id); // Ensure string comparison
+    console.log('NotebookLM: Looking for entry with ID:', id);
+    console.log('NotebookLM: this.sources:', this.sources);
+    console.log('NotebookLM: AppState.allEntries:', AppState.allEntries);
     
-    for (const article of articles) {
-      try {
-        // Use the article URL if available, otherwise create a data URL with the content
-        let sourceUrl = article.url;
-        
-        if (!sourceUrl || sourceUrl === 'Untitled') {
-          // Create a data URL with the article content for articles without URLs
-          const content = `# ${article.title}\n\n${article.text}`;
-          sourceUrl = `data:text/plain;charset=utf-8,${encodeURIComponent(content)}`;
-        }
-        
-        const result = await this.addSourceToNotebook(notebookId, sourceUrl);
-        results.push({ ...result, title: article.title });
-        
-        // Add a small delay between requests to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 500));
-      } catch (error) {
-        console.error(`Failed to import article "${article.title}":`, error);
-        results.push({ 
-          success: false, 
-          url: article.url || 'no-url',
-          title: article.title,
-          error: error.message 
-        });
+    // First try to find in NotebookLM sources
+    if (this.sources && Array.isArray(this.sources)) {
+      let entry = this.sources.find(e => String(e.id) === id);
+      if (entry) {
+        console.log('NotebookLM: Found entry in sources:', entry);
+        return entry;
       }
     }
     
-    return results;
-  },
-  
-    async performImport() {
-    const selectedEntries = AppState.allEntries.filter(entry => 
-      AppState.homeSelectedArticles.has(entry.id)
-    );
+    // If not found, try to find in Home tab entries (AppState.allEntries)
+    if (AppState.allEntries && Array.isArray(AppState.allEntries)) {
+      let entry = AppState.allEntries.find(e => String(e.id) === id);
+      if (entry) {
+        console.log('NotebookLM: Found entry in home entries:', entry);
+        return entry;
+      }
+    }
     
-    if (selectedEntries.length === 0) {
-      Utils.showNotification('No articles selected', 'error');
+    console.log('NotebookLM: Entry not found in any source for ID:', id);
+    console.log('NotebookLM: Available sources count:', this.sources?.length || 0);
+    console.log('NotebookLM: Available home entries count:', AppState.allEntries?.length || 0);
+    return null;
+  },
+
+  // Selection toolbar
+  selectArticlesBulk(mode) {
+    const entries = Array.from(this.notebooklmEntries.querySelectorAll('.entry'));
+    if (mode === 'all') {
+      entries.forEach(entry => {
+        entry.classList.add('selected');
+        const checkbox = entry.querySelector('.entry-checkbox');
+        if (checkbox) checkbox.checked = true;
+      });
+    } else if (mode === 'none') {
+      entries.forEach(entry => {
+        entry.classList.remove('selected');
+        const checkbox = entry.querySelector('.entry-checkbox');
+        if (checkbox) checkbox.checked = false;
+      });
+    } else if (mode === 'recent') {
+      const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      entries.forEach(entry => {
+        const entryData = this.getEntryById(entry.dataset.entryId);
+        const isRecent = entryData && entryData.timestamp && entryData.timestamp > oneWeekAgo;
+        entry.classList.toggle('selected', isRecent);
+        const checkbox = entry.querySelector('.entry-checkbox');
+        if (checkbox) checkbox.checked = isRecent;
+      });
+    } else if (mode === 'high') {
+      entries.forEach((entry, i) => {
+        const selected = i < 10;
+        entry.classList.toggle('selected', selected);
+        const checkbox = entry.querySelector('.entry-checkbox');
+        if (checkbox) checkbox.checked = selected;
+      });
+    }
+    this.updateSelectionUI();
+  },
+
+  // Import handler
+  async performImport() {
+    console.log('NotebookLM: performImport called');
+    console.log('NotebookLM: selectedNotebookId:', this.selectedNotebookId);
+    
+    if (!this.selectedNotebookId) {
+      console.log('NotebookLM: No notebook selected');
+      Utils.showNotification('Please select a notebook first', 'error');
       return;
     }
     
-    let notebookId = Elements.notebookDropdown?.value;
-    if (!notebookId) {
-      Utils.showNotification('Please select a notebook or create a new one', 'error');
+    const entryIds = this.getSelectedEntryIds();
+    console.log('NotebookLM: Selected entry IDs:', entryIds);
+    
+    if (!entryIds.length) {
+      console.log('NotebookLM: No sources selected');
+      Utils.showNotification('No sources selected', 'error');
       return;
     }
     
-    try {
-      // Show loading state
-      Utils.setDisabled(Elements.importToNotebookLM, true);
-      if (Elements.importToNotebookLM) {
-        Elements.importToNotebookLM.textContent = '⏳ Importing...';
-      }
-      
-      // Create new notebook if needed
-      if (notebookId === 'CREATE_NEW') {
-        Utils.showNotification('Creating new notebook...', 'info');
-        const title = `SmartGrab Import - ${new Date().toLocaleDateString()}`;
-        notebookId = await this.createNewNotebook(title);
-        Utils.showNotification(`Created notebook: ${title}`, 'success');
-      }
-      
-      // Import articles
-      Utils.showNotification(`Importing ${selectedEntries.length} articles...`, 'info');
-      const results = await this.importArticlesToNotebook(notebookId, selectedEntries);
-      
-      // Show results
-      const successCount = results.filter(r => r.success).length;
-      const failCount = results.length - successCount;
-      
-      if (successCount > 0) {
-        Utils.showNotification(`✅ Successfully imported ${successCount} articles to NotebookLM`, 'success');
-        
-        // Update NotebookLM UI to show new content (following web importer behavior)
-        await this.updateNotebookLMUI(notebookId);
-      }
-      
-      if (failCount > 0) {
-        Utils.showNotification(`⚠️ Failed to import ${failCount} articles`, 'error');
-      }
-      
-      // Clear selection
-      AppState.homeSelectedArticles.clear();
-      this.updateSelectionUI();
-      
-      // Refresh notebooks list
-      await this.loadNotebooks();
-      
-    } catch (error) {
-      console.error('Import failed:', error);
-      Utils.showNotification(`Import failed: ${error.message}`, 'error');
-    } finally {
-      // Reset button state
-      Utils.setDisabled(Elements.importToNotebookLM, false);
-      if (Elements.importToNotebookLM) {
-        const selectedCount = AppState.homeSelectedArticles.size;
-        Elements.importToNotebookLM.textContent = selectedCount > 0 
-          ? `Import ${selectedCount} articles to NotebookLM`
-          : 'Select articles to import';
-      }
+    console.log('NotebookLM: Starting import...');
+    if (this.importToNotebookBtn) {
+      this.importToNotebookBtn.disabled = true;
+      this.importToNotebookBtn.textContent = 'Importing...';
     }
-  },
-  
-  loadExportHistory() {
-    // Placeholder for export history functionality
-    console.log('Loading export history...');
-  },
-
-  async checkConnectionStatus() {
+    
+    let successCount = 0, failCount = 0;
     try {
-      // Try to authenticate and load notebooks to test connection
-      console.log('=== CHECK CONNECTION STATUS ===');
-      await this.authenticate(true); // Always force refresh to get latest tokens
-      
-      // Update UI to show connected status
-      if (Elements.driveStatus) {
-        Elements.driveStatus.className = 'google-drive-status connected';
-        Elements.driveStatus.innerHTML = '✅ <span>Connected to NotebookLM</span>';
-      }
-      
-      if (Elements.connectDriveBtn) {
-        Elements.connectDriveBtn.textContent = '🔄 Refresh Connection';
-      }
-      
-      return true;
-    } catch (error) {
-      console.log('NotebookLM not connected:', error.message);
-      
-      // Update UI to show disconnected status
-      if (Elements.driveStatus) {
-        Elements.driveStatus.className = 'google-drive-status disconnected';
-        Elements.driveStatus.innerHTML = '⚠️ <span>Not connected to NotebookLM</span>';
-      }
-      
-      if (Elements.connectDriveBtn) {
-        Elements.connectDriveBtn.textContent = '🔗 Connect to NotebookLM';
-      }
-      
-      return false;
-    }
-  },
-  
-  debug() {
-    console.log('NotebookLM Debug - Use browser DevTools Network tab to monitor requests');
-    Utils.showNotification('Use DevTools Network tab to monitor NotebookLM requests', 'info');
-  },
-
-  // Simple test function to verify script injection is working
-  async testScriptInjection() {
-    console.log('=== TESTING SCRIPT INJECTION ===');
-    console.log('Function called at:', new Date().toISOString());
-    
-    Utils.showNotification('Testing script injection...', 'info');
-    
-    // Check if Elements.debugTokensBtn exists
-    console.log('debugTokensBtn element:', Elements.debugTokensBtn);
-    console.log('NotebookLM object:', typeof NotebookLM);
-    console.log('testScriptInjection function:', typeof this.testScriptInjection);
-    
-    try {
-      const tabs = await chrome.tabs.query({url: "https://notebooklm.google.com/*"});
-      console.log('Found tabs:', tabs.length);
-      
-      if (tabs.length === 0) {
-        Utils.showNotification('No NotebookLM tab found', 'error');
-        return;
-      }
-
-      const result = await chrome.scripting.executeScript({
-        target: { tabId: tabs[0].id },
-        world: 'MAIN',
-        func: () => {
-          console.log('=== SCRIPT INJECTION TEST SUCCESS ===');
-          return {
-            url: window.location.href,
-            title: document.title,
-            timestamp: new Date().toISOString()
-          };
+      for (const entryId of entryIds) {
+        const entry = this.getEntryById(entryId);
+        if (!entry) {
+          console.log('NotebookLM: Entry not found for ID:', entryId);
+          continue;
         }
-      });
-
-      console.log('Script injection result:', result);
-      Utils.showNotification('Script injection test completed - check console', 'success');
-    } catch (error) {
-      console.error('Script injection test failed:', error);
-      Utils.showNotification('Script injection failed: ' + error.message, 'error');
-    }
-  },
-
-  // Debug function to check what tokens are available on NotebookLM page
-  async debugTokens() {
-    console.log('=== DEBUG TOKENS FUNCTION CALLED ===');
-    Utils.showNotification('Starting token debug...', 'info');
-    
-    try {
-      console.log('Debugging NotebookLM tokens...');
-      
-      // Check if NotebookLM tab is open
-      console.log('Querying for NotebookLM tabs...');
-      const tabs = await chrome.tabs.query({url: "https://notebooklm.google.com/*"});
-      console.log('Found tabs:', tabs.length);
-      
-      if (tabs.length === 0) {
-        console.log('No NotebookLM tab found');
-        Utils.showNotification('No NotebookLM tab found. Please open https://notebooklm.google.com/', 'error');
-        return;
-      }
-
-      console.log('Executing script on tab:', tabs[0].id);
-      // Execute debug script on NotebookLM page
-      const result = await chrome.scripting.executeScript({
-        target: { tabId: tabs[0].id },
-        world: 'MAIN',
-        func: () => {
-          // Debug function to run on NotebookLM page
-          const pageText = document.documentElement.innerHTML;
-          
-          // Look for all potential token patterns
-          const tokenPatterns = [
-            { name: 'SNlM0e', regex: /"SNlM0e":"([^"]+)"/ },
-            { name: 'cfb2h', regex: /"cfb2h":"([^"]+)"/ },
-            { name: 'at', regex: /"at":"([^"]+)"/ },
-            { name: 'bl', regex: /"bl":"([^"]+)"/ },
-            { name: 'FdrFJe', regex: /"FdrFJe":"([^"]+)"/ },
-          ];
-          
-          const foundTokens = [];
-          
-          for (const pattern of tokenPatterns) {
-            const match = pageText.match(pattern.regex);
-            if (match) {
-              foundTokens.push({
-                name: pattern.name,
-                value: match[1].substring(0, 20) + '...' // Show first 20 chars for debugging
-              });
-            }
-          }
-          
-          // Look for any pattern that might be a token
-          const allTokenMatches = pageText.match(/"[A-Za-z0-9]{5,10}":"[A-Za-z0-9_-]{20,}"/g);
-          const uniqueTokens = [...new Set(allTokenMatches || [])].slice(0, 10);
-          
-          // Better signed-in detection for NotebookLM
-          const signedInIndicators = [
-            'Sign out',
-            'account_circle',
-            'profile',
-            'avatar',
-            'user_menu',
-            'account_menu',
-            'signed_in',
-            'logout'
-          ];
-          
-          let userSignedIn = false;
-          const bodyText = document.body.innerHTML.toLowerCase();
-          
-          for (const indicator of signedInIndicators) {
-            if (bodyText.includes(indicator.toLowerCase())) {
-              userSignedIn = true;
-              console.log(`Sign-in detected via: ${indicator}`);
-              break;
-            }
-          }
-          
-          // Also check for user email patterns
-          const emailPattern = /@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
-          if (emailPattern.test(bodyText)) {
-            userSignedIn = true;
-            console.log('Sign-in detected via email pattern');
-          }
-          
-          return {
-            url: window.location.href,
-            title: document.title,
-            userSignedIn: userSignedIn,
-            foundTokens: foundTokens,
-            allPotentialTokens: uniqueTokens,
-            pageContainsWizGlobalData: pageText.includes('WIZ_global_data')
-          };
-        }
-      });
-
-      console.log('Script execution result:', result);
-      const debugInfo = result[0].result;
-      console.log('NotebookLM Debug Results:', debugInfo);
-      
-      // Log detailed token information
-      console.log('=== DETAILED TOKEN ANALYSIS ===');
-      console.log('User signed in:', debugInfo.userSignedIn);
-      console.log('Found tokens:', debugInfo.foundTokens);
-      console.log('All potential tokens:', debugInfo.allPotentialTokens);
-      
-      // Display results to user
-      Utils.showNotification(`Debug complete. Check console for token details. Found ${debugInfo.foundTokens.length} known tokens.`, 'info');
-      
-      return debugInfo;
-    } catch (error) {
-      console.error('=== DEBUG TOKENS ERROR ===');
-      console.error('Full error details:', error);
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
-      Utils.showNotification('Debug failed: ' + error.message, 'error');
-    }
-  },
-  
-  async captureAndOpen() {
-    try {
-      // Show loading state
-      Utils.setDisabled(Elements.captureAndOpenBtn, true);
-      if (Elements.captureAndOpenBtn) {
-        Elements.captureAndOpenBtn.textContent = '⏳ Capturing...';
-      }
-      
-      // First, capture the current page
-      Utils.showNotification('Capturing current page...', 'info');
-      
-      const captureResponse = await Utils.sendMessage({ action: 'capture_page' });
-      
-      if (captureResponse.success) {
-        const entry = captureResponse.entry;
-        Utils.showNotification(`✅ Captured: ${entry.title}`, 'success');
         
-        // Reload the articles list to show the new capture
-        await Data.loadEntries();
-        await this.loadArticles();
+        console.log('NotebookLM: Processing entry:', entry.title || entry.url);
         
-        // Try to automatically import to NotebookLM
         try {
-          Utils.showNotification('Importing to NotebookLM...', 'info');
-          
-          // Authenticate with NotebookLM
-          await this.authenticate();
-          
-          // Create a new notebook for this capture
-          const notebookTitle = `${entry.title} - ${new Date().toLocaleDateString()}`;
-          const notebookId = await this.createNewNotebook(notebookTitle);
-          
-          // Import the article
-          const results = await this.importArticlesToNotebook(notebookId, [entry]);
-          
-          if (results[0]?.success) {
-            Utils.showNotification('✅ Successfully imported to NotebookLM!', 'success');
-            
-            // Open the notebook
-            const notebookUrl = `https://notebooklm.google.com/notebook/${notebookId}`;
-            await chrome.tabs.create({ url: notebookUrl });
-          } else {
-            throw new Error(results[0]?.error || 'Import failed');
+          if (entry.url) {
+            console.log('NotebookLM: Adding URL source:', entry.url);
+            await notebooklmClient.addSource(this.selectedNotebookId, entry.url);
+          } else if (entry.text) {
+            console.log('NotebookLM: Adding text source:', entry.text.substring(0, 100) + '...');
+            await notebooklmClient.addTextSource(this.selectedNotebookId, entry.text);
           }
-        } catch (importError) {
-          console.error('Auto-import failed:', importError);
-          Utils.showNotification(`⚠️ Captured but import failed: ${importError.message}`, 'error');
-          
-          // Fallback: just open NotebookLM
-          await chrome.tabs.create({ url: 'https://notebooklm.google.com' });
+          successCount++;
+          console.log('NotebookLM: Successfully added source');
+        } catch (err) {
+          console.error('NotebookLM: Error adding source:', err);
+          failCount++;
         }
-      } else {
-        throw new Error(captureResponse.error || 'Capture failed');
       }
-    } catch (error) {
-      console.error('Capture and open failed:', error);
-      Utils.showNotification(`Failed to capture page: ${error.message}`, 'error');
+      
+      console.log('NotebookLM: Import completed. Success:', successCount, 'Failed:', failCount);
+      
+      if (successCount) Utils.showNotification(`Imported ${successCount} to NotebookLM!`, 'success');
+      if (failCount) Utils.showNotification(`Failed to import ${failCount} sources`, 'error');
+    } catch (e) {
+      console.error('NotebookLM: Import failed:', e);
+      Utils.showNotification('Import failed', 'error');
     } finally {
-      // Reset button state
-      Utils.setDisabled(Elements.captureAndOpenBtn, false);
-      if (Elements.captureAndOpenBtn) {
-        Elements.captureAndOpenBtn.textContent = '📄 Capture & Open NotebookLM';
+      if (this.importToNotebookBtn) {
+        this.importToNotebookBtn.disabled = false;
+        this.importToNotebookBtn.textContent = '🧠 Import to NotebookLM';
       }
     }
   },
-  
-  async connectDrive() {
-    try {
-      // Test NotebookLM connection instead of Google Drive
-      Utils.showNotification('Testing NotebookLM connection...', 'info');
-      
-      console.log('=== REFRESH CONNECTION CLICKED ===');
-      console.log('Forcing fresh authentication...');
-      
-      await this.authenticate(true); // Force refresh to get new tokens
-      await this.loadNotebooks();
-      
-      // Update connection status
-      if (Elements.driveStatus) {
-        Elements.driveStatus.className = 'google-drive-status connected';
-        Elements.driveStatus.innerHTML = '✅ <span>Connected to NotebookLM</span>';
-      }
-      
-      if (Elements.connectDriveBtn) {
-        Elements.connectDriveBtn.textContent = '🔄 Refresh Connection';
-      }
-      
-      Utils.showNotification('✅ NotebookLM connection successful!', 'success');
-    } catch (error) {
-      console.error('NotebookLM connection failed:', error);
-      Utils.showNotification(`Connection failed: ${error.message}`, 'error');
-      
-      // Update status to show error
-      if (Elements.driveStatus) {
-        Elements.driveStatus.className = 'google-drive-status disconnected';
-        Elements.driveStatus.innerHTML = '❌ <span>Not connected to NotebookLM</span>';
-      }
-      
-      if (Elements.connectDriveBtn) {
-        Elements.connectDriveBtn.textContent = '🔗 Connect to NotebookLM';
-      }
-    }
-  },
-  
+
+  // Export handler (same as import for now)
   async performExport() {
-    const selectedEntries = AppState.allEntries.filter(entry => 
-      AppState.homeSelectedArticles.has(entry.id)
-    );
+    console.log('NotebookLM: performExport called');
+    console.log('NotebookLM: this.isButtonActionRunning:', this.isButtonActionRunning);
     
-    if (selectedEntries.length === 0) {
-      Utils.showNotification('No articles selected for export', 'error');
+    // Prevent multiple simultaneous executions
+    if (this.isButtonActionRunning) {
+      console.log('NotebookLM: Export already running, skipping duplicate request');
+      Utils.showNotification('Export already in progress, please wait...', 'warning');
       return;
     }
     
+    this.isButtonActionRunning = true;
+    console.log('NotebookLM: Set isButtonActionRunning to true');
+    
     try {
-      // Create export data
-      const exportData = {
-        timestamp: Date.now(),
-        entries: selectedEntries,
-        count: selectedEntries.length
-      };
+      const selectedEntryIds = this.getSelectedEntryIds();
+      console.log('NotebookLM: Selected entry IDs:', selectedEntryIds);
       
-      // Create and download file
-      const blob = new Blob([JSON.stringify(exportData, null, 2)], { 
-        type: 'application/json' 
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `notebooklm-export-${new Date().toISOString().split('T')[0]}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-      
-      Utils.showNotification(`Exported ${selectedEntries.length} articles`, 'success');
-      
-      // Clear selection
-      AppState.homeSelectedArticles.clear();
-      this.updateSelectionUI();
-      
-    } catch (error) {
-      console.error('Export failed:', error);
-      Utils.showNotification('Export failed', 'error');
-    }
-  },
-  
-  async openDriveFolder() {
-    try {
-      // Placeholder for opening Google Drive folder
-      Utils.showNotification('Google Drive integration not yet implemented', 'info');
-    } catch (error) {
-      console.error('Failed to open Drive folder:', error);
-      Utils.showNotification('Failed to open Drive folder', 'error');
-    }
-  },
-
-  // Alternative: Use official Gemini API for audio overviews
-  async testGeminiAudioAPI() {
-    try {
-      console.log('=== TESTING GEMINI API AUDIO FEATURES ===');
-      
-      // This would require a proper Gemini API key and endpoint
-      // Example of what the official API call might look like:
-      
-      const apiKey = 'YOUR_GEMINI_API_KEY'; // Would need to be obtained from Google AI Studio
-      const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent';
-      
-      const requestBody = {
-        contents: [{
-          parts: [{
-            text: `Generate a podcast-style audio overview discussion between two hosts about the following content: 
-                   
-                   ${this.getPageContent()}
-                   
-                   Please create an engaging, conversational discussion that summarizes the key points.`
-          }]
-        }],
-        generationConfig: {
-          temperature: 0.7,
-          topK: 40,
-          topP: 0.9,
-          maxOutputTokens: 2048,
-          // Note: Audio generation might require special configuration
-          responseMimeType: "audio/wav" // This is hypothetical - actual API might differ
-        }
-      };
-      
-      console.log('Making request to official Gemini API...');
-      console.log('Request body:', requestBody);
-      
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify(requestBody)
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Gemini API request failed: ${response.status}`);
+      if (!selectedEntryIds || selectedEntryIds.length === 0) {
+        console.log('NotebookLM: No entries selected');
+        Utils.showNotification('Please select at least one article to export', 'error');
+        return;
       }
       
-      const result = await response.json();
-      console.log('✅ Gemini API response:', result);
+      // Check if this is the real notebook ID
+      const selectedNotebookId = document.getElementById('notebookDropdown')?.value;
+      console.log('NotebookLM: Selected notebook ID:', selectedNotebookId);
+      const isRealNotebook = this.isRealNotebook(selectedNotebookId);
+      console.log('NotebookLM: Is real notebook:', isRealNotebook);
       
-      // Handle the response based on actual API format
-      return result;
-      
-    } catch (error) {
-      console.error('❌ Gemini API test failed:', error);
-      throw error;
-    }
-  },
-
-  getPageContent() {
-    // Extract text content from the current page
-    const content = document.body.innerText || document.body.textContent || '';
-    return content.substring(0, 5000); // Limit to avoid token limits
-  },
-
-  // Update NotebookLM UI after operations (following web importer behavior)
-  async updateNotebookLMUI(notebookId = null) {
-    try {
-      console.log('Updating NotebookLM UI...');
-      
-      // Find any open NotebookLM tabs
-      const tabs = await chrome.tabs.query({ url: 'https://notebooklm.google.com/*' });
-      
-      if (tabs.length > 0) {
-        // Refresh existing NotebookLM tabs to show new content
-        for (const tab of tabs) {
-          await chrome.tabs.reload(tab.id);
-        }
-        console.log(`Refreshed ${tabs.length} NotebookLM tabs`);
-      } else {
-        // Open NotebookLM if no tabs are open
-        const url = notebookId 
-          ? `https://notebooklm.google.com/notebook/${notebookId}`
-          : 'https://notebooklm.google.com/';
-        
-        await chrome.tabs.create({ url });
-        console.log('Opened new NotebookLM tab');
-      }
-    } catch (error) {
-      console.error('Error updating NotebookLM UI:', error);
-    }
-  },
-
-  // Execute NotebookLM API calls by injecting script into the NotebookLM page
-  async executeNotebookLMAPIInPage(rpcs) {
-    if (!this.isAuthenticated) {
-      await this.authenticate();
-    }
-
-    try {
-      console.log('=== EXECUTING NOTEBOOKLM API IN PAGE ===');
-      console.log('RPCs to execute:', rpcs);
-      
-      // Get the NotebookLM tab
-      const tabs = await chrome.tabs.query({url: "https://notebooklm.google.com/*"});
-      if (tabs.length === 0) {
-        throw new Error('No NotebookLM tab found');
-      }
-      
-      const tab = tabs[0];
-      
-      // Execute the script in the NotebookLM page
-      const results = await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        func: async function(rpcs, authParams) {
-          console.log('🚀 Executing NotebookLM API call in page context...');
+      if (isRealNotebook) {
+        // Use the automation approach for real notebook
+        console.log('NotebookLM: Using automation for real notebook');
+        try {
+          const articles = selectedEntryIds.map(id => this.getEntryById(id)).filter(Boolean);
+          console.log('NotebookLM: Articles to send:', articles);
           
-          try {
-            // Use the real NotebookLM batchexecute endpoint with required parameters
-            const rpcIds = rpcs.map(rpc => rpc.id).join(',');
-            const requestId = Math.floor(Math.random() * 1000000) + 546856;
-            
-            // Extract timestamp from AT token to use as session ID
-            let sessionId = Date.now().toString();
-            if (authParams.at && authParams.at.includes(':')) {
-              const atTimestamp = authParams.at.split(':')[1];
-              if (atTimestamp && /^\d+$/.test(atTimestamp)) {
-                sessionId = atTimestamp;
-              }
-            }
-            
-            const url = `https://notebooklm.google.com/_/LabsTailwindUi/data/batchexecute?rpcids=${rpcIds}&source-path=%2F&soc-app=1&soc-platform=1&bl=${authParams.bl}&f.sid=${sessionId}&hl=en&_reqid=${requestId}&rt=c`;
-            
-            // Build the proper request body for Google's batchexecute format
-            const requestBody = new URLSearchParams();
-            
-            // Format the f.req parameter correctly - arguments must be JSON-stringified
-            const formattedRequests = rpcs.map(rpc => [
-              rpc.id,
-              JSON.stringify(rpc.args),
-              null,
-              'generic'
-            ]);
-            requestBody.append('f.req', JSON.stringify([formattedRequests]));
-            
-            // Add authentication parameters in the correct format
-            if (authParams.at) {
-              requestBody.append('at', authParams.at);
-            }
-            if (authParams.bl) {
-              requestBody.append('bl', authParams.bl);
-            }
-            
-            // Add additional parameters that might be required
-            requestBody.append('f.sid', sessionId);
-            requestBody.append('_reqid', requestId);
-            
-            // Try to extract CSRF token or similar security tokens from the page
-            const pageText = document.documentElement.outerHTML;
-            const csrfMatches = [
-              pageText.match(/"csrf_token":\s*"([^"]+)"/),
-              pageText.match(/"csrfToken":\s*"([^"]+)"/),
-              pageText.match(/"xsrf_token":\s*"([^"]+)"/),
-              pageText.match(/"security_token":\s*"([^"]+)"/),
-              pageText.match(/"at":\s*"([^"]+)"/),
-              pageText.match(/csrf[_-]?token["'\s]*[:=]["'\s]*([A-Za-z0-9+/]{16,})/gi)
-            ];
-            
-            const csrfToken = csrfMatches.find(match => match && match[1]);
-            if (csrfToken) {
-              console.log('🔐 Found potential CSRF token, adding to request...');
-              requestBody.append('csrf_token', csrfToken[1]);
-            }
-
-            const headers = {
-              'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-              'X-Requested-With': 'XMLHttpRequest',
-              'X-Same-Domain': '1'
-            };
-
-            console.log('📡 Making API request from page context...');
-            console.log('URL:', url);
-            console.log('Request body:', requestBody.toString());
-
-            const response = await fetch(url, {
-              method: 'POST',
-              headers: headers,
-              body: requestBody,
-              credentials: 'include'
-            });
-
-            console.log('📥 Response status:', response.status);
-            const rawResponse = await response.text();
-            console.log('📥 Raw response:', rawResponse.substring(0, 500) + '...');
-
-            if (!response.ok) {
-              return {
-                success: false,
-                error: `API request failed: ${response.status} - ${rawResponse}`
-              };
-            }
-
-            // Parse NotebookLM's response format
-            const lines = rawResponse.substring(4).split('\n').filter(line => line.trim());
-            const results = [];
-            
-            for (const line of lines) {
-              if (line.trim()) {
-                try {
-                  const parsed = JSON.parse(line);
-                  if (Array.isArray(parsed) && parsed.length > 0) {
-                    results.push(parsed);
-                  }
-                } catch (e) {
-                  console.log('Could not parse line:', line);
-                }
-              }
-            }
-
-            console.log('✅ API request successful, parsed results:', results.length);
-            return {
-              success: true,
-              data: results
-            };
-            
-          } catch (error) {
-            console.error('❌ NotebookLM API execution failed:', error);
-            return {
-              success: false,
-              error: error.message
-            };
-          }
-        },
-        args: [rpcs, this.authParams]
-      });
-      
-      if (results && results[0] && results[0].result) {
-        const result = results[0].result;
-        if (result.success) {
-          console.log('✅ Page-based API execution successful');
-          return result.data;
-        } else {
-          throw new Error(result.error);
+          await chrome.runtime.sendMessage({
+            action: 'addArticlesToNotebookLM',
+            notebookId: selectedNotebookId,
+            articles: articles
+          });
+          console.log('NotebookLM: Message sent successfully');
+          Utils.showNotification(`Starting to add ${selectedEntryIds.length} articles to NotebookLM...`, 'success');
+        } catch (error) {
+          console.error('Failed to add articles to NotebookLM:', error);
+          Utils.showNotification('Failed to add articles to NotebookLM', 'error');
         }
       } else {
-        throw new Error('No result from page-based execution');
+        // Use the mock server approach for test notebooks
+        console.log('NotebookLM: Using mock server for test notebook');
+        await this.performImport();
       }
-      
     } catch (error) {
-      console.error('❌ Page-based NotebookLM API execution failed:', error);
-      throw error;
+      console.error('NotebookLM: Error in performExport:', error);
+    } finally {
+      this.isButtonActionRunning = false;
+      console.log('NotebookLM: Set isButtonActionRunning to false');
+    }
+  },
+
+  isRealNotebook(notebookId) {
+    return notebookId === '1f0075d4-a616-4258-87f7-3c62674d0ac4';
+  },
+
+  // Event listeners for selection
+  setupSelectionListeners() {
+    this.notebooklmEntries.addEventListener('change', e => {
+      const checkbox = e.target.closest('.entry-checkbox');
+      if (!checkbox) return;
+      const entryDiv = checkbox.closest('.entry');
+      if (!entryDiv) return;
+      entryDiv.classList.toggle('selected', checkbox.checked);
+      this.updateSelectionUI();
+    });
+    this.notebooklmEntries.addEventListener('click', e => {
+      const entryDiv = e.target.closest('.entry');
+      if (!entryDiv) return;
+      if (e.target.classList.contains('entry-checkbox')) return;
+      const checkbox = entryDiv.querySelector('.entry-checkbox');
+      if (checkbox) {
+        checkbox.checked = !checkbox.checked;
+        entryDiv.classList.toggle('selected', checkbox.checked);
+        this.updateSelectionUI();
+      }
+    });
+  },
+
+  // Flag to prevent multiple simultaneous button clicks
+  isButtonActionRunning: false,
+
+  // Initial load for NotebookLM tab
+  async initialLoad() {
+    console.log('NotebookLM: Initial load called');
+    console.log('NotebookLM: Elements.notebookDropdown:', Elements.notebookDropdown);
+    console.log('NotebookLM: Elements initialized:', !!Elements.notebookDropdown);
+    
+    // Load entries first to populate AppState.allEntries
+    await Data.loadEntries();
+    console.log('NotebookLM: Loaded entries, count:', AppState.allEntries.length);
+    
+    this.loadNotebooks(); // Always fetch notebooks first
+    this.renderSources(); // Render home entries for import
+    this.setupSelectionListeners();
+    
+    // Load last detected notebook ID
+    await this.loadLastDetectedNotebook();
+    
+    // Hide connection status and connect button if present
+    const driveStatus = document.getElementById('driveStatus');
+    if (driveStatus) driveStatus.style.display = 'none';
+    const connectBtn = document.getElementById('connectDriveBtn');
+    if (connectBtn) connectBtn.style.display = 'none';
+  },
+
+  // Load last detected notebook ID from storage
+  async loadLastDetectedNotebook() {
+    try {
+      const result = await chrome.storage.local.get(['lastNotebookId', 'lastNotebookUrl', 'lastNotebookTimestamp']);
+      if (result.lastNotebookId) {
+        console.log('NotebookLM: Found last detected notebook:', result.lastNotebookId);
+        
+        // Add to dropdown if not already present
+        const dropdown = document.getElementById('notebookDropdown');
+        if (dropdown) {
+          const existingOption = Array.from(dropdown.options).find(opt => opt.value === result.lastNotebookId);
+          if (!existingOption) {
+            const option = document.createElement('option');
+            option.value = result.lastNotebookId;
+            option.textContent = `🧠 Auto-Detected Notebook (${result.lastNotebookId.substring(0, 8)}...)`;
+            dropdown.appendChild(option);
+          }
+          
+          // Select the auto-detected notebook
+          dropdown.value = result.lastNotebookId;
+          console.log('NotebookLM: Selected auto-detected notebook:', result.lastNotebookId);
+        }
+      }
+    } catch (error) {
+      console.error('NotebookLM: Failed to load last detected notebook:', error);
     }
   },
 };
@@ -2965,6 +1879,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       Search.restoreState()
     ]);
     
+    // Load NotebookLM data
+    await Promise.all([
+      NotebookLM.loadNotebooks(),
+      NotebookLM.loadLastDetectedNotebook()
+    ]);
+    
+    // Initialize NotebookLM functionality
+    await NotebookLM.initialLoad();
+    
     // Load setup note visibility
     const setupDismissed = await Utils.get('setupNoteDismissed');
     Utils.showElement(Elements.setupNote, !setupDismissed);
@@ -2976,6 +1899,108 @@ document.addEventListener('DOMContentLoaded', async () => {
     Data.setupEntryEventListeners();
     Data.setupScrollExpansion();
     
+    // Refresh button states after loading data
+    await UI.refreshButtonStates();
+    
+    // Add event listener for notebook dropdown changes
+    const notebookDropdown = document.getElementById('notebookDropdown');
+    if (notebookDropdown) {
+      notebookDropdown.addEventListener('change', async () => {
+        await UI.refreshButtonStates();
+      });
+    }
+
+    // Add event listener for Automate NotebookLM UI button
+    const automateBtn = document.getElementById('automateNotebookLMBtn');
+    console.log('NotebookLM: Found automate button:', !!automateBtn);
+    if (automateBtn) {
+      automateBtn.addEventListener('click', async () => {
+        console.log('NotebookLM: Automate button clicked');
+        // Use the real notebook ID that we know works
+        const realNotebookId = '1f0075d4-a616-4258-87f7-3c62674d0ac4';
+        console.log('NotebookLM: Using real notebook ID for automation:', realNotebookId);
+        
+        // Call service worker function via message
+        try {
+          await chrome.runtime.sendMessage({
+            action: 'automateNotebookLM',
+            notebookId: realNotebookId
+          });
+          Utils.showNotification('Opening NotebookLM notebook...', 'success');
+        } catch (error) {
+          console.error('Failed to automate NotebookLM:', error);
+          Utils.showNotification('Failed to open NotebookLM', 'error');
+        }
+      });
+    }
+
+    // Add event listener for Add All Articles to NotebookLM button
+    const addAllArticlesBtn = document.getElementById('addAllArticlesToNotebookLM');
+    console.log('NotebookLM: Found add all articles button:', !!addAllArticlesBtn);
+    if (addAllArticlesBtn) {
+      addAllArticlesBtn.addEventListener('click', async () => {
+        console.log('NotebookLM: Add All Articles button clicked');
+        
+        // Prevent multiple simultaneous executions
+        if (NotebookLM.isButtonActionRunning) {
+          console.log('NotebookLM: Add All Articles already running, skipping duplicate request');
+          Utils.showNotification('Add All Articles already in progress, please wait...', 'warning');
+          return;
+        }
+        
+        NotebookLM.isButtonActionRunning = true;
+        
+        try {
+          // Get all captured articles from AppState
+          const entries = AppState.allEntries || [];
+          console.log('NotebookLM: Found entries:', entries.length);
+          if (!entries || entries.length === 0) {
+            Utils.showNotification('No articles to add. Please capture some articles first.', 'error');
+            return;
+          }
+
+          // Get selected notebook ID
+          const notebookId = document.getElementById('notebookDropdown')?.value;
+          console.log('NotebookLM: Selected notebook ID:', notebookId);
+          if (!notebookId) {
+            Utils.showNotification('Please select a NotebookLM notebook first', 'error');
+            return;
+          }
+
+          console.log(`NotebookLM: Adding ${entries.length} articles to notebook ${notebookId}`);
+          Utils.showNotification(`Starting to add ${entries.length} articles to NotebookLM...`, 'success');
+
+          // Call service worker to add articles as sources
+          await chrome.runtime.sendMessage({
+            action: 'addArticlesToNotebookLM',
+            notebookId: notebookId,
+            articles: entries
+          });
+
+        } catch (error) {
+          console.error('Failed to add articles to NotebookLM:', error);
+          Utils.showNotification('Failed to add articles to NotebookLM', 'error');
+        } finally {
+          NotebookLM.isButtonActionRunning = false;
+        }
+      });
+    }
+
+    // Add event listener for Export to NotebookLM button
+    const exportBtn = document.getElementById('exportToNotebookLM');
+    console.log('NotebookLM: Found export button:', !!exportBtn);
+    if (exportBtn) {
+      exportBtn.addEventListener('click', async () => {
+        console.log('NotebookLM: Export button clicked');
+        try {
+          await NotebookLM.performExport();
+        } catch (error) {
+          console.error('Failed to export to NotebookLM:', error);
+          Utils.showNotification('Failed to export to NotebookLM', 'error');
+        }
+      });
+    }
+
     console.log('SmartGrab AI Search - Initialization complete');
   } catch (error) {
     console.error('Initialization failed:', error);
@@ -2988,4 +2013,27 @@ window.Search = Search;
 window.Data = Data;
 window.NotebookLM = NotebookLM;
 window.UI = UI;
-window.Filters = Filters; 
+window.Filters = Filters;
+
+// Debug function to test button clicks
+window.testNotebookLMButtons = () => {
+  console.log('Testing NotebookLM buttons...');
+  console.log('Elements.exportToNotebookLM:', Elements.exportToNotebookLM);
+  console.log('Elements.importToNotebookLM:', Elements.importToNotebookLM);
+  
+  if (Elements.exportToNotebookLM) {
+    console.log('Export button disabled:', Elements.exportToNotebookLM.disabled);
+    console.log('Export button text:', Elements.exportToNotebookLM.textContent);
+  }
+  
+  if (Elements.importToNotebookLM) {
+    console.log('Import button disabled:', Elements.importToNotebookLM.disabled);
+    console.log('Import button text:', Elements.importToNotebookLM.textContent);
+  }
+  
+  // Test click handlers
+  if (Elements.exportToNotebookLM) {
+    console.log('Manually triggering export button click...');
+    Elements.exportToNotebookLM.click();
+  }
+}; 

@@ -867,3 +867,46 @@ const ContentScript = {
 (() => {
   ContentScript.init();
 })(); 
+
+// === NOTEBOOKLM DETECTION ===
+function detectNotebookLM() {
+  // Check if we're on a NotebookLM page
+  if (window.location.hostname === 'notebooklm.google.com') {
+    const url = window.location.href;
+    const notebookMatch = url.match(/\/notebook\/([a-f0-9-]+)/);
+    
+    if (notebookMatch) {
+      const notebookId = notebookMatch[1];
+      console.log('NotebookLM: Detected notebook ID:', notebookId);
+      
+      // Store the notebook ID for the extension to use
+      chrome.storage.local.set({ 
+        'lastNotebookId': notebookId,
+        'lastNotebookUrl': url,
+        'lastNotebookTimestamp': Date.now()
+      }, () => {
+        console.log('NotebookLM: Stored notebook ID:', notebookId);
+      });
+      
+      // Send message to background script
+      chrome.runtime.sendMessage({
+        action: 'notebookDetected',
+        notebookId: notebookId,
+        url: url
+      });
+    }
+  }
+}
+
+// Run detection when page loads
+detectNotebookLM();
+
+// Also detect when URL changes (for SPA navigation)
+let lastUrl = location.href;
+new MutationObserver(() => {
+  const url = location.href;
+  if (url !== lastUrl) {
+    lastUrl = url;
+    detectNotebookLM();
+  }
+}).observe(document, { subtree: true, childList: true }); 

@@ -1,21 +1,14 @@
 {
   "manifest_version": 3,
-  "name": "SmartGrab - NotebookLM Knowledge Connector",
-  "version": "2.0.0",
+  "name": "SmartGrab AI Search",
+  "version": "1.0",
   "description": "Capture, organize, and export articles to NotebookLM",
   
-  "permissions": [
-    "storage",
-    "activeTab",
-    "scripting",
-    "notifications",
-    "tabs"
-  ],
+  "permissions": ["identity", "storage", "tabs", "scripting"],
   
   "host_permissions": [
-    "https://*/*",
-    "http://*/*",
-    "https://notebooklm.google.com/*"
+    "https://notebooklm.google.com/*",
+    "https://drive.google.com/*"
   ],
   
   "background": {
@@ -24,14 +17,16 @@
   
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"],
-      "run_at": "document_idle"
+      "matches": ["https://notebooklm.google.com/*"],
+      "js": ["notebooklm_automation.js"],
+      "all_frames": true,
+      "run_at": "document_end"
     },
     {
-      "matches": ["https://notebooklm.google.com/*"],
-      "js": ["notebooklm-proxy.js"],
-      "run_at": "document_start"
+      "matches": ["https://drive.google.com/*"],
+      "js": ["picker_automation.js"],
+      "all_frames": true,
+      "run_at": "document_end"
     }
   ],
   
