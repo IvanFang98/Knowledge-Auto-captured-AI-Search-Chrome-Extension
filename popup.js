@@ -7,7 +7,7 @@ const browser = globalThis.chrome || globalThis.browser;
 // === GLOBAL STATE ===
 const AppState = {
   homeSelectedArticles: new Set(),
-  isSelectionMode: false,
+  isSelectionMode: true,
   allEntries: [],
   currentSearch: '',
   currentSearchMode: 'semantic',
@@ -194,23 +194,11 @@ const Elements = {
     this.dismissSetupNote = Utils.$('#dismissSetupNote');
     this.shortcutsLink = Utils.$('#shortcutsLink');
     this.clearErrorStatesBtn = Utils.$('#clearErrorStatesBtn');
-    this.debugNotebookLMBtn = Utils.$('#debugNotebookLMBtn');
-    this.testGraphQLBtn = Utils.$('#testGraphQLBtn');
-    this.testGraphQLBtn2 = Utils.$('#testGraphQLBtn2');
+
     this.showReloadBtn = Utils.$('#showReloadBtn');
     
     // NotebookLM elements
-    this.notebookDropdown = Utils.$('#notebookDropdown');
-    this.importToNotebookLM = Utils.$('#importToNotebookLM');
-    this.refreshNotebooks = Utils.$('#refreshNotebooks');
-    this.captureAndOpenBtn = Utils.$('#captureAndOpenBtn');
-    this.driveStatus = Utils.$('#driveStatus');
-    this.connectDriveBtn = Utils.$('#connectDriveBtn');
-    this.debugTokensBtn = Utils.$('#debugTokensBtn');
     this.exportToNotebookLM = Utils.$('#exportToNotebookLM');
-    this.openDriveFolder = Utils.$('#openDriveFolder');
-    this.notebooklmEntries = Utils.$('#notebooklmEntries');
-    this.exportHistory = Utils.$('#exportHistory');
     
     // Selection elements
     this.toggleSelectionBtn = Utils.$('#toggleSelectionBtn');
@@ -218,14 +206,10 @@ const Elements = {
     this.homeSelectedCount = Utils.$('#homeSelectedCount');
     this.selectAllHome = Utils.$('#selectAllHome');
     this.selectNoneHome = Utils.$('#selectNoneHome');
-    this.selectedCount = Utils.$('#selectedCount');
-    this.selectedWords = Utils.$('#selectedWords');
-    this.estimatedFiles = Utils.$('#estimatedFiles');
-    this.selectAll = Utils.$('#selectAll');
-    this.selectNone = Utils.$('#selectNone');
-    this.selectRecentWeek = Utils.$('#selectRecentWeek');
-    this.selectHighSimilarity = Utils.$('#selectHighSimilarity');
     this.selectionToolbar = Utils.$('#selectionToolbar');
+    
+    // Export section
+    this.exportSection = Utils.$('#exportSection');
     
     // Settings elements
     this.settingsIconBtn = Utils.$('#settingsIconBtn');
@@ -235,6 +219,11 @@ const Elements = {
     this.semanticInput = Utils.$('#semanticInput');
     this.toggleFiltersSemantic = Utils.$('#toggleFiltersSemantic');
     this.semanticClear = Utils.$('#semanticClear');
+    
+          // Debug elements
+      this.testSidePanelBtn = Utils.$('#testSidePanelBtn');
+      this.inspectNotebookLMBtn = Utils.$('#inspectNotebookLMBtn');
+
   }
 };
 
@@ -262,8 +251,8 @@ const Search = {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       const query = e.target.value.trim();
-      if (query && AppState.currentSearchMode === 'semantic') {
-        await this.performSemanticSearch(query);
+      if (query) {
+        await this.performSearch(query);
       }
     }
   },
@@ -305,20 +294,65 @@ const Search = {
   },
   
   async performSemanticSearch(query) {
-    const response = await Utils.sendMessage({
-      action: 'search_similar',
-      query: query,
-      filters: AppState.searchFilterState
-    });
-    
-    if (response?.results) {
-      return response.results.slice(0, 20); // Limit semantic results
+    try {
+      console.log('Search: Performing local semantic search for:', query);
+      
+      // Show loading indicator
+      this.showLoading(true);
+      
+      // Initialize semantic search if not already done
+      if (!window.semanticSearch) {
+        window.semanticSearch = new SemanticSearch();
+        Utils.showNotification('Loading AI model for semantic search...', 'info');
+      }
+      
+      // Get all entries for search
+      const entries = AppState.allEntries || [];
+      if (entries.length === 0) {
+        console.log('Search: No entries to search');
+        this.showLoading(false);
+        return [];
+      }
+      
+      // Perform semantic search
+      const results = await window.semanticSearch.search(query, entries, 20);
+      
+      // Debug: Log the raw results from semantic search
+      console.log('Search: Raw semantic search results:', results);
+      console.log('Search: First result similarity:', results[0]?.similarity);
+      console.log('Search: Results sorted by similarity:', results.map(r => ({ title: r.title, similarity: r.similarity })));
+      
+      // Apply filters
+      const filteredResults = this.applyFilters(results, query);
+      
+      console.log(`Search: Semantic search returned ${filteredResults.length} results`);
+      this.showLoading(false);
+      return filteredResults;
+      
+    } catch (error) {
+      console.error('Search: Semantic search failed, falling back to keyword search:', error);
+      Utils.showNotification('AI search failed, using keyword search instead', 'warning');
+      
+      // Fallback to keyword search
+      try {
+        const entries = AppState.allEntries || [];
+        const fallbackResults = await window.semanticSearch.fallbackSearch(query, entries, 20);
+        const filteredResults = this.applyFilters(fallbackResults, query);
+        this.showLoading(false);
+        return filteredResults;
+      } catch (fallbackError) {
+        console.error('Search: Fallback search also failed:', fallbackError);
+        this.showLoading(false);
+        return [];
+      }
     }
-    return [];
   },
   
   applyFilters(results, query) {
     let filtered = [...results];
+    
+    // Debug: Log before filtering
+    console.log('Search: Before filtering - first result similarity:', filtered[0]?.similarity);
     
     // Apply time filter
     if (AppState.searchFilterState.timeFilter !== 'any') {
@@ -334,6 +368,10 @@ const Search = {
     if (AppState.searchFilterState.advancedFilter === 'on') {
       filtered = this.applyAdvancedFilter(filtered);
     }
+    
+    // Debug: Log after filtering
+    console.log('Search: After filtering - first result similarity:', filtered[0]?.similarity);
+    console.log('Search: Filtered results count:', filtered.length);
     
     return filtered;
   },
@@ -416,13 +454,27 @@ const Search = {
   displayResults(results, query) {
     if (!Elements.searchResults) return;
     
+    console.log('Search: displayResults called with', results.length, 'results');
+    console.log('Search: Elements.searchResults exists:', !!Elements.searchResults);
+    console.log('Search: Elements.entriesContainer exists:', !!Elements.entriesContainer);
+    
     if (results.length === 0) {
       Utils.showElement(Elements.noResults);
       Utils.hideElement(Elements.searchResults);
+      // Show regular entries when no search results
+      if (Elements.entriesContainer) {
+        Utils.showElement(Elements.entriesContainer);
+      }
       return;
     }
     
     Utils.hideElement(Elements.noResults);
+    Utils.hideElement(Elements.entriesContainer); // Hide regular entries during search
+    
+    // Debug: Log the first result to see if similarity scores are present
+    console.log('Search: First result for display:', results[0]);
+    console.log('Search: Similarity score:', results[0]?.similarity);
+    console.log('Search: Search type:', results[0]?.searchType);
     
     // Update search info
     if (Elements.resultCount) Elements.resultCount.textContent = results.length;
@@ -430,28 +482,72 @@ const Search = {
     
     // Generate results HTML
     const resultsHTML = results.map(result => this.createResultHTML(result, query)).join('');
-    Elements.searchResults.innerHTML = resultsHTML;
+    console.log('Search: Generated results HTML length:', resultsHTML.length);
+    
+    const searchResultsContent = Elements.searchResults.querySelector('.search-results-content');
+    console.log('Search: searchResultsContent found:', !!searchResultsContent);
+    
+    if (searchResultsContent) {
+      searchResultsContent.innerHTML = resultsHTML;
+      console.log('Search: Updated search-results-content');
+    } else {
+      // Fallback to old structure
+      Elements.searchResults.innerHTML = resultsHTML;
+      console.log('Search: Updated searchResults directly');
+    }
     
     Utils.showElement(Elements.searchResults);
+    console.log('Search: Made searchResults visible');
+    
+    // Force the search results to be visible and check if it worked
+    setTimeout(() => {
+      console.log('Search: After timeout - searchResults display:', Elements.searchResults.style.display);
+      console.log('Search: After timeout - entriesContainer display:', Elements.entriesContainer.style.display);
+      console.log('Search: After timeout - searchResults visible:', Elements.searchResults.offsetParent !== null);
+    }, 100);
+    
     this.setupResultEventListeners();
   },
   
   createResultHTML(result, query) {
-    const highlightedText = this.highlightSearchTerms(result.text, query);
+    const fullText = result.text;
     const timestamp = Utils.formatTimestamp(result.timestamp);
+    
+    // Debug: Log the result object to see what properties it has
+    console.log('Search: Creating result HTML for:', {
+      id: result.id,
+      title: result.title,
+      similarity: result.similarity,
+      searchType: result.searchType,
+      hasSimilarity: !!result.similarity
+    });
+    
+    // Add similarity score if available
+    const similarityBadge = result.similarity ? `
+      <div class="similarity-badge ${result.searchType || 'keyword'}">
+        <span class="similarity-score">${(result.similarity * 100).toFixed(0)}%</span>
+        <span class="search-type">${result.searchType === 'semantic' ? '🤖' : '📝'}</span>
+      </div>
+    ` : '';
+    
+    // Extract author from URL or use a default
+    const url = result.url || '';
+    const author = url.includes('paulgraham.com') ? 'Paul Graham' : 
+                   url.includes('samaltman.com') ? 'Sam Altman' : 
+                   'Unknown Author';
     
     return `
       <div class="search-result" data-entry-id="${result.id}">
         <div class="result-header">
           <h4>${Utils.escapeHtml(result.title)}</h4>
-          <span class="timestamp">${timestamp}</span>
-        </div>
-        <div class="result-content">
-          <p>${highlightedText}</p>
+          <div class="result-meta">
+            <span class="author">${author}</span>
+            <span class="timestamp">${timestamp}</span>
+            ${similarityBadge}
+          </div>
         </div>
         <div class="result-actions">
-          <button class="btn-copy" data-action="copy" data-entry-id="${result.id}">Copy</button>
-          <button class="btn-view" data-action="view" data-entry-id="${result.id}">View</button>
+          <button class="btn-view-full" data-action="view-full" data-entry-id="${result.id}">View Full Text</button>
         </div>
       </div>
     `;
@@ -484,6 +580,8 @@ const Search = {
         this.copyResult(entryId);
       } else if (action === 'view') {
         this.viewResult(entryId);
+      } else if (action === 'view-full') {
+        this.viewFullText(entryId);
       }
     });
   },
@@ -508,12 +606,24 @@ const Search = {
     UI.showFullTextModal(entry, AppState.currentSearch);
   },
   
+  viewFullText(entryId) {
+    const entry = AppState.allEntries.find(e => e.id === entryId);
+    if (!entry) return;
+    
+    UI.showFullTextModal(entry, AppState.currentSearch);
+  },
+  
   clearResults() {
     AppState.currentSearch = '';
     AppState.lastSearchResults = [];
     
     Utils.hideElement(Elements.searchResults);
     Utils.hideElement(Elements.noResults);
+    
+    // Show regular entries when search is cleared
+    if (Elements.entriesContainer) {
+      Utils.showElement(Elements.entriesContainer);
+    }
     
     if (Elements.searchInput) Elements.searchInput.value = '';
     
@@ -576,17 +686,6 @@ const UI = {
     if (tabName === 'settings') {
       Data.loadStats();
       Data.loadApiKeyStatus();
-    } else if (tabName === 'notebooklm') {
-      NotebookLM.initialLoad().catch(error => {
-        console.error('NotebookLM: Failed to initialize:', error);
-      });
-      // NotebookLM.loadExportHistory(); // Removed: no such function
-      // Check connection status and load notebooks if connected
-      // NotebookLM.checkConnectionStatus().then(isConnected => {
-      //   if (isConnected) {
-      //     NotebookLM.loadNotebooks();
-      //   }
-      // }).catch(console.error);
     }
   },
   
@@ -653,10 +752,6 @@ const UI = {
     // NotebookLM listeners
     console.log('UI: Setting up NotebookLM event listeners...');
     console.log('UI: Elements.exportToNotebookLM:', Elements.exportToNotebookLM);
-    console.log('UI: Elements.importToNotebookLM:', Elements.importToNotebookLM);
-    
-    Elements.refreshNotebooks?.addEventListener('click', NotebookLM.loadNotebooks.bind(NotebookLM));
-    Elements.connectDriveBtn?.addEventListener('click', NotebookLM.createNotebook.bind(NotebookLM));
     
     // Add event listeners with retry logic
     const addButtonListeners = () => {
@@ -667,15 +762,6 @@ const UI = {
         Elements.exportToNotebookLM.addEventListener('click', handleExportClick);
       } else {
         console.error('UI: exportToNotebookLM element not found!');
-      }
-      
-      if (Elements.importToNotebookLM) {
-        console.log('UI: Adding click listener to import button');
-        // Remove existing listeners to avoid duplicates
-        Elements.importToNotebookLM.removeEventListener('click', handleImportClick);
-        Elements.importToNotebookLM.addEventListener('click', handleImportClick);
-      } else {
-        console.error('UI: importToNotebookLM element not found!');
       }
     };
     
@@ -690,10 +776,7 @@ const UI = {
       }
     };
     
-    const handleImportClick = () => {
-      console.log('UI: Import button clicked!');
-      NotebookLM.performImport();
-    };
+
     
     // Try to add listeners immediately
     addButtonListeners();
@@ -702,13 +785,9 @@ const UI = {
     setTimeout(addButtonListeners, 100);
     
     // Selection listeners
-    Elements.toggleSelectionBtn?.addEventListener('click', this.toggleSelectionMode.bind(this));
     Elements.selectAllHome?.addEventListener('click', () => Data.selectHomeArticlesBulk('all'));
     Elements.selectNoneHome?.addEventListener('click', () => Data.selectHomeArticlesBulk('none'));
-    Elements.selectAll?.addEventListener('click', () => NotebookLM.selectArticlesBulk('all'));
-    Elements.selectNone?.addEventListener('click', () => NotebookLM.selectArticlesBulk('none'));
-    Elements.selectRecentWeek?.addEventListener('click', () => NotebookLM.selectArticlesBulk('recent'));
-    Elements.selectHighSimilarity?.addEventListener('click', () => NotebookLM.selectArticlesBulk('high'));
+
     
     // Settings listeners
     Elements.settingsIconBtn?.addEventListener('click', () => this.switchTab('settings'));
@@ -723,9 +802,54 @@ const UI = {
     Elements.dismissSetupNote?.addEventListener('click', this.dismissSetupNote.bind(this));
     Elements.shortcutsLink?.addEventListener('click', this.openShortcutsPage.bind(this));
     Elements.clearErrorStatesBtn?.addEventListener('click', Data.clearErrorStates.bind(Data));
-    // Elements.debugNotebookLMBtn?.addEventListener('click', NotebookLM.debug.bind(NotebookLM));
-    // Elements.testGraphQLBtn?.addEventListener('click', NotebookLM.testNotebookLMAPI.bind(NotebookLM));
-    // Elements.testGraphQLBtn2?.addEventListener('click', NotebookLM.testNotebookLMAPI.bind(NotebookLM));
+    
+    // Debug
+    Elements.testSidePanelBtn?.addEventListener('click', async () => {
+      console.log('Testing side panel from popup...');
+      try {
+        await chrome.runtime.sendMessage({ action: 'testSidePanel' });
+        Utils.showNotification('Side panel test initiated. Check console for results.', 'info');
+      } catch (error) {
+        console.error('Failed to test side panel:', error);
+        Utils.showNotification('Failed to test side panel', 'error');
+      }
+    });
+
+    Elements.inspectNotebookLMBtn?.addEventListener('click', async () => {
+      console.log('Inspecting NotebookLM page from popup...');
+      try {
+        // First, open the NotebookLM page
+        const url = 'https://notebooklm.google.com/u/0/notebook/1f0075d4-a616-4258-87f7-3c62674d0ac4';
+        const { id: tabId } = await chrome.tabs.create({ url });
+        
+        // Wait for the page to load and then send inspection message
+        chrome.tabs.onUpdated.addListener(function listener(tId, info) {
+          if (tId === tabId && info.status === "complete") {
+            chrome.tabs.onUpdated.removeListener(listener);
+            
+            setTimeout(() => {
+              chrome.tabs.sendMessage(tabId, {
+                type: "INSPECT_PAGE"
+              }, (response) => {
+                if (chrome.runtime.lastError) {
+                  console.error('NotebookLM: Inspection failed:', chrome.runtime.lastError.message);
+                  Utils.showNotification('Inspection failed: ' + chrome.runtime.lastError.message, 'error');
+                } else {
+                  console.log('NotebookLM: Inspection response:', response);
+                  Utils.showNotification('Page inspection completed. Check console for details.', 'success');
+                }
+              });
+            }, 2000);
+          }
+        });
+      } catch (error) {
+        console.error('NotebookLM: Inspection failed:', error);
+        Utils.showNotification('Inspection failed: ' + error.message, 'error');
+      }
+    });
+
+
+
     // Elements.showReloadBtn?.addEventListener('click', NotebookLM.showReloadInstructions.bind(NotebookLM));
     
     // Global keyboard shortcuts
@@ -975,6 +1099,12 @@ const Data = {
   displayEntries(entries) {
     if (!Elements.entriesContainer) return;
     
+    // Don't override search results if they're currently active
+    if (Elements.searchResults && Elements.searchResults.style.display !== 'none') {
+      console.log('Search: Skipping displayEntries because search results are active');
+      return;
+    }
+    
     if (entries.length === 0) {
       Utils.showElement(Elements.emptyState);
       Utils.hideElement(Elements.entriesContainer);
@@ -1048,6 +1178,11 @@ const Data = {
     // Update selection toolbar visibility
     if (Elements.selectionToolbar) {
       Utils.showElement(Elements.selectionToolbar, selectedCount > 0);
+    }
+    
+    // Update export section visibility
+    if (Elements.exportSection) {
+      Utils.showElement(Elements.exportSection, selectedCount > 0);
     }
   },
   
@@ -1164,23 +1299,35 @@ const Data = {
   },
   
   async loadApiKeyStatus() {
+    // This function is now deprecated since we use local AI search
+    // Keeping for compatibility but not using API keys anymore
+  },
+
+  async updateAIModelStatus() {
     try {
-      const apiKey = await Utils.get('openai_api_key');
-      const hasKey = !!(apiKey && apiKey.trim());
-      
-      if (Elements.apiStatusIndicator) {
-        Elements.apiStatusIndicator.className = hasKey ? 'status-indicator active' : 'status-indicator';
+      const statusElement = document.getElementById('aiModelStatus');
+      if (!statusElement) return;
+
+      if (!window.semanticSearch) {
+        statusElement.textContent = 'Not initialized';
+        statusElement.style.color = '#FF8A80';
+        return;
       }
+
+      const status = window.semanticSearch.getStatus();
       
-      if (Elements.apiStatusText) {
-        Elements.apiStatusText.textContent = hasKey ? 'API Key Configured' : 'No API Key';
-      }
-      
-      if (Elements.apiKeyInput) {
-        Elements.apiKeyInput.value = hasKey ? '••••••••••••••••' : '';
+      if (status.isLoading) {
+        statusElement.textContent = 'Loading...';
+        statusElement.style.color = '#FFE082';
+      } else if (status.isModelLoaded) {
+        statusElement.textContent = 'Ready';
+        statusElement.style.color = '#4CAF50';
+      } else {
+        statusElement.textContent = 'Not loaded';
+        statusElement.style.color = '#FF8A80';
       }
     } catch (error) {
-      console.error('Failed to load API key status:', error);
+      console.error('Failed to update AI model status:', error);
     }
   },
   
@@ -1355,59 +1502,11 @@ const Data = {
   }
 };
 
-// === INLINED NOTEBOOKLM PROXY CLIENT ===
-// Use your local proxy server instead of the official one
-const SYNC_HOST = "http://localhost:3000";
+// === NOTEBOOKLM CONTENT SCRIPT AUTOMATION ===
+// The extension uses content script automation to interact with NotebookLM
+// This approach injects scripts into the NotebookLM page to automate the UI
 
-async function notebooklmApi(path, method = "GET", body) {
-  console.log(`NotebookLM API: ${method} ${SYNC_HOST}${path}`, body ? body : '');
-  const headers = {
-    "Content-Type": "application/json",
-  };
-  const opts = {
-    method,
-    headers,
-    credentials: "omit",
-  };
-  if (body) opts.body = JSON.stringify(body);
-  try {
-    const res = await fetch(`${SYNC_HOST}${path}`, opts);
-    console.log(`NotebookLM API: Response status: ${res.status}`);
-    if (!res.ok) {
-      const errorText = await res.text();
-      console.error(`NotebookLM API: Error response:`, errorText);
-      throw new Error(`Proxy API error: ${res.status} - ${errorText}`);
-    }
-    const data = await res.json();
-    console.log(`NotebookLM API: Response data:`, data);
-    return data;
-  } catch (error) {
-    console.error(`NotebookLM API: Fetch error:`, error);
-    throw error;
-  }
-}
-
-class NotebookLMProxyClient {
-  async listNotebooks() {
-    return notebooklmApi("/api/notebooks");
-  }
-
-  async addSource(notebookId, url) {
-    return notebooklmApi(`/api/notebooks/${notebookId}/sources`, "POST", { url });
-  }
-
-  async addTextSource(notebookId, text) {
-    return notebooklmApi(`/api/notebooks/${notebookId}/sources`, "POST", { text });
-  }
-
-  async createNotebook(title, emoji = "📔") {
-    return notebooklmApi("/api/notebooks", "POST", { title, emoji });
-  }
-}
-
-const notebooklmClient = new NotebookLMProxyClient();
-
-// === NOTEBOOKLM OBJECT (Unified Proxy Integration) ===
+// === NOTEBOOKLM OBJECT (Content Script Automation) ===
 const NotebookLM = {
   // State
   notebooks: [],
@@ -1415,171 +1514,17 @@ const NotebookLM = {
   selectedNotebookId: '',
 
   // UI Elements
-  get notebookDropdown() { return Elements.notebookDropdown; },
-  get refreshNotebooksBtn() { return Elements.refreshNotebooks; },
-  get importToNotebookBtn() { return Elements.importToNotebookLM; },
   get exportToNotebookLMBtn() { return Elements.exportToNotebookLM; },
-  get createNotebookBtn() { return Elements.connectDriveBtn; },
-  get notebooklmEntries() { return Elements.notebooklmEntries; },
-  get selectionCount() { return Elements.selectedCount; },
-  get selectAllBtn() { return Elements.selectAll; },
-  get selectNoneBtn() { return Elements.selectNone; },
-  get selectRecentWeekBtn() { return Elements.selectRecentWeek; },
-  get selectHighSimilarityBtn() { return Elements.selectHighSimilarity; },
 
-  // Load notebooks from proxy
-  async loadNotebooks() {
-    console.log('NotebookLM: Loading notebooks...');
-    console.log('NotebookLM: Using server:', SYNC_HOST);
-    
-    if (!this.notebookDropdown) {
-      console.error('NotebookLM: notebookDropdown element not found!');
-      return;
-    }
-    
-    this.notebookDropdown.innerHTML = '<option>Loading...</option>';
-    try {
-      this.notebooks = await notebooklmClient.listNotebooks();
-      console.log('NotebookLM: Loaded notebooks:', this.notebooks);
-      this.renderNotebooks();
-    } catch (e) {
-      console.error('NotebookLM: Error loading notebooks:', e);
-      this.notebookDropdown.innerHTML = '<option>Error loading</option>';
-      if (this.importToNotebookBtn) this.importToNotebookBtn.disabled = true;
-      if (this.exportToNotebookLMBtn) this.exportToNotebookLMBtn.disabled = true;
-    }
-  },
-
-  renderNotebooks() {
-    console.log('NotebookLM: Rendering notebooks...');
-    const dropdown = this.notebookDropdown;
-    if (!dropdown) {
-      console.error('NotebookLM: No notebook dropdown found');
-      return;
-    }
-
-    // Clear existing options
-    dropdown.innerHTML = '';
-    
-    console.log('NotebookLM: Notebooks to render:', this.notebooks);
-    
-    // Add notebooks to dropdown
-    this.notebooks.forEach(notebook => {
-      const option = document.createElement('option');
-      option.value = notebook.id;
-      option.textContent = `${notebook.emoji} ${notebook.title}`;
-      dropdown.appendChild(option);
-      console.log('NotebookLM: Added notebook option:', notebook.title);
-    });
-
-    // Try to select the real notebook by default, fallback to first notebook
-    const realNotebookId = '1f0075d4-a616-4258-87f7-3c62674d0ac4';
-    const realNotebook = this.notebooks.find(n => n.id === realNotebookId);
-    
-    if (realNotebook) {
-      dropdown.value = realNotebookId;
-      console.log('NotebookLM: Selected real notebook by default:', realNotebookId);
-    } else if (this.notebooks.length > 0) {
-      dropdown.value = this.notebooks[0].id;
-      console.log('NotebookLM: Selected first notebook:', this.notebooks[0].id);
-    }
-
-    // Enable/disable buttons based on selection
-    this.updateButtonStates();
-    
-    console.log('NotebookLM: Notebook rendering complete');
-  },
-
-  updateButtonStates() {
-    const hasNotebook = this.notebookDropdown?.value;
-    
-    if (this.importToNotebookBtn) {
-      this.importToNotebookBtn.disabled = !hasNotebook;
-      console.log('NotebookLM: Import button enabled:', !!hasNotebook);
-    }
-    if (this.exportToNotebookLMBtn) {
-      this.exportToNotebookLMBtn.disabled = !hasNotebook;
-      console.log('NotebookLM: Export button enabled:', !!hasNotebook);
-    }
-  },
-
-  // Create notebook
-  async createNotebook() {
-    const title = prompt('Notebook title:');
-    if (!title) return;
-    this.createNotebookBtn.disabled = true;
-    try {
-      await notebooklmClient.createNotebook(title, '📔');
-      await this.loadNotebooks();
-      Utils.showNotification('Notebook created!', 'success');
-    } catch (e) {
-      Utils.showNotification('Failed to create notebook', 'error');
-    } finally {
-      this.createNotebookBtn.disabled = false;
-    }
-  },
-
-  // Render sources in NotebookLM tab
-  renderSources(sources) {
-    this.sources = sources;
-    const container = this.notebooklmEntries;
-    container.innerHTML = '';
-    
-    // Show entries from Home tab that can be imported
-    const homeEntries = AppState.allEntries || [];
-    console.log('NotebookLM: Rendering home entries for import:', homeEntries.length);
-    
-    homeEntries.forEach(entry => {
-      const div = document.createElement('div');
-      div.className = 'entry';
-      div.dataset.entryId = entry.id;
-      
-      // Check if this entry is selected in Home tab
-      const isSelected = AppState.homeSelectedArticles && AppState.homeSelectedArticles.has(entry.id);
-      if (isSelected) {
-        div.classList.add('selected');
-      }
-      
-      div.innerHTML = `
-        <div class="entry-header with-checkbox">
-          <input type="checkbox" class="entry-checkbox" data-entry-id="${entry.id}" ${isSelected ? 'checked' : ''}>
-          <span class="entry-title">${Utils.escapeHtml(entry.title || 'Untitled')}</span>
-        </div>
-        <div class="entry-text">${Utils.escapeHtml(entry.text || entry.url || '')}</div>
-      `;
-      container.appendChild(div);
-    });
-    
-    this.updateSelectionUI();
-  },
-
-  // Selection logic
-  updateSelectionUI() {
-    const selectedIds = this.getSelectedEntryIds();
-    this.selectionCount.textContent = selectedIds.length;
-    Array.from(this.notebooklmEntries.querySelectorAll('.entry')).forEach(entry => {
-      const id = entry.dataset.entryId;
-      entry.classList.toggle('selected', selectedIds.includes(id));
-      const checkbox = entry.querySelector('.entry-checkbox');
-      if (checkbox) checkbox.checked = selectedIds.includes(id);
-    });
-  },
+  // State
+  sources: [],
+  isButtonActionRunning: false,
 
   getSelectedEntryIds() {
-    // Get selected entries from NotebookLM tab
-    const notebooklmSelected = Array.from(this.notebooklmEntries.querySelectorAll('.entry.selected')).map(e => e.dataset.entryId);
-    
-    // Get selected entries from Home tab (if we're in selection mode)
-    const homeSelected = AppState.homeSelectedArticles ? Array.from(AppState.homeSelectedArticles) : [];
-    
-    // Combine both sources
-    const allSelected = [...notebooklmSelected, ...homeSelected];
-    
-    console.log('NotebookLM: Selected entry IDs:', allSelected);
-    console.log('NotebookLM: From NotebookLM tab:', notebooklmSelected);
-    console.log('NotebookLM: From Home tab:', homeSelected);
-    
-    return allSelected;
+    // Get selected entries from the main search tab
+    const selected = Array.from(AppState.homeSelectedArticles);
+    console.log('NotebookLM: Selected entry IDs:', selected);
+    return selected;
   },
 
   getEntryById(id) {
@@ -1612,110 +1557,11 @@ const NotebookLM = {
     return null;
   },
 
-  // Selection toolbar
-  selectArticlesBulk(mode) {
-    const entries = Array.from(this.notebooklmEntries.querySelectorAll('.entry'));
-    if (mode === 'all') {
-      entries.forEach(entry => {
-        entry.classList.add('selected');
-        const checkbox = entry.querySelector('.entry-checkbox');
-        if (checkbox) checkbox.checked = true;
-      });
-    } else if (mode === 'none') {
-      entries.forEach(entry => {
-        entry.classList.remove('selected');
-        const checkbox = entry.querySelector('.entry-checkbox');
-        if (checkbox) checkbox.checked = false;
-      });
-    } else if (mode === 'recent') {
-      const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-      entries.forEach(entry => {
-        const entryData = this.getEntryById(entry.dataset.entryId);
-        const isRecent = entryData && entryData.timestamp && entryData.timestamp > oneWeekAgo;
-        entry.classList.toggle('selected', isRecent);
-        const checkbox = entry.querySelector('.entry-checkbox');
-        if (checkbox) checkbox.checked = isRecent;
-      });
-    } else if (mode === 'high') {
-      entries.forEach((entry, i) => {
-        const selected = i < 10;
-        entry.classList.toggle('selected', selected);
-        const checkbox = entry.querySelector('.entry-checkbox');
-        if (checkbox) checkbox.checked = selected;
-      });
-    }
-    this.updateSelectionUI();
-  },
 
-  // Import handler
-  async performImport() {
-    console.log('NotebookLM: performImport called');
-    console.log('NotebookLM: selectedNotebookId:', this.selectedNotebookId);
-    
-    if (!this.selectedNotebookId) {
-      console.log('NotebookLM: No notebook selected');
-      Utils.showNotification('Please select a notebook first', 'error');
-      return;
-    }
-    
-    const entryIds = this.getSelectedEntryIds();
-    console.log('NotebookLM: Selected entry IDs:', entryIds);
-    
-    if (!entryIds.length) {
-      console.log('NotebookLM: No sources selected');
-      Utils.showNotification('No sources selected', 'error');
-      return;
-    }
-    
-    console.log('NotebookLM: Starting import...');
-    if (this.importToNotebookBtn) {
-      this.importToNotebookBtn.disabled = true;
-      this.importToNotebookBtn.textContent = 'Importing...';
-    }
-    
-    let successCount = 0, failCount = 0;
-    try {
-      for (const entryId of entryIds) {
-        const entry = this.getEntryById(entryId);
-        if (!entry) {
-          console.log('NotebookLM: Entry not found for ID:', entryId);
-          continue;
-        }
-        
-        console.log('NotebookLM: Processing entry:', entry.title || entry.url);
-        
-        try {
-          if (entry.url) {
-            console.log('NotebookLM: Adding URL source:', entry.url);
-            await notebooklmClient.addSource(this.selectedNotebookId, entry.url);
-          } else if (entry.text) {
-            console.log('NotebookLM: Adding text source:', entry.text.substring(0, 100) + '...');
-            await notebooklmClient.addTextSource(this.selectedNotebookId, entry.text);
-          }
-          successCount++;
-          console.log('NotebookLM: Successfully added source');
-        } catch (err) {
-          console.error('NotebookLM: Error adding source:', err);
-          failCount++;
-        }
-      }
-      
-      console.log('NotebookLM: Import completed. Success:', successCount, 'Failed:', failCount);
-      
-      if (successCount) Utils.showNotification(`Imported ${successCount} to NotebookLM!`, 'success');
-      if (failCount) Utils.showNotification(`Failed to import ${failCount} sources`, 'error');
-    } catch (e) {
-      console.error('NotebookLM: Import failed:', e);
-      Utils.showNotification('Import failed', 'error');
-    } finally {
-      if (this.importToNotebookBtn) {
-        this.importToNotebookBtn.disabled = false;
-        this.importToNotebookBtn.textContent = '🧠 Import to NotebookLM';
-      }
-    }
-  },
 
-  // Export handler (same as import for now)
+
+
+  // Export handler - uses content script automation
   async performExport() {
     console.log('NotebookLM: performExport called');
     console.log('NotebookLM: this.isButtonActionRunning:', this.isButtonActionRunning);
@@ -1731,7 +1577,8 @@ const NotebookLM = {
     console.log('NotebookLM: Set isButtonActionRunning to true');
     
     try {
-      const selectedEntryIds = this.getSelectedEntryIds();
+      // Get selected articles from the main search tab
+      const selectedEntryIds = Array.from(AppState.homeSelectedArticles);
       console.log('NotebookLM: Selected entry IDs:', selectedEntryIds);
       
       if (!selectedEntryIds || selectedEntryIds.length === 0) {
@@ -1740,34 +1587,26 @@ const NotebookLM = {
         return;
       }
       
-      // Check if this is the real notebook ID
-      const selectedNotebookId = document.getElementById('notebookDropdown')?.value;
-      console.log('NotebookLM: Selected notebook ID:', selectedNotebookId);
-      const isRealNotebook = this.isRealNotebook(selectedNotebookId);
-      console.log('NotebookLM: Is real notebook:', isRealNotebook);
+      // Use the hardcoded notebook ID for automation
+      const notebookId = '1f0075d4-a616-4258-87f7-3c62674d0ac4';
+      console.log('NotebookLM: Using notebook ID:', notebookId);
       
-      if (isRealNotebook) {
-        // Use the automation approach for real notebook
-        console.log('NotebookLM: Using automation for real notebook');
-        try {
-          const articles = selectedEntryIds.map(id => this.getEntryById(id)).filter(Boolean);
-          console.log('NotebookLM: Articles to send:', articles);
-          
-          await chrome.runtime.sendMessage({
-            action: 'addArticlesToNotebookLM',
-            notebookId: selectedNotebookId,
-            articles: articles
-          });
-          console.log('NotebookLM: Message sent successfully');
-          Utils.showNotification(`Starting to add ${selectedEntryIds.length} articles to NotebookLM...`, 'success');
-        } catch (error) {
-          console.error('Failed to add articles to NotebookLM:', error);
-          Utils.showNotification('Failed to add articles to NotebookLM', 'error');
-        }
-      } else {
-        // Use the mock server approach for test notebooks
-        console.log('NotebookLM: Using mock server for test notebook');
-        await this.performImport();
+      // Use the automation approach
+      console.log('NotebookLM: Using automation for notebook');
+      try {
+        const articles = selectedEntryIds.map(id => this.getEntryById(id)).filter(Boolean);
+        console.log('NotebookLM: Articles to send:', articles);
+        
+        await chrome.runtime.sendMessage({
+          action: 'addArticlesToNotebookLM',
+          notebookId: notebookId,
+          articles: articles
+        });
+        console.log('NotebookLM: Message sent successfully');
+        Utils.showNotification(`Starting to add ${selectedEntryIds.length} articles to NotebookLM...`, 'success');
+      } catch (error) {
+        console.error('Failed to add articles to NotebookLM:', error);
+        Utils.showNotification('Failed to add articles to NotebookLM', 'error');
       }
     } catch (error) {
       console.error('NotebookLM: Error in performExport:', error);
@@ -1777,87 +1616,16 @@ const NotebookLM = {
     }
   },
 
-  isRealNotebook(notebookId) {
-    return notebookId === '1f0075d4-a616-4258-87f7-3c62674d0ac4';
-  },
 
-  // Event listeners for selection
-  setupSelectionListeners() {
-    this.notebooklmEntries.addEventListener('change', e => {
-      const checkbox = e.target.closest('.entry-checkbox');
-      if (!checkbox) return;
-      const entryDiv = checkbox.closest('.entry');
-      if (!entryDiv) return;
-      entryDiv.classList.toggle('selected', checkbox.checked);
-      this.updateSelectionUI();
-    });
-    this.notebooklmEntries.addEventListener('click', e => {
-      const entryDiv = e.target.closest('.entry');
-      if (!entryDiv) return;
-      if (e.target.classList.contains('entry-checkbox')) return;
-      const checkbox = entryDiv.querySelector('.entry-checkbox');
-      if (checkbox) {
-        checkbox.checked = !checkbox.checked;
-        entryDiv.classList.toggle('selected', checkbox.checked);
-        this.updateSelectionUI();
-      }
-    });
-  },
+
+
 
   // Flag to prevent multiple simultaneous button clicks
   isButtonActionRunning: false,
 
-  // Initial load for NotebookLM tab
-  async initialLoad() {
-    console.log('NotebookLM: Initial load called');
-    console.log('NotebookLM: Elements.notebookDropdown:', Elements.notebookDropdown);
-    console.log('NotebookLM: Elements initialized:', !!Elements.notebookDropdown);
-    
-    // Load entries first to populate AppState.allEntries
-    await Data.loadEntries();
-    console.log('NotebookLM: Loaded entries, count:', AppState.allEntries.length);
-    
-    this.loadNotebooks(); // Always fetch notebooks first
-    this.renderSources(); // Render home entries for import
-    this.setupSelectionListeners();
-    
-    // Load last detected notebook ID
-    await this.loadLastDetectedNotebook();
-    
-    // Hide connection status and connect button if present
-    const driveStatus = document.getElementById('driveStatus');
-    if (driveStatus) driveStatus.style.display = 'none';
-    const connectBtn = document.getElementById('connectDriveBtn');
-    if (connectBtn) connectBtn.style.display = 'none';
-  },
 
-  // Load last detected notebook ID from storage
-  async loadLastDetectedNotebook() {
-    try {
-      const result = await chrome.storage.local.get(['lastNotebookId', 'lastNotebookUrl', 'lastNotebookTimestamp']);
-      if (result.lastNotebookId) {
-        console.log('NotebookLM: Found last detected notebook:', result.lastNotebookId);
-        
-        // Add to dropdown if not already present
-        const dropdown = document.getElementById('notebookDropdown');
-        if (dropdown) {
-          const existingOption = Array.from(dropdown.options).find(opt => opt.value === result.lastNotebookId);
-          if (!existingOption) {
-            const option = document.createElement('option');
-            option.value = result.lastNotebookId;
-            option.textContent = `🧠 Auto-Detected Notebook (${result.lastNotebookId.substring(0, 8)}...)`;
-            dropdown.appendChild(option);
-          }
-          
-          // Select the auto-detected notebook
-          dropdown.value = result.lastNotebookId;
-          console.log('NotebookLM: Selected auto-detected notebook:', result.lastNotebookId);
-        }
-      }
-    } catch (error) {
-      console.error('NotebookLM: Failed to load last detected notebook:', error);
-    }
-  },
+
+
 };
 
 // === INITIALIZATION ===
@@ -1875,18 +1643,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     await Promise.all([
       Data.loadEntries(),
       Data.loadStats(),
-      Data.loadApiKeyStatus(),
       Search.restoreState()
     ]);
     
-    // Load NotebookLM data
-    await Promise.all([
-      NotebookLM.loadNotebooks(),
-      NotebookLM.loadLastDetectedNotebook()
-    ]);
+    // Update AI model status
+    await Data.updateAIModelStatus();
     
-    // Initialize NotebookLM functionality
-    await NotebookLM.initialLoad();
+    // Initialize selection mode (enabled by default)
+    Data.updateSelectionUI();
+    
+
     
     // Load setup note visibility
     const setupDismissed = await Utils.get('setupNoteDismissed');
@@ -1902,104 +1668,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Refresh button states after loading data
     await UI.refreshButtonStates();
     
-    // Add event listener for notebook dropdown changes
-    const notebookDropdown = document.getElementById('notebookDropdown');
-    if (notebookDropdown) {
-      notebookDropdown.addEventListener('change', async () => {
-        await UI.refreshButtonStates();
-      });
-    }
 
-    // Add event listener for Automate NotebookLM UI button
-    const automateBtn = document.getElementById('automateNotebookLMBtn');
-    console.log('NotebookLM: Found automate button:', !!automateBtn);
-    if (automateBtn) {
-      automateBtn.addEventListener('click', async () => {
-        console.log('NotebookLM: Automate button clicked');
-        // Use the real notebook ID that we know works
-        const realNotebookId = '1f0075d4-a616-4258-87f7-3c62674d0ac4';
-        console.log('NotebookLM: Using real notebook ID for automation:', realNotebookId);
-        
-        // Call service worker function via message
-        try {
-          await chrome.runtime.sendMessage({
-            action: 'automateNotebookLM',
-            notebookId: realNotebookId
-          });
-          Utils.showNotification('Opening NotebookLM notebook...', 'success');
-        } catch (error) {
-          console.error('Failed to automate NotebookLM:', error);
-          Utils.showNotification('Failed to open NotebookLM', 'error');
-        }
-      });
-    }
-
-    // Add event listener for Add All Articles to NotebookLM button
-    const addAllArticlesBtn = document.getElementById('addAllArticlesToNotebookLM');
-    console.log('NotebookLM: Found add all articles button:', !!addAllArticlesBtn);
-    if (addAllArticlesBtn) {
-      addAllArticlesBtn.addEventListener('click', async () => {
-        console.log('NotebookLM: Add All Articles button clicked');
-        
-        // Prevent multiple simultaneous executions
-        if (NotebookLM.isButtonActionRunning) {
-          console.log('NotebookLM: Add All Articles already running, skipping duplicate request');
-          Utils.showNotification('Add All Articles already in progress, please wait...', 'warning');
-          return;
-        }
-        
-        NotebookLM.isButtonActionRunning = true;
-        
-        try {
-          // Get all captured articles from AppState
-          const entries = AppState.allEntries || [];
-          console.log('NotebookLM: Found entries:', entries.length);
-          if (!entries || entries.length === 0) {
-            Utils.showNotification('No articles to add. Please capture some articles first.', 'error');
-            return;
-          }
-
-          // Get selected notebook ID
-          const notebookId = document.getElementById('notebookDropdown')?.value;
-          console.log('NotebookLM: Selected notebook ID:', notebookId);
-          if (!notebookId) {
-            Utils.showNotification('Please select a NotebookLM notebook first', 'error');
-            return;
-          }
-
-          console.log(`NotebookLM: Adding ${entries.length} articles to notebook ${notebookId}`);
-          Utils.showNotification(`Starting to add ${entries.length} articles to NotebookLM...`, 'success');
-
-          // Call service worker to add articles as sources
-          await chrome.runtime.sendMessage({
-            action: 'addArticlesToNotebookLM',
-            notebookId: notebookId,
-            articles: entries
-          });
-
-        } catch (error) {
-          console.error('Failed to add articles to NotebookLM:', error);
-          Utils.showNotification('Failed to add articles to NotebookLM', 'error');
-        } finally {
-          NotebookLM.isButtonActionRunning = false;
-        }
-      });
-    }
-
-    // Add event listener for Export to NotebookLM button
-    const exportBtn = document.getElementById('exportToNotebookLM');
-    console.log('NotebookLM: Found export button:', !!exportBtn);
-    if (exportBtn) {
-      exportBtn.addEventListener('click', async () => {
-        console.log('NotebookLM: Export button clicked');
-        try {
-          await NotebookLM.performExport();
-        } catch (error) {
-          console.error('Failed to export to NotebookLM:', error);
-          Utils.showNotification('Failed to export to NotebookLM', 'error');
-        }
-      });
-    }
 
     console.log('SmartGrab AI Search - Initialization complete');
   } catch (error) {
@@ -2015,25 +1684,4 @@ window.NotebookLM = NotebookLM;
 window.UI = UI;
 window.Filters = Filters;
 
-// Debug function to test button clicks
-window.testNotebookLMButtons = () => {
-  console.log('Testing NotebookLM buttons...');
-  console.log('Elements.exportToNotebookLM:', Elements.exportToNotebookLM);
-  console.log('Elements.importToNotebookLM:', Elements.importToNotebookLM);
-  
-  if (Elements.exportToNotebookLM) {
-    console.log('Export button disabled:', Elements.exportToNotebookLM.disabled);
-    console.log('Export button text:', Elements.exportToNotebookLM.textContent);
-  }
-  
-  if (Elements.importToNotebookLM) {
-    console.log('Import button disabled:', Elements.importToNotebookLM.disabled);
-    console.log('Import button text:', Elements.importToNotebookLM.textContent);
-  }
-  
-  // Test click handlers
-  if (Elements.exportToNotebookLM) {
-    console.log('Manually triggering export button click...');
-    Elements.exportToNotebookLM.click();
-  }
-}; 
+ 

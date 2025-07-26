@@ -4,9 +4,10 @@
   <meta charset="utf-8">
   <style>
     body {
-      width: 380px;
-      min-width: 350px;
-      max-width: 420px;
+      width: 100%;
+      min-width: 300px;
+      max-width: none;
+      height: 100vh;
       padding: 0;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -20,7 +21,7 @@
     }
     
     .header {
-      padding: 20px;
+      padding: 15px 20px;
       text-align: center;
       background: rgba(255, 255, 255, 0.1);
       backdrop-filter: blur(10px);
@@ -28,8 +29,8 @@
     }
     
     h1 {
-      font-size: 22px;
-      margin: 0 0 12px 0;
+      font-size: 20px;
+      margin: 0 0 10px 0;
       font-weight: 300;
     }
     
@@ -50,12 +51,12 @@
     
     .content {
       width: 100%;
-      min-width: 350px;
-      max-width: 420px;
+      min-width: 300px;
+      max-width: none;
       box-sizing: border-box;
       flex: 1;
       padding: 20px;
-      padding-bottom: 400px;
+      padding-bottom: 20px;
       overflow-y: auto;
       overflow-x: hidden;
     }
@@ -101,12 +102,12 @@
     
     .search-input {
       width: 100%;
-      padding: 14px 60px 14px 18px;
+      padding: 12px 50px 12px 16px;
       border: 1px solid rgba(255, 255, 255, 0.3);
       border-radius: 8px;
       background: rgba(255, 255, 255, 0.1);
       color: white;
-      font-size: 16px;
+      font-size: 14px;
       box-sizing: border-box;
     }
     
@@ -262,7 +263,7 @@
       display: flex;
       flex-direction: column;
       gap: 12px;
-      max-height: 1500px;
+      max-height: none;
       overflow-y: auto;
       overflow-x: hidden;
       padding-right: 8px;
@@ -1162,28 +1163,7 @@
       border-color: rgba(255, 255, 255, 0.4);
     }
 
-    .import-btn {
-      background: linear-gradient(135deg, #9C27B0, #7B1FA2);
-      border: 1px solid rgba(156, 39, 176, 0.5);
-      border-radius: 4px;
-      color: white;
-      padding: 6px 12px;
-      font-size: 11px;
-      cursor: pointer;
-      transition: all 0.2s;
-      font-weight: 600;
-    }
 
-    .import-btn:hover:not(:disabled) {
-      background: linear-gradient(135deg, #8E24AA, #6A1B9A);
-      transform: translateY(-1px);
-    }
-
-    .import-btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      transform: none;
-    }
 
     /* Entry selection styles */
     .entry-checkbox {
@@ -1214,6 +1194,436 @@
     .entry-header.with-checkbox .entry-title {
       flex: 1;
     }
+
+    /* Responsive design for side panel */
+    @media (max-width: 400px) {
+      .content {
+        padding: 15px;
+      }
+      
+      .header {
+        padding: 12px 15px;
+      }
+      
+      h1 {
+        font-size: 18px;
+      }
+      
+      .search-input {
+        padding: 10px 45px 10px 14px;
+        font-size: 13px;
+      }
+      
+      .button {
+        padding: 6px 10px;
+        font-size: 11px;
+      }
+      
+      .entry {
+        padding: 6px 8px;
+      }
+      
+      .entry-title {
+        font-size: 12px;
+      }
+      
+      .entry-text {
+        font-size: 11px;
+      }
+    }
+
+    @media (min-width: 500px) {
+      .content {
+        padding: 25px;
+      }
+      
+      .header {
+        padding: 20px 25px;
+      }
+      
+      h1 {
+        font-size: 22px;
+      }
+      
+      .search-input {
+        padding: 14px 55px 14px 18px;
+        font-size: 15px;
+      }
+      
+      .button {
+        padding: 10px 15px;
+        font-size: 13px;
+      }
+    }
+
+    /* Ensure proper scrolling on smaller heights */
+    @media (max-height: 600px) {
+      .content {
+        padding-bottom: 10px;
+      }
+      
+      .entries {
+        max-height: 300px;
+      }
+    }
+
+    /* Side panel specific adjustments */
+    @media (min-width: 300px) and (max-width: 450px) {
+      .tab {
+        padding: 8px;
+        font-size: 11px;
+      }
+      
+      .search-option {
+        padding: 6px 12px;
+        font-size: 12px;
+      }
+      
+      .entry-actions {
+        flex-direction: column;
+        gap: 4px;
+      }
+      
+      .entry-actions button {
+        width: 100%;
+        padding: 4px 8px;
+        font-size: 10px;
+      }
+    }
+
+    /* Ensure proper layout in side panel */
+    .entry-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    .entry-actions button {
+      flex: 1;
+      min-width: 60px;
+      padding: 6px 10px;
+      font-size: 11px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 4px;
+      color: white;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .entry-actions button:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Improve search results layout */
+    .search-result {
+      margin-bottom: 12px;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      border-left: 4px solid #FFE082;
+    }
+
+    .result-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 8px;
+    }
+
+    .result-header h4 {
+      margin: 0;
+      font-size: 13px;
+      font-weight: 600;
+      color: #E3F2FD;
+      flex: 1;
+    }
+
+    .result-content {
+      margin-bottom: 8px;
+    }
+
+    .result-content p {
+      margin: 0;
+      font-size: 12px;
+      line-height: 1.4;
+      opacity: 0.9;
+    }
+
+    .result-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .result-actions button {
+      padding: 4px 8px;
+      font-size: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 4px;
+      color: white;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .result-actions button:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Similarity score badges */
+    .similarity-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 6px;
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 600;
+      margin-right: 8px;
+    }
+
+    .similarity-badge.semantic {
+      background: rgba(156, 39, 176, 0.2);
+      border: 1px solid rgba(156, 39, 176, 0.4);
+      color: #E1BEE7;
+    }
+
+    .similarity-badge.keyword {
+      background: rgba(255, 193, 7, 0.2);
+      border: 1px solid rgba(255, 193, 7, 0.4);
+      color: #FFE082;
+    }
+
+    .similarity-score {
+      font-size: 11px;
+    }
+
+    .search-type {
+      font-size: 10px;
+    }
+
+    .result-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.7);
+    }
+    
+    .author {
+      font-weight: 600;
+      color: #E1BEE7;
+    }
+
+    /* Search results container styling */
+    .search-results {
+      margin-bottom: 15px;
+    }
+
+    .search-results-header {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 8px 12px;
+      border-radius: 6px;
+      margin-bottom: 10px;
+      font-size: 12px;
+      text-align: center;
+    }
+
+    .search-results-content {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* Improve modal for side panel */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+    }
+
+    .modal-content {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 12px;
+      max-width: 90vw;
+      max-height: 90vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .modal-header {
+      padding: 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-header h3 {
+      margin: 0;
+      color: white;
+      font-size: 18px;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 24px;
+      cursor: pointer;
+      padding: 0;
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-body {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+    }
+
+    .modal-text {
+      color: white;
+      line-height: 1.6;
+      font-size: 14px;
+    }
+
+    .modal-footer {
+      padding: 20px;
+      border-top: 1px solid rgba(255, 255, 255, 0.2);
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    .modal-footer button {
+      padding: 8px 16px;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .modal-footer button:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Notification system for side panel */
+    .notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.9);
+      color: white;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      z-index: 10001;
+      max-width: 300px;
+      word-wrap: break-word;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      transform: translateX(100%);
+      transition: transform 0.3s ease;
+    }
+
+    .notification.show {
+      transform: translateX(0);
+    }
+
+    .notification.success {
+      border-left: 4px solid #4CAF50;
+    }
+
+    .notification.error {
+      border-left: 4px solid #f44336;
+    }
+
+    .notification.warning {
+      border-left: 4px solid #ff9800;
+    }
+
+    .notification.info {
+      border-left: 4px solid #2196F3;
+    }
+
+    /* Loading indicator for side panel */
+    .loading-indicator {
+      display: none;
+      text-align: center;
+      padding: 20px;
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .loading-indicator.show {
+      display: block;
+    }
+
+    .loading-spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: #FFE082;
+      animation: spin 1s ease-in-out infinite;
+      margin-right: 8px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Improve scrollbar for side panel */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.3);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.5);
+    }
+
+    /* Ensure proper focus states for accessibility */
+    button:focus,
+    input:focus,
+    select:focus {
+      outline: 2px solid #FFE082;
+      outline-offset: 2px;
+    }
+
+    /* Improve touch targets for mobile */
+    @media (max-width: 400px) {
+      button {
+        min-height: 44px;
+      }
+      
+      input, select {
+        min-height: 44px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -1222,41 +1632,23 @@
     <button id="settingsIconBtn" title="Settings" style="position: absolute; top: 18px; right: 18px; background: none; border: none; color: #FFE082; font-size: 22px; cursor: pointer; z-index: 10;">
       <span role="img" aria-label="Settings">⚙️</span>
     </button>
-    <div class="shortcut-info">
-      Press <span class="shortcut">Cmd+Shift+S</span> to grab visible text
-    </div>
+          <div class="shortcut-info" style="display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.1); padding: 10px 15px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.2); white-space: nowrap;">
+        <span style="display: inline; white-space: nowrap;">Press <button id="capturePageBtn" class="button" style="background: linear-gradient(135deg, #4CAF50, #45a049); font-weight: 600; padding: 0px 1px; border-radius: 2px; border: none; color: white; cursor: pointer; font-size: 11px; transition: all 0.2s; box-shadow: 0 1px 1px rgba(0,0,0,0.1); margin: 0 1px; line-height: 1.2; width: auto; max-width: fit-content; display: inline;">Capture</button> or <span class="shortcut">Cmd+Shift+S</span> to capture text</span>
+      </div>
   </div>
-  
   <div class="content">
     <div class="setup-note" id="setupNote">
       <div class="setup-content">
         <p>⌨️ Go to <a href="#" id="shortcutsLink" style="color: #4285f4; text-decoration: underline; cursor: pointer;">chrome://extensions/shortcuts</a> to configure the keyboard shortcut for quick capture.</p>
-        <p>🔑 To enable AI Semantic Search (i.e., finds results by meaning, not just keywords), get your OpenAI API key from <a href="https://platform.openai.com/api-keys" target="_blank" style="color: #4285f4; text-decoration: underline; cursor: pointer;">platform.openai.com/api-keys</a> and add it in the Settings tab.</p>
+        <p>🤖 AI Semantic Search is now available locally - no API key required! It finds results by meaning, not just keywords.</p>
         <p>🔒 Your API key is stored locally in your Chrome browser storage only.</p>
         <p>💡 For first-time use, you may need to reload the Chrome browser to activate the extension.</p>
       </div>
       <button class="dismiss-btn" id="dismissSetupNote" title="Don't show again">✕</button>
     </div>
 
-    <div class="tab-container">
-      <button class="tab active" data-tab="search">Search</button>
-      <button class="tab" data-tab="notebooklm">NotebookLM</button>
-    </div>
-
     <div class="tab-content active" id="searchTab">
-      <!-- Capture and Selection Controls -->
-      <div style="display: flex; justify-content: space-between; margin-bottom: 8px; gap: 8px;">
-        <button id="capturePageBtn" class="button" style="background: linear-gradient(135deg, #4CAF50, #45a049); font-weight: 600; flex: 1;">
-          📄 Capture Page
-        </button>
-        <button id="toggleSelectionBtn" class="selection-btn" style="font-weight: 600;">
-          Select Articles
-        </button>
-      </div>
-      <!-- Selection Mode Hint -->
-      <div class="selection-hint" style="background: rgba(156, 39, 176, 0.1); border: 1px solid rgba(156, 39, 176, 0.3); border-radius: 6px; padding: 8px; margin-bottom: 10px; font-size: 11px; color: rgba(255, 255, 255, 0.8); text-align: center; display: none;" id="selectionHint">
-        💡 Select articles to import to NotebookLM
-      </div>
+
 
       <div class="search-container">
         <input type="text" class="search-input" id="searchInput" placeholder="Search your saved text...">
@@ -1266,7 +1658,7 @@
         <button class="search-clear" id="searchClear" style="right: 38px;">✕</button>
       </div>
       <div class="search-options">
-        <button class="search-option" data-mode="semantic">🤖 Semantic</button>
+        <button class="search-option" data-mode="semantic">🤖 Local AI</button>
         <button class="search-option active" data-mode="keyword">📝 Keyword</button>
       </div>
       <div class="search-filters" id="searchFilters" style="display: none;">
@@ -1346,12 +1738,17 @@
         <span class="active-filters" id="activeFilters"></span>
       </div>
       
-      <div class="search-results" id="searchResults">
-        <span id="loadingIndicator" class="loading" style="display: none;"></span>
-        Found <span id="resultCount">0</span> results for "<span id="searchTerm"></span>"
+      <div class="search-results" id="searchResults" style="display: none;">
+        <div class="search-results-header">
+          <span id="loadingIndicator" class="loading" style="display: none;"></span>
+          Found <span id="resultCount">0</span> results for "<span id="searchTerm"></span>"
+        </div>
+        <div class="search-results-content">
+          <!-- Search results will be populated here -->
+        </div>
       </div>
       
-      <!-- Selection Toolbar for Import to NotebookLM -->
+      <!-- Selection Toolbar for Export to NotebookLM -->
       <div class="selection-toolbar" id="selectionToolbar" style="display: none;">
         <div class="selection-info">
           <span id="homeSelectedCount">0</span> articles selected
@@ -1359,10 +1756,6 @@
         <div class="selection-actions">
           <button id="selectAllHome" class="selection-btn">Select All</button>
           <button id="selectNoneHome" class="selection-btn">Select None</button>
-          
-          <button id="importToNotebookLM" class="import-btn" disabled>
-            🧠 Import to NotebookLM
-          </button>
         </div>
       </div>
       
@@ -1381,9 +1774,29 @@
         <!-- Entries will be populated here -->
       </div>
       
+      <!-- Export to NotebookLM Section -->
+      <div id="exportSection" class="export-section" style="margin-top: 15px; padding: 15px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; display: none;">
+        <div style="font-size: 14px; font-weight: 600; margin-bottom: 10px; color: #FFE082;">
+          🧠 Export to NotebookLM
+        </div>
+        <div style="font-size: 11px; color: rgba(255, 255, 255, 0.7); margin-bottom: 12px; line-height: 1.4;">
+          Selected articles will be automatically added to your NotebookLM notebook
+        </div>
+        <button id="exportToNotebookLM" class="button" style="width: 100%; background: linear-gradient(135deg, #4285F4, #34A853); font-weight: 600; padding: 12px;">
+          🧠 Export to NotebookLM
+        </button>
+      </div>
+      
       <div id="emptyState" class="empty-state">
         <p>📄 No text saved yet</p>
         <p>Visit any webpage and click <strong>📄 Capture Page</strong> or press <strong>Cmd+Shift+S</strong> to start grabbing text!</p>
+        <button id="testSidePanelBtn" class="button" style="margin-top: 10px; background: rgba(255, 193, 7, 0.2); border-color: rgba(255, 193, 7, 0.5);">
+          🧪 Test Side Panel
+        </button>
+        <button id="inspectNotebookLMBtn" class="button" style="margin-top: 10px; background: rgba(33, 150, 243, 0.2); border-color: rgba(33, 150, 243, 0.5);">
+          🔍 Inspect NotebookLM
+        </button>
+
       </div>
       
       <div id="noResults" class="no-results" style="display: none;">
@@ -1392,180 +1805,16 @@
       </div>
     </div>
 
-    <div class="tab-content" id="notebooklmTab">
-      <!-- NotebookLM Header -->
-      <div class="notebooklm-header">
-        <div class="notebooklm-title">🧠 NotebookLM Import</div>
-        <div class="notebooklm-subtitle">Select and import your captured sources to NotebookLM</div>
-      </div>
 
-      <!-- Direct NotebookLM Workflow -->
-      <div class="export-controls">
-        <div class="export-section">
-          <div class="export-section-title">
-            <span>⚡</span>
-            <span>Quick Capture & Open NotebookLM</span>
-          </div>
-          <div style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; padding: 15px; margin-bottom: 15px;">
-            <div style="font-size: 12px; color: rgba(255, 255, 255, 0.8); margin-bottom: 10px;">
-              Capture current page and open NotebookLM instantly
-            </div>
-            <div style="font-size: 10px; color: rgba(255, 255, 255, 0.6); margin-bottom: 8px; line-height: 1.3;">
-              📝 Works with: News articles, blog posts, Wikipedia, research papers<br>
-              ⚠️ Cannot capture: Chrome settings, extensions page, system pages
-            </div>
-            <button id="captureAndOpenBtn" class="button" style="width: 100%; background: linear-gradient(135deg, #9C27B0, #7B1FA2); margin-bottom: 8px;">
-              📄 Capture & Open NotebookLM
-            </button>
-            <a href="https://notebooklm.google.com/" target="_blank" class="button" style="width: 100%; background: rgba(255, 255, 255, 0.1); text-decoration: none; text-align: center; display: block;">
-              🧠 Open NotebookLM
-            </a>
-          </div>
-        </div>
-      </div>
-
-      <!-- NotebookLM Connection Status -->
-      <div class="export-controls">
-        <div class="export-section">
-          <div class="export-section-title">
-            <span>🧠</span>
-            <span>NotebookLM Connection</span>
-          </div>
-          <div id="driveStatus" class="google-drive-status disconnected">
-            <span>⚠️</span>
-            <span>Not connected to NotebookLM</span>
-          </div>
-          <button id="connectDriveBtn" class="button" style="width: 100%; margin-top: 10px;">
-            🔗 Connect to NotebookLM
-          </button>
-          <button id="debugTokensBtn" class="button secondary" style="width: 100%; margin-top: 5px; font-size: 12px;" title="Debug authentication tokens">
-            🔍 Debug Tokens
-          </button>
-          <button id="testGraphQLBtn2" class="button" style="width: 100%; margin-top: 5px; background: rgba(76, 175, 80, 0.2); border-color: rgba(76, 175, 80, 0.5); font-size: 12px;" title="Test the NotebookLM API integration">
-            🧪 Test NotebookLM API
-          </button>
-        </div>
-
-        <!-- Selection Summary -->
-        <div class="export-section">
-          <div class="export-section-title">
-            <span>📊</span>
-            <span>Selection Summary</span>
-          </div>
-          <div class="selection-summary">
-            <div>Selected: <span id="selectedCount" class="selection-count">0</span> sources</div>
-            <div>Total words: <span id="selectedWords" class="selection-count">0</span></div>
-            <div>Estimated files: <span id="estimatedFiles" class="selection-count">0</span></div>
-          </div>
-        </div>
-
-        <!-- Bulk Selection Tools -->
-        <div class="export-section">
-          <div class="export-section-title">
-            <span>⚡</span>
-            <span>Quick Selection</span>
-          </div>
-          <div class="bulk-selection-toolbar">
-            <button id="selectAll" class="bulk-select-btn">Select All</button>
-            <button id="selectNone" class="bulk-select-btn">Select None</button>
-            <button id="selectRecentWeek" class="bulk-select-btn">Recent Week</button>
-            <button id="selectHighSimilarity" class="bulk-select-btn">Top 10</button>
-          </div>
-        </div>
-
-        <!-- Export Format Options -->
-        <div class="export-section">
-          <div class="export-section-title">
-            <span>📁</span>
-            <span>Export Format</span>
-          </div>
-          <div class="export-format-options">
-            <label class="format-option">
-              <input type="radio" name="exportFormat" value="individual" checked>
-              <div>
-                <div class="format-label">Individual Files</div>
-                <div class="format-description">Each source as a separate file</div>
-              </div>
-            </label>
-            <label class="format-option">
-              <input type="radio" name="exportFormat" value="combined">
-              <div>
-                <div class="format-label">Combined File</div>
-                <div class="format-description">All sources in one document</div>
-              </div>
-            </label>
-          </div>
-        </div>
-
-        <!-- Notebook Selection -->
-        <div class="export-section">
-          <div class="export-section-title">
-            <span>📚</span>
-            <span>Select Notebook</span>
-          </div>
-          <div class="notebook-selector" style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
-            <select id="notebookDropdown" class="notebook-select" style="background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; color: white; padding: 8px 12px; font-size: 12px; min-width: 200px; flex: 1;">
-              <option value="">🔄 Loading notebooks...</option>
-            </select>
-            <button id="refreshNotebooks" class="button secondary" title="Refresh notebooks" style="padding: 8px 12px;">🔄</button>
-          </div>
-        </div>
-
-        <!-- Export Actions -->
-        <div class="export-section">
-          <div class="export-actions">
-            <button id="addAllArticlesToNotebookLM" class="button" style="width: 100%; background: linear-gradient(135deg, #4CAF50, #45A049); font-size: 14px; font-weight: bold; padding: 12px;">
-              📄 Add All Articles to NotebookLM
-            </button>
-            <button id="exportToNotebookLM" class="button" disabled style="width: 100%; margin-top: 8px; background: linear-gradient(135deg, #4285F4, #34A853);">
-              Export to NotebookLM
-            </button>
-            <button id="importToNotebookLM" class="button" disabled style="width: 100%; margin-top: 8px; background: linear-gradient(135deg, #9C27B0, #7B1FA2);">
-              🧠 Import to NotebookLM
-            </button>
-            <button id="automateNotebookLMBtn" class="button" style="width: 100%; margin-top: 8px; background: linear-gradient(135deg, #FFD600, #FFB300);">
-             🤖 Automate NotebookLM UI
-            </button>
-            <button id="openDriveFolder" class="button" style="width: 100%; margin-top: 8px; background: rgba(255, 255, 255, 0.1);" disabled>
-              📁 Open Google Drive Folder
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Captured Sources List -->
-      <div class="export-section">
-        <div class="export-section-title">
-          <span>📄</span>
-          <span>Captured Sources</span>
-        </div>
-        <div id="notebooklmEntries" class="entries">
-          <!-- Sources will be populated here -->
-        </div>
-      </div>
-
-      <!-- Export History -->
-      <div class="export-section">
-        <div class="export-section-title">
-          <span>📋</span>
-          <span>Export History</span>
-        </div>
-        <div id="exportHistory" class="export-history">
-          <!-- Export history will be populated here -->
-        </div>
-      </div>
-    </div>
 
     <div class="tab-content" id="settingsTab" style="display: none;">
-      <div class="api-key-section">
-        <div>🔑 <strong>OpenAI API Key</strong> </div>
+      <div class="ai-search-info" style="background: rgba(156, 39, 176, 0.1); border: 1px solid rgba(156, 39, 176, 0.3); padding: 12px; border-radius: 6px; margin-bottom: 15px; font-size: 12px;">
+        <div>🤖 <strong>Local AI Semantic Search</strong> </div>
         <div style="margin: 8px 0; font-size: 10px; opacity: 0.8;">
-          To enable semantic search. Without this, basic similarity search is used.
+          AI-powered semantic search runs entirely in your browser. No API keys or internet connection required for search.
         </div>
-        <input type="password" class="api-key-input" id="apiKeyInput" placeholder="sk-...">
-        <button class="button" id="saveApiKeyBtn" style="margin-top: 8px; width: 100%;">Save API Key</button>
-        <div class="api-status" id="apiStatus">
-          <span id="apiStatusIndicator">⚪</span> <span id="apiStatusText">No API key configured</span>
+        <div style="margin-top: 8px; font-size: 10px; color: #E1BEE7;">
+          <span>✅ Model loaded: </span><span id="aiModelStatus">Checking...</span>
         </div>
       </div>
 
@@ -1574,8 +1823,7 @@
       <div class="controls">
         <button class="button" id="exportBtn">📤 Export Data</button>
                   <button class="button" id="clearErrorStatesBtn" style="margin-top: 8px; width: 100%; background: rgba(255, 193, 7, 0.2); border-color: rgba(255, 193, 7, 0.5);">🧹 Clear Error States</button>
-          <button class="button" id="debugNotebookLMBtn" style="margin-top: 8px; width: 100%; background: rgba(156, 39, 176, 0.2); border-color: rgba(156, 39, 176, 0.5);">🔍 Debug NotebookLM API</button>
-          <button class="button" id="testGraphQLBtn" style="margin-top: 8px; width: 100%; background: rgba(76, 175, 80, 0.2); border-color: rgba(76, 175, 80, 0.5);">🧪 Test NotebookLM API</button>
+
           <button class="button" id="showReloadBtn" style="margin-top: 8px; width: 100%; background: rgba(255, 152, 0, 0.2); border-color: rgba(255, 152, 0, 0.5);">📋 Show Reload Instructions</button>
       </div>
       
@@ -1599,6 +1847,7 @@
     </div>
   </div>
   
+  <script src="semantic_search.js"></script>
   <script src="popup.js"></script>
 </body>
 </html> 

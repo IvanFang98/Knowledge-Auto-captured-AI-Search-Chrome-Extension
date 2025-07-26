@@ -4,11 +4,10 @@
   "version": "1.0",
   "description": "Capture, organize, and export articles to NotebookLM",
   
-  "permissions": ["identity", "storage", "tabs", "scripting"],
+  "permissions": ["identity", "storage", "tabs", "scripting", "sidePanel"],
   
   "host_permissions": [
-    "https://notebooklm.google.com/*",
-    "https://drive.google.com/*"
+    "https://notebooklm.google.com/*"
   ],
   
   "background": {
@@ -20,13 +19,7 @@
       "matches": ["https://notebooklm.google.com/*"],
       "js": ["notebooklm_automation.js"],
       "all_frames": true,
-      "run_at": "document_end"
-    },
-    {
-      "matches": ["https://drive.google.com/*"],
-      "js": ["picker_automation.js"],
-      "all_frames": true,
-      "run_at": "document_end"
+      "run_at": "document_start"
     }
   ],
   
@@ -47,7 +40,6 @@
   },
   
   "action": {
-    "default_popup": "popup.html",
     "default_title": "SmartGrab - NotebookLM Connector",
     "default_icon": {
       "16": "icon16.png",
@@ -58,5 +50,12 @@
   
   "side_panel": {
     "default_path": "popup.html"
-  }
+  },
+  
+  "web_accessible_resources": [
+    {
+      "resources": ["model/*", "tfjs/*"],
+      "matches": ["<all_urls>"]
+    }
+  ]
 } 
