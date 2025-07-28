@@ -522,6 +522,11 @@ const TextExtractor = {
   }
 };
 
+// Global flag to prevent duplicate notebook operations
+let isNotebookOperationInProgress = false;
+// Track tabs created by our extension to prevent auto-detection
+let extensionCreatedTabs = new Set();
+
 // === MESSAGE HANDLERS ===
 const MessageHandler = {
   handlers: {
@@ -622,6 +627,9 @@ const ExtensionManager = {
     chrome.action?.onClicked.addListener(this.onActionClicked.bind(this));
     chrome.commands?.onCommand.addListener(this.onCommand.bind(this));
     
+    // Tab monitoring for NotebookLM auto-detection
+    chrome.tabs.onUpdated.addListener(this.onTabUpdated.bind(this));
+    
     // Side panel setup
     if (chrome.sidePanel && chrome.sidePanel.setPanelBehavior) {
       try {
@@ -709,15 +717,98 @@ const ExtensionManager = {
         // Try to set popup as fallback
         try {
           await chrome.action.setPopup({ popup: 'popup.html' });
-          console.log('Popup fallback set');
-          await Utils.showNotification('Extension will now open as popup. Click the icon again.', 'info');
+          console.log('Popup set as fallback');
         } catch (popupError) {
           console.error('Failed to set popup fallback:', popupError);
         }
       }
     } catch (error) {
       console.error('Error in onActionClicked:', error);
-      await Utils.showNotification(`Error: ${error.message}`, 'error');
+      await Utils.showNotification('Failed to open extension interface', 'error');
+    }
+  },
+
+  // Monitor tab updates for NotebookLM auto-detection
+  async onTabUpdated(tabId, changeInfo, tab) {
+    // Only process when tab is completely loaded and URL is a NotebookLM notebook
+    if (changeInfo.status === 'complete' && tab.url) {
+      console.log('NotebookLM: Tab updated - ID:', tabId, 'URL:', tab.url);
+      
+      const notebookUrlPattern = /^https:\/\/notebooklm\.google\.com\/u\/\d+\/notebook\/([a-zA-Z0-9_-]+)/;
+      const match = tab.url.match(notebookUrlPattern);
+      
+      if (match) {
+        const notebookId = match[1];
+        console.log('NotebookLM: Auto-detected notebook opened:', notebookId, 'Tab ID:', tabId);
+        console.log('NotebookLM: Extension created tabs:', Array.from(extensionCreatedTabs));
+        console.log('NotebookLM: Is operation in progress:', isNotebookOperationInProgress);
+        
+        // Check if this tab was created by our extension
+        if (extensionCreatedTabs.has(tabId)) {
+          console.log('NotebookLM: Tab was created by extension, skipping auto-detection for tab:', tabId);
+          // Remove from tracking after first check
+          extensionCreatedTabs.delete(tabId);
+          return;
+        }
+        
+        // Check if a notebook operation is already in progress
+        if (isNotebookOperationInProgress) {
+          console.log('NotebookLM: Operation already in progress, skipping auto-detection');
+          return;
+        }
+        
+        // TEMPORARY: Disable auto-detection entirely to prevent duplicates
+        console.log('NotebookLM: Auto-detection disabled to prevent duplicate tabs');
+        return;
+        
+        // Check if we have pending articles to export
+        const entries = await Storage.getEntries();
+        const selectedEntries = entries.filter(entry => entry.selected);
+        
+        if (selectedEntries.length > 0) {
+          console.log('NotebookLM: Found selected articles, auto-triggering export');
+          
+          // Set flag to prevent duplicate operations
+          isNotebookOperationInProgress = true;
+          
+          // Show notification about auto-export
+          await Utils.showNotification(
+            `Auto-detected NotebookLM notebook! Starting export of ${selectedEntries.length} selected articles...`,
+            'basic'
+          );
+          
+          // Send message to popup if it's open
+          try {
+            chrome.runtime.sendMessage({
+              type: 'NOTEBOOKLM_AUTO_DETECTED',
+              message: `Auto-detected NotebookLM notebook! Starting export of ${selectedEntries.length} selected articles...`,
+              notebookId: notebookId,
+              articleCount: selectedEntries.length
+            });
+          } catch (error) {
+            console.log('Popup not open, continuing with background export');
+          }
+          
+          // Trigger the export process
+          setTimeout(() => {
+            addArticlesToNotebookLM(notebookId, selectedEntries);
+          }, 1000); // Small delay to ensure tab is fully ready
+        } else {
+          console.log('NotebookLM: No selected articles found for auto-export');
+          
+          // Still notify popup about detection
+          try {
+            chrome.runtime.sendMessage({
+              type: 'NOTEBOOKLM_AUTO_DETECTED',
+              message: 'NotebookLM notebook detected! Select articles and click "Export to NotebookLM" to start.',
+              notebookId: notebookId,
+              articleCount: 0
+            });
+          } catch (error) {
+            console.log('Popup not open');
+          }
+        }
+      }
     }
   },
   
@@ -811,21 +902,153 @@ async function addArticlesToNotebookLM(notebookId, articles) {
   console.log('NotebookLM: Adding articles as sources to notebook:', notebookId);
   console.log('NotebookLM: Articles to add:', articles);
   
+  // Set flag to prevent duplicate operations
+  isNotebookOperationInProgress = true;
+  
+  let tabId = null;
+  let progressNotificationId = null;
+  let isExistingTab = false;
+  
   try {
-    // 1. Open the notebook in a new tab
-    const url = `https://notebooklm.google.com/u/0/notebook/${notebookId}`;
-    console.log('NotebookLM: Opening URL:', url);
+    // 1. Check if the notebook is already open in an existing tab
+    const notebookUrl = `https://notebooklm.google.com/u/0/notebook/${notebookId}`;
+    console.log('NotebookLM: Checking for existing tab with URL:', notebookUrl);
     
-    const { id: tabId } = await chrome.tabs.create({ url });
-    console.log('NotebookLM: Created tab with ID:', tabId);
+    // Use more flexible URL matching to find existing tabs
+    const allTabs = await chrome.tabs.query({});
+    const existingTabs = allTabs.filter(tab => {
+      if (!tab.url) return false;
+      // Check if URL contains the notebook ID
+      return tab.url.includes(`/notebook/${notebookId}`);
+    });
+    
+    console.log('NotebookLM: Found existing tabs:', existingTabs.length, 'Tab IDs:', existingTabs.map(t => t.id));
+    console.log('NotebookLM: Existing tab URLs:', existingTabs.map(t => t.url));
+    
+    if (existingTabs.length > 0) {
+      // Use the first existing tab
+      tabId = existingTabs[0].id;
+      isExistingTab = true;
+      console.log('NotebookLM: Found existing tab with ID:', tabId);
+      
+      // Validate the existing tab is in a good state
+      try {
+        const tabInfo = await chrome.tabs.get(tabId);
+        console.log('NotebookLM: Existing tab info:', tabInfo);
+        
+        // Check if tab is in a valid state
+        if (tabInfo.status === 'loading' || tabInfo.status === 'complete') {
+          // Activate the existing tab
+          await chrome.tabs.update(tabId, { active: true });
+          console.log('NotebookLM: Activated existing tab');
+        } else {
+          console.log('NotebookLM: Existing tab is in invalid state, creating new tab');
+          // Create new tab if existing one is in bad state
+          const tab = await chrome.tabs.create({ url: notebookUrl });
+          tabId = tab.id;
+          isExistingTab = false;
+          extensionCreatedTabs.add(tabId);
+          console.log('NotebookLM: Created new tab due to invalid existing tab state');
+        }
+      } catch (error) {
+        console.error('NotebookLM: Error validating existing tab, creating new one:', error);
+        // Create new tab if existing one is invalid
+        const tab = await chrome.tabs.create({ url: notebookUrl });
+        tabId = tab.id;
+        isExistingTab = false;
+        extensionCreatedTabs.add(tabId);
+        console.log('NotebookLM: Created new tab due to validation error');
+      }
+    } else {
+      // Create new tab if notebook is not already open
+      console.log('NotebookLM: No existing tab found, creating new tab');
+      const tab = await chrome.tabs.create({ url: notebookUrl });
+      tabId = tab.id;
+      isExistingTab = false;
+      extensionCreatedTabs.add(tabId);
+      console.log('NotebookLM: Created new tab with ID:', tabId);
+      
+      // Add a small delay to ensure tracking is set before onTabUpdated fires
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
 
-    // 2. Wait for the tab to load and ensure content script is injected
+    // 2. Show progress notification
+    const notificationMessage = isExistingTab 
+      ? `Adding ${articles.length} articles to existing NotebookLM tab...\n\n⚠️ Please DO NOT close the NotebookLM tab until injection is complete!`
+      : `Adding ${articles.length} articles to NotebookLM...\n\n⚠️ Please DO NOT close the NotebookLM tab until injection is complete!`;
+    
+    progressNotificationId = await chrome.notifications.create({
+      type: 'basic',
+      iconUrl: 'icon48.png',
+      title: '🧠 SmartGrab - Auto-Injecting',
+      message: notificationMessage,
+      priority: 2,
+      requireInteraction: true
+    });
+
+    // 3. Add tab protection - prevent accidental closure
+    const tabProtection = () => {
+      chrome.scripting.executeScript({
+        target: { tabId: tabId },
+        func: () => {
+          // Add beforeunload warning
+          const originalBeforeUnload = window.onbeforeunload;
+          window.onbeforeunload = (e) => {
+            e.preventDefault();
+            e.returnValue = '⚠️ Auto-injection in progress! Closing this tab will interrupt the process. Are you sure you want to leave?';
+            return e.returnValue;
+          };
+          
+          // Store original function for cleanup
+          window.smartgrabOriginalBeforeUnload = originalBeforeUnload;
+        }
+      });
+    };
+
+    // 4. Wait for the tab to load and ensure content script is injected
+    if (isExistingTab) {
+      // For existing tabs, proceed with injection immediately
+      console.log('NotebookLM: Using existing tab, proceeding with injection');
+      
+      // Add tab protection and start injection
+      tabProtection();
+      
+      // Add a small delay to ensure tab is stable, then start injection
+      setTimeout(() => {
+        startInjectionProcess();
+      }, 500);
+    } else {
+      // For new tabs, wait for load completion
     chrome.tabs.onUpdated.addListener(function listener(tId, info) {
       if (tId === tabId && info.status === "complete") {
-        console.log('NotebookLM: Tab loaded, ensuring content script is injected');
+          console.log('NotebookLM: New tab loaded, ensuring content script is injected');
         
         // Remove the listener to avoid multiple injections
         chrome.tabs.onUpdated.removeListener(listener);
+        
+          // Add tab protection
+          tabProtection();
+          
+          // First, ensure the content script is injected
+              chrome.scripting.executeScript({
+                target: { tabId: tabId },
+            files: ['notebooklm_automation.js']
+          }).then(() => {
+            console.log('NotebookLM: Content script injected successfully');
+            startInjectionProcess();
+          }).catch((error) => {
+            console.error('NotebookLM: Failed to inject content script:', error);
+            cleanupAndShowError('Failed to inject content script');
+          });
+        }
+      });
+    }
+    
+    // Helper function to start the injection process
+    function startInjectionProcess() {
+      // First, validate that the tab still exists
+      chrome.tabs.get(tabId).then((tab) => {
+        console.log('NotebookLM: Tab validation successful, tab exists:', tab.id);
         
         // First, ensure the content script is injected
         chrome.scripting.executeScript({
@@ -833,51 +1056,74 @@ async function addArticlesToNotebookLM(notebookId, articles) {
           files: ['notebooklm_automation.js']
         }).then(() => {
           console.log('NotebookLM: Content script injected successfully');
-          
+
           // Wait for the content script to be ready by checking for the indicator
           const checkReady = () => {
-            chrome.scripting.executeScript({
-              target: { tabId: tabId },
-              func: () => {
-                return document.getElementById('notebooklm-automation-indicator') !== null;
-              }
-            }).then((results) => {
-              if (results[0] && results[0].result) {
-                console.log('NotebookLM: Content script is ready, sending automation message');
-                chrome.tabs.sendMessage(tabId, {
-                  type: "AUTOMATE_ADD_ARTICLES",
-                  articles: articles
-                }, (response) => {
-                  if (chrome.runtime.lastError) {
-                    console.error('NotebookLM: Error sending message:', chrome.runtime.lastError.message);
-                    // Try to show error in the tab
-                    chrome.scripting.executeScript({
-                      target: { tabId: tabId },
-                      func: (errorMsg) => {
-                        const errorDiv = document.createElement('div');
-                        errorDiv.style.cssText = `
-                          position: fixed; top: 10px; right: 10px; z-index: 10000;
-                          background: #f44336; color: white; padding: 10px; border-radius: 5px;
-                          font-family: Arial, sans-serif; font-size: 14px; max-width: 300px;
-                        `;
-                        errorDiv.textContent = `Automation Error: ${errorMsg}`;
-                        document.body.appendChild(errorDiv);
-                        setTimeout(() => errorDiv.remove(), 10000);
-                      },
-                      args: [chrome.runtime.lastError.message]
-                    });
-                  } else if (response) {
-                    console.log('NotebookLM: Content script response:', response);
-                  } else {
-                    console.log('NotebookLM: No immediate response from content script');
+            // Validate tab exists before each check
+            chrome.tabs.get(tabId).then(() => {
+              chrome.scripting.executeScript({
+                target: { tabId: tabId },
+                func: () => {
+                  // Check for indicator first
+                  const indicator = document.getElementById('notebooklm-automation-indicator');
+                  if (indicator) {
+                    return true;
                   }
-                });
-              } else {
-                // Content script not ready yet, retry after a short delay
-                setTimeout(checkReady, 100);
-              }
+                  
+                  // Fallback: check if content script functions are available
+                  if (typeof addArticlesAsSources === 'function') {
+                    return true;
+                  }
+                  
+                  // Fallback: check if message listener is set up
+                  if (window.notebooklmAutomationReady) {
+                    return true;
+                  }
+                  
+                  return false;
+                }
+              }).then((results) => {
+                if (results[0] && results[0].result) {
+                  console.log('NotebookLM: Content script is ready, sending automation message');
+          chrome.tabs.sendMessage(tabId, {
+            type: "AUTOMATE_ADD_ARTICLES",
+            articles: articles
+          }, (response) => {
+            if (chrome.runtime.lastError) {
+              console.error('NotebookLM: Error sending message:', chrome.runtime.lastError.message);
+                      cleanupAndShowError(chrome.runtime.lastError.message);
+            } else if (response) {
+              console.log('NotebookLM: Content script response:', response);
+                      // Start monitoring for completion
+                      monitorInjectionProgress();
+            } else {
+              console.log('NotebookLM: No immediate response from content script');
+                      monitorInjectionProgress();
+            }
+          });
+                } else {
+                  // Content script not ready yet, retry after a short delay
+                  // Add timeout to prevent infinite waiting
+                  if (checkReady.attempts === undefined) {
+                    checkReady.attempts = 0;
+                  }
+                  checkReady.attempts++;
+                  
+                  if (checkReady.attempts > 50) { // 5 seconds max
+                    console.error('NotebookLM: Content script readiness timeout');
+                    cleanupAndShowError('Content script failed to initialize');
+                    return;
+                  }
+                  
+                  setTimeout(checkReady, 100);
+                }
+              }).catch((error) => {
+                console.error('NotebookLM: Error checking content script readiness:', error);
+                cleanupAndShowError('Failed to check content script readiness');
+              });
             }).catch((error) => {
-              console.error('NotebookLM: Error checking content script readiness:', error);
+              console.error('NotebookLM: Tab no longer exists during readiness check:', error);
+              cleanupAndShowError('NotebookLM tab was closed during injection');
             });
           };
           
@@ -885,15 +1131,128 @@ async function addArticlesToNotebookLM(notebookId, articles) {
           checkReady();
         }).catch((error) => {
           console.error('NotebookLM: Failed to inject content script:', error);
+          cleanupAndShowError('Failed to inject content script');
         });
-      }
-    });
+      }).catch((error) => {
+        console.error('NotebookLM: Tab validation failed, tab does not exist:', error);
+        cleanupAndShowError('NotebookLM tab was closed or does not exist');
+      });
+    }
     
   } catch (error) {
     console.error('NotebookLM: Failed to add articles:', error);
-  }
+    cleanupAndShowError('Failed to start injection process');
 }
 
+  // Monitor injection progress and cleanup
+  function monitorInjectionProgress() {
+    let checkCount = 0;
+    const maxChecks = 60; // 30 seconds max
+    
+    const checkProgress = () => {
+      chrome.tabs.sendMessage(tabId, { type: "CHECK_INJECTION_STATUS" }, (response) => {
+        if (chrome.runtime.lastError) {
+          // Tab might be closed or content script not responding
+          if (checkCount < maxChecks) {
+            checkCount++;
+            setTimeout(checkProgress, 500);
+          } else {
+            cleanupAndShowError('Injection timeout - tab may have been closed');
+          }
+          return;
+        }
+        
+        if (response && response.status === "completed") {
+          // Injection completed successfully
+          cleanupAndShowSuccess();
+        } else if (response && response.status === "error") {
+          // Injection failed
+          cleanupAndShowError(response.error || 'Injection failed');
+        } else {
+          // Still in progress
+          if (checkCount < maxChecks) {
+            checkCount++;
+            setTimeout(checkProgress, 500);
+          } else {
+            cleanupAndShowError('Injection timeout');
+          }
+        }
+      });
+    };
+    
+    // Start monitoring
+    setTimeout(checkProgress, 1000);
+  }
+
+  // Cleanup function
+  function cleanupAndShowSuccess() {
+    console.log('NotebookLM: Injection completed successfully');
+    
+    // Clear the flag
+    isNotebookOperationInProgress = false;
+
+    // Remove progress notification
+    if (progressNotificationId) {
+      chrome.notifications.clear(progressNotificationId);
+    }
+    
+    // Show success notification
+    chrome.notifications.create({
+      type: 'basic',
+      iconUrl: 'icon48.png',
+      title: '✅ SmartGrab - Injection Complete',
+      message: `Successfully added ${articles.length} articles to NotebookLM!`,
+      priority: 1
+    });
+    
+    // Remove tab protection
+    if (tabId) {
+      chrome.scripting.executeScript({
+        target: { tabId: tabId },
+        func: () => {
+          // Restore original beforeunload
+          if (window.smartgrabOriginalBeforeUnload) {
+            window.onbeforeunload = window.smartgrabOriginalBeforeUnload;
+          }
+        }
+      });
+    }
+  }
+
+  function cleanupAndShowError(errorMessage) {
+    console.error('NotebookLM: Injection failed:', errorMessage);
+    
+    // Clear the flag
+    isNotebookOperationInProgress = false;
+
+    // Remove progress notification
+    if (progressNotificationId) {
+      chrome.notifications.clear(progressNotificationId);
+    }
+    
+    // Show error notification
+    chrome.notifications.create({
+      type: 'basic',
+      iconUrl: 'icon48.png',
+      title: '❌ SmartGrab - Injection Failed',
+      message: `Failed to add articles: ${errorMessage}`,
+      priority: 2
+    });
+    
+    // Remove tab protection
+    if (tabId) {
+      chrome.scripting.executeScript({
+        target: { tabId: tabId },
+        func: () => {
+          // Restore original beforeunload
+          if (window.smartgrabOriginalBeforeUnload) {
+            window.onbeforeunload = window.smartgrabOriginalBeforeUnload;
+          }
+        }
+      });
+    }
+  }
+}
 
 
 // === INITIALIZATION ===

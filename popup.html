@@ -3,6 +3,36 @@
 <head>
   <meta charset="utf-8">
   <style>
+    /* === NEW COLOR PALETTE === */
+    :root {
+      --clr-primary-bg: #E4EEFB;
+      --clr-card-bg: #FBFCFE;
+      --clr-primary-10: #476FD6;
+      --clr-primary-90: #1C3F99;
+      --clr-primary-gradient: linear-gradient(135deg, #476FD6 10%, #1C3F99 90%);
+      --clr-heading: #1C3F99;
+      --clr-body: #15213F;
+      --clr-white: #FFFFFF;
+      --clr-gray-50: #F8FAFC;
+      --clr-gray-100: #F1F5F9;
+      --clr-gray-200: #E2E8F0;
+      --clr-gray-300: #CBD5E1;
+      --clr-gray-400: #94A3B8;
+      --clr-gray-500: #64748B;
+      --clr-gray-600: #475569;
+      --clr-gray-700: #334155;
+      --clr-gray-800: #1E293B;
+      --clr-gray-900: #0F172A;
+      --clr-success: #10B981;
+      --clr-warning: #F59E0B;
+      --clr-error: #EF4444;
+      --clr-info: #3B82F6;
+      /* New light button colors */
+      --clr-btn-bg: #F5F9FF;
+      --clr-btn-border: #D0E1F9;
+      --clr-btn-hover-bg: #E4EEFB;
+    }
+
     body {
       width: 100%;
       min-width: 300px;
@@ -10,8 +40,8 @@
       height: 100vh;
       padding: 0;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
+      background: var(--clr-primary-bg);
+      color: var(--clr-body);
       margin: 0;
       overflow-y: auto;
       overflow-x: hidden;
@@ -23,30 +53,37 @@
     .header {
       padding: 15px 20px;
       text-align: center;
-      background: rgba(255, 255, 255, 0.1);
+      background: var(--clr-card-bg);
       backdrop-filter: blur(10px);
       flex-shrink: 0;
+      border-bottom: 1px solid var(--clr-gray-200);
+      border-radius: 18px;
+      margin: 10px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
     }
     
     h1 {
       font-size: 20px;
       margin: 0 0 10px 0;
-      font-weight: 300;
+      font-weight: 600;
+      color: var(--clr-heading);
     }
     
     .shortcut-info {
       font-size: 12px;
       opacity: 0.9;
-      background: rgba(255, 255, 255, 0.1);
+      background: var(--clr-gray-100);
+      color: var(--clr-body);
       padding: 8px 12px;
-      border-radius: 6px;
+      border-radius: 12px;
       margin-top: 10px;
+      border: 1px solid var(--clr-gray-200);
     }
     
     .shortcut {
       font-family: 'Courier New', monospace;
       font-weight: bold;
-      color: #FFE082;
+      color: var(--clr-primary-10);
     }
     
     .content {
@@ -55,19 +92,22 @@
       max-width: none;
       box-sizing: border-box;
       flex: 1;
-      padding: 20px;
+      padding: 0;
       padding-bottom: 20px;
       overflow-y: auto;
       overflow-x: hidden;
+      background: var(--clr-primary-bg);
     }
 
     .tab-container {
       display: flex;
       width: 100%;
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 8px;
+      background: var(--clr-card-bg);
+      border-radius: 18px;
       margin-bottom: 15px;
       overflow: hidden;
+      border: 1px solid var(--clr-gray-200);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
     }
 
     .tab {
@@ -80,18 +120,18 @@
       transition: all 0.3s;
       background: transparent;
       border: none;
-      color: rgba(255, 255, 255, 0.7);
+      color: var(--clr-gray-600);
     }
 
     .tab.active {
-      background: rgba(255, 255, 255, 0.2);
-      color: white;
+      background: var(--clr-primary-gradient);
+      color: var(--clr-white);
       font-weight: 500;
     }
 
     .tab:hover {
-      background: rgba(255, 255, 255, 0.15);
-      color: white;
+      background: var(--clr-gray-100);
+      color: var(--clr-body);
     }
     
     .search-container {
@@ -103,22 +143,23 @@
     .search-input {
       width: 100%;
       padding: 12px 50px 12px 16px;
-      border: 1px solid rgba(255, 255, 255, 0.3);
-      border-radius: 8px;
-      background: rgba(255, 255, 255, 0.1);
-      color: white;
+      border: 1.5px solid var(--clr-gray-200);
+      border-radius: 18px;
+      background: var(--clr-card-bg);
+      color: var(--clr-body);
       font-size: 14px;
       box-sizing: border-box;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
     }
     
     .search-input::placeholder {
-      color: rgba(255, 255, 255, 0.7);
+      color: var(--clr-gray-500);
     }
     
     .search-input:focus {
       outline: none;
-      border-color: rgba(255, 255, 255, 0.6);
-      background: rgba(255, 255, 255, 0.15);
+      border-color: var(--clr-primary-10);
+      box-shadow: 0 0 0 3px rgba(71, 111, 214, 0.1);
     }
     
     .search-clear {
@@ -128,42 +169,58 @@
       transform: translateY(-50%);
       background: none;
       border: none;
-      color: rgba(255, 255, 255, 0.7);
+      color: var(--clr-gray-500);
       cursor: pointer;
       font-size: 16px;
       display: none;
     }
     
     .search-clear:hover {
-      color: white;
+      color: var(--clr-body);
     }
 
     .search-options {
       display: flex;
       gap: 8px;
-      margin-bottom: 12px;
-      font-size: 13px;
-      width: 100%;
+      margin-bottom: 10px;
+      text-align: center;
+      background: var(--clr-gray-100);
+      padding: 8px;
+      border-radius: 12px;
+      border: 1px solid var(--clr-gray-200);
     }
 
     .search-option {
       flex: 1;
       min-width: 0;
-      background: rgba(255, 255, 255, 0.1);
-      border: 1px solid rgba(255, 255, 255, 0.3);
+      background: var(--clr-btn-bg);
+      border: 1.5px solid var(--clr-btn-border);
       padding: 8px 16px;
-      border-radius: 6px;
+      border-radius: 12px;
       cursor: pointer;
-      transition: all 0.3s;
-      color: rgba(255, 255, 255, 0.8);
+      transition: background 0.2s, border-color 0.2s;
+      color: var(--clr-heading);
       width: 100%;
       box-sizing: border-box;
+      font-size: 12px;
     }
 
     .search-option.active {
-      background: rgba(255, 255, 255, 0.3);
-      color: white;
-      border-color: rgba(255, 255, 255, 0.5);
+      background: var(--clr-btn-hover-bg);
+      color: var(--clr-heading);
+      border: 1.5px solid var(--clr-primary-10);
+    }
+      
+      .search-option:hover,
+      .search-option:focus {
+        background: var(--clr-btn-hover-bg);
+        border-color: var(--clr-primary-10);
+        outline: none;
+      }
+
+      .search-option.active:hover {
+        background: var(--clr-btn-hover-bg);
+        border-color: var(--clr-primary-10);
     }
     
     .search-results {
@@ -171,18 +228,18 @@
       opacity: 0.8;
       margin-bottom: 10px;
       text-align: center;
-      background: rgba(255, 255, 255, 0.1);
+      background: var(--clr-gray-100);
       padding: 6px 12px;
       border-radius: 4px;
       display: none;
     }
 
     kbd {
-      background: rgba(255, 255, 255, 0.2);
-      border: 1px solid rgba(255, 255, 255, 0.3);
+      background: var(--clr-gray-200);
+      border: 1px solid var(--clr-gray-300);
       border-radius: 3px;
       box-shadow: 0 1px 0 rgba(255, 255, 255, 0.2);
-      color: #FFE082;
+      color: var(--clr-primary-90);
       display: inline-block;
       font-size: 10px;
       font-weight: bold;
@@ -191,7 +248,7 @@
     }
 
     .api-key-section {
-      background: rgba(255, 255, 255, 0.1);
+      background: var(--clr-gray-100);
       padding: 12px;
       border-radius: 6px;
       margin-bottom: 15px;
@@ -201,17 +258,23 @@
     .api-key-input {
       width: 100%;
       padding: 8px;
-      border: 1px solid rgba(255, 255, 255, 0.3);
+      border: 1px solid var(--clr-gray-300);
       border-radius: 4px;
-      background: rgba(255, 255, 255, 0.1);
-      color: white;
+      background: var(--clr-gray-100);
+      color: var(--clr-body);
       font-size: 11px;
       box-sizing: border-box;
       margin-top: 8px;
     }
 
     .api-key-input::placeholder {
-      color: rgba(255, 255, 255, 0.5);
+      color: var(--clr-gray-500);
+    }
+
+    .api-key-input:focus {
+      outline: none;
+      border-color: var(--clr-primary-10);
+      background: var(--clr-gray-200);
     }
 
     .api-status {
@@ -228,35 +291,78 @@
     
     .button {
       flex: 1;
-      background: rgba(255, 255, 255, 0.2);
-      color: white;
-      border: 1px solid rgba(255, 255, 255, 0.3);
+      background: var(--clr-btn-bg);
+      color: var(--clr-heading);
+      border: 1.5px solid var(--clr-btn-border);
       padding: 8px 12px;
-      border-radius: 6px;
+      border-radius: 12px;
       cursor: pointer;
       font-size: 12px;
-      transition: all 0.3s;
-      text-align: center;
-      width: 100%;
-      box-sizing: border-box;
+      transition: background 0.2s, border-color 0.2s;
+      margin: 2px;
+      font-weight: 500;
     }
     
-    .button:hover {
-      background: rgba(255, 255, 255, 0.3);
+      .button:hover,
+      .button:focus {
+        background: var(--clr-btn-hover-bg);
+        border-color: var(--clr-primary-10);
+        outline: none;
     }
 
-    .button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
+      .button:active {
+        transform: translateY(0);
     }
     
     .button.danger {
-      background: rgba(244, 67, 54, 0.3);
-      border-color: rgba(244, 67, 54, 0.5);
+        background: var(--clr-error);
+        border-color: var(--clr-error);
+        color: var(--clr-white);
     }
     
     .button.danger:hover {
-      background: rgba(244, 67, 54, 0.5);
+        background: var(--clr-error);
+        opacity: 0.9;
+      }
+      
+      .btn-primary {
+        flex: 1;
+        background: var(--clr-btn-bg);
+        color: var(--clr-heading);
+        border: 1.5px solid var(--clr-btn-border);
+        padding: 12px 16px;
+        border-radius: 12px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 600;
+        transition: background 0.2s, border-color 0.2s;
+        margin: 2px;
+      }
+      
+      .btn-primary:hover,
+      .btn-primary:focus {
+        background: var(--clr-btn-hover-bg);
+        border-color: var(--clr-primary-10);
+        outline: none;
+      }
+      
+      .btn-secondary {
+        flex: 1;
+        background: transparent;
+        color: var(--clr-heading);
+        border: 1.5px solid var(--clr-btn-border);
+        padding: 8px 12px;
+        border-radius: 12px;
+        cursor: pointer;
+        font-size: 12px;
+        transition: background 0.2s, border-color 0.2s;
+        margin: 2px;
+        font-weight: 500;
+      }
+      
+      .btn-secondary:hover {
+        background: var(--clr-btn-bg);
+        border-color: var(--clr-primary-10);
     }
     
     .entries {
@@ -266,9 +372,10 @@
       max-height: none;
       overflow-y: auto;
       overflow-x: hidden;
-      padding-right: 8px;
       width: 100%;
       box-sizing: border-box;
+      padding-left: 0;
+      padding-right: 0;
     }
     
     /* Custom scrollbar styling for entries */
@@ -277,108 +384,148 @@
     }
     
     .entries::-webkit-scrollbar-track {
-      background: rgba(255, 255, 255, 0.1);
+      background: var(--clr-gray-100);
       border-radius: 3px;
     }
     
     .entries::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, 0.3);
+      background: var(--clr-gray-300);
       border-radius: 3px;
     }
     
     .entries::-webkit-scrollbar-thumb:hover {
-      background: rgba(255, 255, 255, 0.5);
+      background: var(--clr-gray-400);
     }
     
     .entry {
-      background: rgba(255, 255, 255, 0.1);
-      border-left: 4px solid rgba(255, 255, 255, 0.3);
-      padding: 8px 10px;
-      margin-bottom: 8px;
-      border-radius: 6px;
-      transition: all 0.3s;
+      background: var(--clr-card-bg);
+      border-left: 4px solid var(--clr-gray-300);
+      padding: 16px 20px;
+      border-radius: 16px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
       position: relative;
-      word-wrap: break-word;
       width: 100%;
       box-sizing: border-box;
-    }
-    
-    .entry:hover {
-      background: rgba(255, 255, 255, 0.15);
-      transform: translateY(-1px);
-    }
-    
-    .entry.search-result {
-      border-left-color: #FFE082;
-      background: rgba(255, 224, 130, 0.15);
-    }
-
-    .entry.semantic-result {
-      border-left-color: #9C27B0;
-      background: rgba(156, 39, 176, 0.15);
+      display: flex;
+      align-items: center;
+      gap: 12px;
     }
     
     .entry-header {
-      margin-bottom: 4px;
-      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex: 1;
+    }
+    
+    .entry-selection {
+      flex-shrink: 0;
+    }
+    
+    .entry-checkbox {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+    
+    .entry-info {
+      flex: 1;
+      min-width: 0;
+    }
+    
+    .entry:hover {
+        background: var(--clr-gray-100);
+      transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+    
+    .entry.search-result {
+        border-left-color: var(--clr-primary-10);
+        background: var(--clr-card-bg);
+    }
+
+    .entry.semantic-result {
+        border-left-color: var(--clr-primary-10);
+        background: var(--clr-card-bg);
     }
     
     .entry-title {
-      font-weight: 500;
-      font-size: 13px;
+      font-size: 14px;
       line-height: 1.3;
-      color: #E3F2FD;
+      color: var(--clr-body);
+      font-weight: 600;
+      margin: 0 0 4px 0;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      width: 100%;
-      display: block;
-      text-decoration: none;
-      transition: opacity 0.2s;
-    }
-
-    .entry-title:hover {
-      opacity: 0.8;
-      text-decoration: none;
     }
     
     .entry-meta {
-      font-size: 11px;
-      opacity: 0.7;
-      color: #90CAF9;
-      margin-bottom: 0;
       display: flex;
-      align-items: center;
-      gap: 8px;
-      justify-content: flex-start;
+      gap: 12px;
+      font-size: 11px;
+      color: var(--clr-gray-600);
+      opacity: 0.8;
+    }
+    
+    .author {
+      font-weight: 500;
+    }
+    
+    .timestamp {
+      opacity: 0.7;
     }
 
     .date-time {
-      color: #90CAF9;
+        color: var(--clr-gray-600);
       opacity: 0.7;
+    }
+    
+    .entry-actions {
+      flex-shrink: 0;
+    }
+    
+    .entry-actions button {
+      background: var(--clr-btn-bg);
+      color: var(--clr-heading);
+      border: 1.5px solid var(--clr-btn-border);
+      padding: 6px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 11px;
+      transition: all 0.2s;
+    }
+    
+    .entry-actions button:hover {
+      background: var(--clr-btn-hover-bg);
+      border-color: var(--clr-primary-10);
     }
 
     .view-full-btn {
-      background: rgba(103, 126, 234, 0.2);
+        background: var(--clr-primary-gradient);
       border: none;
-      color: #90CAF9;
+        color: var(--clr-white);
       cursor: pointer;
       font-size: 11px;
-      padding: 2px 6px;
-      border-radius: 3px;
+        padding: 4px 8px;
+        border-radius: 8px;
       transition: all 0.2s;
-      margin-left: auto;
     }
     
     .view-full-btn:hover {
-      background: rgba(103, 126, 234, 0.4);
-      color: #E3F2FD;
+        background: var(--clr-primary-90);
+        color: var(--clr-white);
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(28, 63, 153, 0.3);
     }
 
     .match-count {
-      color: #FFE082;
+        color: var(--clr-primary-10);
       font-size: 10px;
       opacity: 0.9;
+        font-weight: 600;
     }
     
     .entry-text {
@@ -401,17 +548,17 @@
     }
 
     .entry-text::-webkit-scrollbar-track {
-      background: rgba(255, 255, 255, 0.1);
+      background: var(--clr-gray-100);
       border-radius: 2px;
     }
 
     .entry-text::-webkit-scrollbar-thumb {
-      background: rgba(255, 224, 130, 0.5);
+      background: var(--clr-primary-90);
       border-radius: 2px;
     }
 
     .entry-text::-webkit-scrollbar-thumb:hover {
-      background: rgba(255, 224, 130, 0.7);
+      background: var(--clr-primary-90);
     }
 
     .entry-text.expanded {
@@ -421,7 +568,7 @@
     .expand-btn {
       background: none;
       border: none;
-      color: #FFE082;
+      color: var(--clr-primary-90);
       cursor: pointer;
       font-size: 11px;
       padding: 4px 0 0 0;
@@ -429,8 +576,8 @@
     }
     
     .highlight {
-      background: rgba(255, 224, 130, 0.6);
-      color: #000;
+      background: var(--clr-primary-90);
+      color: var(--clr-white);
       padding: 1px 2px;
       border-radius: 2px;
       font-weight: 500;
@@ -438,118 +585,43 @@
     
     .empty-state {
       text-align: center;
-      opacity: 0.7;
       padding: 40px 20px;
+      color: var(--clr-gray-600);
       font-size: 14px;
+      line-height: 1.6;
     }
     
-    .no-results {
-      text-align: center;
-      opacity: 0.7;
-      padding: 30px 20px;
-      font-size: 14px;
-      background: rgba(255, 255, 255, 0.05);
-      border-radius: 8px;
-      margin: 20px 0;
-    }
-    
-    .stats {
-      background: rgba(255, 255, 255, 0.1);
-      padding: 12px;
-      border-radius: 6px;
-      font-size: 13px;
-      margin-bottom: 15px;
-      text-align: center;
-    }
-
-    .stat-item {
-      display: inline-block;
-      margin: 0 8px;
-    }
-
-    .stat-value {
+    .empty-state h3 {
+      color: var(--clr-heading);
+      margin-bottom: 10px;
       font-size: 16px;
-      font-weight: bold;
-      color: #FFE082;
-      margin-right: 4px;
-    }
-
-    .stat-label {
-      font-size: 13px;
-      opacity: 0.9;
-    }
-    
-    .setup-note {
-      background: rgba(255, 193, 7, 0.2);
-      border: 1px solid rgba(255, 193, 7, 0.5);
-      padding: 12px;
-      border-radius: 6px;
-      font-size: 13px;
-      margin-bottom: 15px;
-      line-height: 1.4;
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 10px;
-    }
-
-    .setup-content {
-      flex: 1;
-    }
-
-    .setup-content a {
-      color: #1976D2 !important;
-      text-decoration: underline !important;
-      font-weight: 600 !important;
-    }
-
-    .setup-content a:hover {
-      color: #0D47A1 !important;
-      text-decoration: underline !important;
-    }
-
-    .dismiss-btn {
-      background: none;
-      border: none;
-      color: rgba(255, 193, 7, 0.8);
-      cursor: pointer;
-      font-size: 16px;
-      font-weight: bold;
-      padding: 0;
-      margin: 0;
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.2s ease;
-      flex-shrink: 0;
-    }
-
-    .dismiss-btn:hover {
-      background: rgba(255, 193, 7, 0.2);
-      color: rgba(255, 193, 7, 1);
-      transform: scale(1.1);
     }
 
     .loading {
-      display: inline-block;
-      width: 12px;
-      height: 12px;
-      border: 2px solid rgba(255, 255, 255, 0.3);
-      border-radius: 50%;
-      border-top-color: white;
-      animation: spin 1s ease-in-out infinite;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      color: var(--clr-gray-600);
     }
 
-    @keyframes spin {
-      to { transform: rotate(360deg); }
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--clr-gray-300);
+      border-radius: 50%;
+      border-top-color: var(--clr-primary-10);
+      animation: spin 1s ease-in-out infinite;
+      margin-right: 8px;
     }
 
     .semantic-loading {
       animation: semanticPulse 2s ease-in-out infinite;
-      color: rgba(255, 255, 255, 0.9);
+      color: var(--clr-primary-10);
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
     }
 
     @keyframes semanticPulse {
@@ -566,8 +638,8 @@
     }
 
     .search-filters {
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: var(--clr-gray-100);
+      border: 1px solid var(--clr-gray-300);
       border-radius: 8px;
       padding: 15px;
       margin-bottom: 15px;
@@ -587,17 +659,17 @@
     .filter-label {
       font-size: 12px;
       font-weight: 600;
-      color: rgba(255, 255, 255, 0.9);
+      color: var(--clr-gray-800);
       min-width: 60px;
       margin-right: 10px;
     }
 
     .filter-select {
-      background: rgba(255, 255, 255, 0.15);
-      border: 1px solid rgba(255, 255, 255, 0.3);
+      background: var(--clr-gray-200);
+      border: 1px solid var(--clr-gray-300);
       border-radius: 6px;
       padding: 6px 10px;
-      color: white;
+      color: var(--clr-body);
       font-size: 12px;
       cursor: pointer;
       outline: none;
@@ -606,27 +678,27 @@
     }
 
     .filter-select:hover {
-      background: rgba(255, 255, 255, 0.2);
-      border-color: rgba(255, 255, 255, 0.4);
+      background: var(--clr-gray-300);
+      border-color: var(--clr-gray-400);
     }
 
     .filter-select:focus {
-      background: rgba(255, 255, 255, 0.25);
-      border-color: #CE93D8;
-      box-shadow: 0 0 0 2px rgba(206, 147, 216, 0.3);
+      background: var(--clr-gray-300);
+      border-color: var(--clr-primary-10);
+      box-shadow: 0 0 0 2px var(--clr-primary-10);
     }
 
     .filter-select option {
-      background: #2C1810;
-      color: white;
+      background: var(--clr-gray-900);
+      color: var(--clr-white);
     }
 
     .custom-date-range {
       margin-top: 10px;
       padding: 10px;
-      background: rgba(255, 255, 255, 0.05);
+      background: var(--clr-gray-100);
       border-radius: 6px;
-      border: 1px solid rgba(255, 255, 255, 0.15);
+      border: 1px solid var(--clr-gray-200);
     }
 
     .date-inputs {
@@ -636,19 +708,19 @@
     }
 
     .date-input {
-      background: rgba(255, 255, 255, 0.15);
-      border: 1px solid rgba(255, 255, 255, 0.3);
+      background: var(--clr-gray-200);
+      border: 1px solid var(--clr-gray-300);
       border-radius: 4px;
       padding: 6px 8px;
-      color: white;
+      color: var(--clr-body);
       font-size: 11px;
       width: 120px;
       outline: none;
     }
 
     .date-input:focus {
-      border-color: #CE93D8;
-      box-shadow: 0 0 0 2px rgba(206, 147, 216, 0.3);
+      border-color: var(--clr-primary-10);
+      box-shadow: 0 0 0 2px var(--clr-primary-10);
     }
 
     .date-input::-webkit-calendar-picker-indicator {
@@ -657,7 +729,7 @@
     }
 
     .date-separator {
-      color: rgba(255, 255, 255, 0.7);
+      color: var(--clr-gray-500);
       font-size: 11px;
       font-weight: 500;
     }
@@ -667,7 +739,7 @@
       gap: 8px;
       margin-top: 15px;
       padding-top: 12px;
-      border-top: 1px solid rgba(255, 255, 255, 0.15);
+      border-top: 1px solid var(--clr-gray-200);
     }
 
     .filter-btn {
@@ -683,24 +755,24 @@
     }
 
     .apply-btn {
-      background: linear-gradient(135deg, #9C27B0, #7B1FA2);
-      color: white;
+      background: var(--clr-primary-gradient);
+      color: var(--clr-white);
     }
 
     .apply-btn:hover {
-      background: linear-gradient(135deg, #AB47BC, #8E24AA);
+      background: var(--clr-primary-90);
       transform: translateY(-1px);
     }
 
     .reset-btn {
-      background: rgba(255, 255, 255, 0.15);
-      color: rgba(255, 255, 255, 0.8);
-      border: 1px solid rgba(255, 255, 255, 0.3);
+      background: var(--clr-gray-200);
+      color: var(--clr-gray-700);
+      border: 1px solid var(--clr-gray-300);
     }
 
     .reset-btn:hover {
-      background: rgba(255, 255, 255, 0.25);
-      color: white;
+      background: var(--clr-gray-300);
+      color: var(--clr-body);
     }
 
     .search-tools {
@@ -711,9 +783,9 @@
     }
 
     .tools-btn {
-      background: rgba(255, 255, 255, 0.12);
-      border: 1px solid rgba(255, 255, 255, 0.25);
-      color: rgba(255, 255, 255, 0.9);
+      background: var(--clr-gray-100);
+      border: 1px solid var(--clr-gray-300);
+      color: var(--clr-gray-800);
       padding: 6px 12px;
       border-radius: 6px;
       cursor: pointer;
@@ -723,34 +795,34 @@
     }
 
     .tools-btn:hover {
-      background: rgba(255, 255, 255, 0.2);
-      border-color: rgba(255, 255, 255, 0.4);
+      background: var(--clr-gray-200);
+      border-color: var(--clr-gray-400);
     }
 
     .tools-btn.active {
-      background: rgba(206, 147, 216, 0.3);
-      border-color: #CE93D8;
-      color: #E1BEE7;
+      background: var(--clr-primary-10);
+      border-color: var(--clr-primary-10);
+      color: var(--clr-white);
     }
 
     .active-filters {
       font-size: 10px;
-      color: rgba(255, 255, 255, 0.7);
+      color: var(--clr-gray-500);
       font-style: italic;
     }
 
     .active-filters:not(:empty) {
-      background: rgba(255, 224, 130, 0.2);
+      background: var(--clr-primary-10);
       padding: 3px 8px;
       border-radius: 12px;
-      border: 1px solid rgba(255, 224, 130, 0.4);
-      color: #FFE082;
+      border: 1px solid var(--clr-primary-10);
+      color: var(--clr-white);
     }
 
     /* Advanced Search Styling */
     .advanced-search {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: var(--clr-gray-100);
+      border: 1px solid var(--clr-gray-300);
       border-radius: 8px;
       padding: 16px;
       margin: 12px 0;
@@ -759,14 +831,14 @@
 
     .advanced-search-header h4 {
       margin: 0 0 4px 0;
-      color: #E1BEE7;
+      color: var(--clr-primary-10);
       font-size: 13px;
       font-weight: 600;
     }
 
     .advanced-search-header p {
       margin: 0 0 16px 0;
-      color: rgba(255, 255, 255, 0.7);
+      color: var(--clr-gray-500);
       font-size: 11px;
     }
 
@@ -782,7 +854,7 @@
     }
 
     .advanced-label {
-      color: rgba(255, 255, 255, 0.9);
+      color: var(--clr-gray-800);
       font-size: 11px;
       min-width: 120px;
       text-align: left;
@@ -792,23 +864,23 @@
 
     .advanced-input {
       flex: 1;
-      background: rgba(255, 255, 255, 0.1);
-      border: 1px solid rgba(255, 255, 255, 0.3);
+      background: var(--clr-gray-200);
+      border: 1px solid var(--clr-gray-300);
       border-radius: 4px;
       padding: 6px 10px;
-      color: white;
+      color: var(--clr-body);
       font-size: 11px;
       transition: all 0.2s ease;
     }
 
     .advanced-input:focus {
       outline: none;
-      border-color: #CE93D8;
-      background: rgba(255, 255, 255, 0.15);
+      border-color: var(--clr-primary-10);
+      background: var(--clr-gray-300);
     }
 
     .advanced-input::placeholder {
-      color: rgba(255, 255, 255, 0.5);
+      color: var(--clr-gray-500);
       font-style: italic;
     }
 
@@ -820,11 +892,11 @@
     }
 
     .number-input {
-      background: rgba(255, 255, 255, 0.1);
-      border: 1px solid rgba(255, 255, 255, 0.3);
+      background: var(--clr-gray-200);
+      border: 1px solid var(--clr-gray-300);
       border-radius: 4px;
       padding: 6px 8px;
-      color: white;
+      color: var(--clr-body);
       font-size: 11px;
       width: 60px;
       transition: all 0.2s ease;
@@ -832,16 +904,16 @@
 
     .number-input:focus {
       outline: none;
-      border-color: #CE93D8;
-      background: rgba(255, 255, 255, 0.15);
+      border-color: var(--clr-primary-10);
+      background: var(--clr-gray-300);
     }
 
     .number-input::placeholder {
-      color: rgba(255, 255, 255, 0.5);
+      color: var(--clr-gray-500);
     }
 
     .range-separator {
-      color: rgba(255, 255, 255, 0.7);
+      color: var(--clr-gray-500);
       font-size: 11px;
       font-weight: 500;
     }
@@ -897,7 +969,7 @@
     .reference-item {
       display: flex;
       gap: 10px;
-      background: rgba(255, 255, 255, 0.05);
+      background: var(--clr-gray-100);
       margin: 0;
       padding: 8px;
       border-radius: 4px;
@@ -908,19 +980,19 @@
       align-items: flex-start;
     }
     .reference-title-link {
-      color: #81C784;
+      color: var(--clr-success);
       text-decoration: underline;
       word-break: break-all;
     }
     .reference-title-link:hover {
-      color: #388E3C;
+      color: var(--clr-success);
       text-decoration: underline;
     }
 
     /* NotebookLM Export Styles */
     #notebooklmTab .notebooklm-header {
-      background: linear-gradient(135deg, #4285F4, #34A853);
-      color: white;
+      background: var(--clr-primary-gradient);
+      color: var(--clr-white);
       padding: 15px;
       border-radius: 8px;
       margin-bottom: 15px;
@@ -940,8 +1012,8 @@
     }
 
     #notebooklmTab .export-controls {
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: var(--clr-gray-100);
+      border: 1px solid var(--clr-gray-300);
       border-radius: 8px;
       padding: 15px;
       margin-bottom: 15px;
@@ -958,7 +1030,7 @@
     #notebooklmTab .export-section-title {
       font-size: 14px;
       font-weight: 600;
-      color: rgba(255, 255, 255, 0.9);
+      color: var(--clr-gray-800);
       margin-bottom: 10px;
       display: flex;
       align-items: center;
@@ -966,7 +1038,7 @@
     }
 
     #notebooklmTab .selection-summary {
-      background: rgba(255, 255, 255, 0.1);
+      background: var(--clr-gray-100);
       border-radius: 6px;
       padding: 10px;
       margin-bottom: 15px;
@@ -975,7 +1047,7 @@
 
     #notebooklmTab .selection-count {
       font-weight: 600;
-      color: #4CAF50;
+      color: var(--clr-success);
     }
 
     #notebooklmTab .export-format-options {
@@ -989,15 +1061,15 @@
       align-items: center;
       gap: 8px;
       padding: 8px;
-      border: 1px solid rgba(255, 255, 255, 0.2);
+      border: 1px solid var(--clr-gray-300);
       border-radius: 6px;
       cursor: pointer;
       transition: all 0.2s;
     }
 
     #notebooklmTab .format-option:hover {
-      background: rgba(255, 255, 255, 0.1);
-      border-color: rgba(255, 255, 255, 0.3);
+      background: var(--clr-gray-200);
+      border-color: var(--clr-gray-400);
     }
 
     #notebooklmTab .format-option input[type="radio"] {
@@ -1011,7 +1083,7 @@
 
     #notebooklmTab .format-description {
       font-size: 11px;
-      color: rgba(255, 255, 255, 0.7);
+      color: var(--clr-gray-500);
       margin-top: 2px;
     }
 
@@ -1032,20 +1104,20 @@
     }
 
     #notebooklmTab .google-drive-status.connected {
-      background: rgba(76, 175, 80, 0.2);
-      border: 1px solid rgba(76, 175, 80, 0.4);
-      color: #4CAF50;
+      background: var(--clr-success);
+      border: 1px solid var(--clr-success);
+      color: var(--clr-white);
     }
 
     #notebooklmTab .google-drive-status.disconnected {
-      background: rgba(255, 152, 0, 0.2);
-      border: 1px solid rgba(255, 152, 0, 0.4);
-      color: #FF9800;
+      background: var(--clr-warning);
+      border: 1px solid var(--clr-warning);
+      color: var(--clr-white);
     }
 
     #notebooklmTab .bulk-selection-toolbar {
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: var(--clr-gray-100);
+      border: 1px solid var(--clr-gray-300);
       border-radius: 8px;
       padding: 10px;
       margin-bottom: 15px;
@@ -1056,10 +1128,10 @@
     }
 
     #notebooklmTab .bulk-select-btn {
-      background: rgba(255, 255, 255, 0.1);
-      border: 1px solid rgba(255, 255, 255, 0.3);
+      background: var(--clr-gray-200);
+      border: 1px solid var(--clr-gray-300);
       border-radius: 4px;
-      color: white;
+      color: var(--clr-body);
       padding: 4px 8px;
       font-size: 11px;
       cursor: pointer;
@@ -1067,7 +1139,7 @@
     }
 
     #notebooklmTab .bulk-select-btn:hover {
-      background: rgba(255, 255, 255, 0.2);
+      background: var(--clr-gray-300);
     }
 
     #notebooklmTab .entry-checkbox {
@@ -1075,8 +1147,8 @@
     }
 
     #notebooklmTab .entry.selected {
-      background: rgba(66, 133, 244, 0.2);
-      border-left-color: #4285F4;
+      background: var(--clr-primary-10);
+      border-left-color: var(--clr-primary-10);
     }
 
     #notebooklmTab .export-history {
@@ -1085,8 +1157,8 @@
     }
 
     #notebooklmTab .export-record {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: var(--clr-gray-100);
+      border: 1px solid var(--clr-gray-200);
       border-radius: 6px;
       padding: 10px;
       margin-bottom: 8px;
@@ -1102,16 +1174,16 @@
 
     #notebooklmTab .export-record-date {
       font-weight: 600;
-      color: rgba(255, 255, 255, 0.9);
+      color: var(--clr-gray-800);
     }
 
     #notebooklmTab .export-record-count {
-      color: #4CAF50;
+      color: var(--clr-success);
       font-size: 10px;
     }
 
     #notebooklmTab .export-record-link {
-      color: #4285F4;
+      color: var(--clr-primary-10);
       text-decoration: none;
       font-size: 10px;
     }
@@ -1122,8 +1194,8 @@
 
     /* Selection Toolbar Styles */
     .selection-toolbar {
-      background: rgba(156, 39, 176, 0.1);
-      border: 1px solid rgba(156, 39, 176, 0.3);
+      background: var(--clr-primary-10);
+      border: 1px solid var(--clr-primary-90);
       border-radius: 8px;
       padding: 12px;
       margin: 15px 0;
@@ -1136,7 +1208,7 @@
 
     .selection-info {
       font-size: 12px;
-      color: rgba(255, 255, 255, 0.9);
+      color: var(--clr-white);
       font-weight: 600;
     }
 
@@ -1148,19 +1220,26 @@
     }
 
     .selection-btn {
-      background: rgba(255, 255, 255, 0.1);
-      border: 1px solid rgba(255, 255, 255, 0.3);
-      border-radius: 4px;
-      color: white;
-      padding: 6px 12px;
-      font-size: 11px;
+      background: var(--clr-btn-bg);
+      border: 1.5px solid var(--clr-btn-border);
+      border-radius: 12px;
+      color: var(--clr-heading);
+      padding: 8px 12px;
+      font-size: 12px;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: background 0.2s, border-color 0.2s;
+      font-weight: 500;
     }
 
-    .selection-btn:hover {
-      background: rgba(255, 255, 255, 0.2);
-      border-color: rgba(255, 255, 255, 0.4);
+    .selection-btn:hover,
+    .selection-btn:focus {
+      background: var(--clr-btn-hover-bg);
+      border-color: var(--clr-primary-10);
+      outline: none;
+    }
+
+    .selection-btn:active {
+      transform: translateY(0);
     }
 
 
@@ -1177,12 +1256,12 @@
     }
 
     .entry.selected {
-      background: rgba(156, 39, 176, 0.15);
-      border-left: 3px solid #9C27B0;
+      background: var(--clr-primary-90);
+      border-left: 3px solid var(--clr-primary-10);
     }
 
     .entry.selectable:hover {
-      background: rgba(255, 255, 255, 0.05);
+      background: var(--clr-gray-200);
     }
 
     .entry-header.with-checkbox {
@@ -1304,25 +1383,63 @@
       min-width: 60px;
       padding: 6px 10px;
       font-size: 11px;
-      background: rgba(255, 255, 255, 0.1);
-      border: 1px solid rgba(255, 255, 255, 0.3);
-      border-radius: 4px;
-      color: white;
+      background: var(--clr-btn-bg);
+      border: 1.5px solid var(--clr-btn-border);
+      border-radius: 8px;
+      color: var(--clr-heading);
       cursor: pointer;
-      transition: all 0.2s;
+      transition: background 0.2s, border-color 0.2s;
+      font-weight: 500;
     }
 
-    .entry-actions button:hover {
-      background: rgba(255, 255, 255, 0.2);
+    .entry-actions button:hover,
+    .entry-actions button:focus {
+      background: var(--clr-btn-hover-bg);
+      border-color: var(--clr-primary-10);
+      outline: none;
+    }
+
+    .entry-actions button.delete {
+      background: var(--clr-error);
+      border-color: var(--clr-error);
+      color: var(--clr-white);
+    }
+
+    .entry-actions button.delete:hover {
+      background: var(--clr-error);
+      opacity: 0.9;
+    }
+
+    .entry-actions button.copy {
+      background: var(--clr-success);
+      border-color: var(--clr-success);
+      color: var(--clr-white);
+    }
+
+    .entry-actions button.copy:hover {
+      background: var(--clr-success);
+      opacity: 0.9;
+    }
+
+    .entry-actions button.view {
+      background: var(--clr-info);
+      border-color: var(--clr-info);
+      color: var(--clr-white);
+    }
+
+    .entry-actions button.view:hover {
+      background: var(--clr-info);
+      opacity: 0.9;
     }
 
     /* Improve search results layout */
     .search-result {
       margin-bottom: 12px;
       padding: 12px;
-      background: rgba(255, 255, 255, 0.05);
+      background: var(--clr-card-bg);
       border-radius: 8px;
-      border-left: 4px solid #FFE082;
+      border-left: 4px solid var(--clr-primary-90);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     }
 
     .result-header {
@@ -1336,7 +1453,7 @@
       margin: 0;
       font-size: 13px;
       font-weight: 600;
-      color: #E3F2FD;
+      color: var(--clr-body);
       flex: 1;
     }
 
@@ -1348,7 +1465,7 @@
       margin: 0;
       font-size: 12px;
       line-height: 1.4;
-      opacity: 0.9;
+      color: var(--clr-gray-700);
     }
 
     .result-actions {
@@ -1359,16 +1476,17 @@
     .result-actions button {
       padding: 4px 8px;
       font-size: 10px;
-      background: rgba(255, 255, 255, 0.1);
-      border: 1px solid rgba(255, 255, 255, 0.3);
+      background: var(--clr-gray-200);
+      border: 1px solid var(--clr-gray-300);
       border-radius: 4px;
-      color: white;
+      color: var(--clr-body);
       cursor: pointer;
       transition: all 0.2s;
     }
 
     .result-actions button:hover {
-      background: rgba(255, 255, 255, 0.2);
+      background: var(--clr-gray-300);
+      transform: translateY(-1px);
     }
 
     /* Similarity score badges */
@@ -1384,15 +1502,15 @@
     }
 
     .similarity-badge.semantic {
-      background: rgba(156, 39, 176, 0.2);
-      border: 1px solid rgba(156, 39, 176, 0.4);
-      color: #E1BEE7;
+      background: var(--clr-primary-90);
+      border: 1px solid var(--clr-primary-10);
+      color: var(--clr-white);
     }
 
     .similarity-badge.keyword {
-      background: rgba(255, 193, 7, 0.2);
-      border: 1px solid rgba(255, 193, 7, 0.4);
-      color: #FFE082;
+      background: var(--clr-warning);
+      border: 1px solid var(--clr-warning);
+      color: var(--clr-white);
     }
 
     .similarity-score {
@@ -1408,12 +1526,12 @@
       align-items: center;
       gap: 8px;
       font-size: 12px;
-      color: rgba(255, 255, 255, 0.7);
+      color: var(--clr-gray-500);
     }
     
     .author {
       font-weight: 600;
-      color: #E1BEE7;
+      color: var(--clr-primary-10);
     }
 
     /* Search results container styling */
@@ -1422,7 +1540,7 @@
     }
 
     .search-results-header {
-      background: rgba(255, 255, 255, 0.1);
+      background: var(--clr-gray-100);
       padding: 8px 12px;
       border-radius: 6px;
       margin-bottom: 10px;
@@ -1451,41 +1569,49 @@
     }
 
     .modal-content {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      border-radius: 12px;
+      background: var(--clr-card-bg);
+      border-radius: 18px;
       max-width: 90vw;
-      max-height: 90vh;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
+      width: 400px;
+      margin: 20px auto;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+      border: 1px solid var(--clr-gray-200);
     }
 
     .modal-header {
       padding: 20px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+      border-bottom: 1px solid var(--clr-gray-200);
       display: flex;
       justify-content: space-between;
       align-items: center;
+      border-radius: 18px 18px 0 0;
     }
 
     .modal-header h3 {
       margin: 0;
-      color: white;
+      color: var(--clr-heading);
       font-size: 18px;
     }
 
     .modal-close {
       background: none;
       border: none;
-      color: white;
+      color: var(--clr-gray-500);
       font-size: 24px;
       cursor: pointer;
       padding: 0;
-      width: 30px;
-      height: 30px;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
+      transition: all 0.2s;
+    }
+
+    .modal-close:hover {
+      background: var(--clr-gray-100);
+      color: var(--clr-body);
     }
 
     .modal-body {
@@ -1495,31 +1621,47 @@
     }
 
     .modal-text {
-      color: white;
+      color: var(--clr-body);
       line-height: 1.6;
       font-size: 14px;
+      padding: 20px;
     }
 
     .modal-footer {
       padding: 20px;
-      border-top: 1px solid rgba(255, 255, 255, 0.2);
+      border-top: 1px solid var(--clr-gray-200);
       display: flex;
       gap: 10px;
       justify-content: flex-end;
+      border-radius: 0 0 18px 18px;
     }
 
     .modal-footer button {
       padding: 8px 16px;
-      border: 1px solid rgba(255, 255, 255, 0.3);
-      border-radius: 6px;
-      background: rgba(255, 255, 255, 0.1);
-      color: white;
+      border: 1.5px solid var(--clr-gray-300);
+      border-radius: 12px;
+      background: var(--clr-card-bg);
+      color: var(--clr-body);
       cursor: pointer;
       transition: all 0.2s;
+      font-size: 14px;
     }
 
     .modal-footer button:hover {
-      background: rgba(255, 255, 255, 0.2);
+      background: var(--clr-gray-100);
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .modal-footer button.primary {
+      background: var(--clr-primary-gradient);
+      color: var(--clr-white);
+      border: none;
+    }
+
+    .modal-footer button.primary:hover {
+      background: var(--clr-primary-90);
+      box-shadow: 0 2px 8px rgba(28, 63, 153, 0.3);
     }
 
     /* Notification system for side panel */
@@ -1527,17 +1669,16 @@
       position: fixed;
       top: 20px;
       right: 20px;
-      background: rgba(0, 0, 0, 0.9);
-      color: white;
+      background: var(--clr-card-bg);
+      color: var(--clr-body);
       padding: 12px 16px;
-      border-radius: 8px;
-      font-size: 14px;
-      z-index: 10001;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      border: 1px solid var(--clr-gray-200);
+      z-index: 1000;
       max-width: 300px;
-      word-wrap: break-word;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-      transform: translateX(100%);
-      transition: transform 0.3s ease;
+      font-size: 14px;
+      line-height: 1.4;
     }
 
     .notification.show {
@@ -1545,19 +1686,19 @@
     }
 
     .notification.success {
-      border-left: 4px solid #4CAF50;
+      border-left: 4px solid var(--clr-success);
     }
 
     .notification.error {
-      border-left: 4px solid #f44336;
+      border-left: 4px solid var(--clr-error);
     }
 
     .notification.warning {
-      border-left: 4px solid #ff9800;
+      border-left: 4px solid var(--clr-warning);
     }
 
     .notification.info {
-      border-left: 4px solid #2196F3;
+      border-left: 4px solid var(--clr-info);
     }
 
     /* Loading indicator for side panel */
@@ -1565,7 +1706,7 @@
       display: none;
       text-align: center;
       padding: 20px;
-      color: rgba(255, 255, 255, 0.8);
+      color: var(--clr-white);
     }
 
     .loading-indicator.show {
@@ -1576,9 +1717,9 @@
       display: inline-block;
       width: 20px;
       height: 20px;
-      border: 2px solid rgba(255, 255, 255, 0.3);
+      border: 2px solid var(--clr-gray-300);
       border-radius: 50%;
-      border-top-color: #FFE082;
+      border-top-color: var(--clr-primary-90);
       animation: spin 1s ease-in-out infinite;
       margin-right: 8px;
     }
@@ -1593,24 +1734,24 @@
     }
 
     ::-webkit-scrollbar-track {
-      background: rgba(255, 255, 255, 0.1);
+      background: var(--clr-gray-100);
       border-radius: 4px;
     }
 
     ::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, 0.3);
+      background: var(--clr-gray-300);
       border-radius: 4px;
     }
 
     ::-webkit-scrollbar-thumb:hover {
-      background: rgba(255, 255, 255, 0.5);
+      background: var(--clr-gray-400);
     }
 
     /* Ensure proper focus states for accessibility */
     button:focus,
     input:focus,
     select:focus {
-      outline: 2px solid #FFE082;
+      outline: 2px solid var(--clr-primary-90);
       outline-offset: 2px;
     }
 
@@ -1624,43 +1765,325 @@
         min-height: 44px;
       }
     }
+
+    /* Search Results Modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .modal-content {
+      background: var(--clr-white);
+      border-radius: 8px;
+      padding: 20px;
+      max-width: 90%;
+      max-height: 80%;
+      overflow-y: auto;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Notebook Selector Modal */
+    .notebook-selector-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .notebook-selector-content {
+      background: var(--clr-white);
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 500px;
+      width: 90%;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    }
+
+    .notebook-selector-content h3 {
+      margin: 0 0 20px 0;
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--clr-heading);
+    }
+
+    .notebook-options {
+      margin-bottom: 24px;
+    }
+
+    .notebook-option {
+      display: flex;
+      align-items: flex-start;
+      padding: 12px;
+      border: 1px solid var(--clr-gray-200);
+      border-radius: 12px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background: var(--clr-card-bg);
+    }
+
+    .notebook-option:hover {
+      border-color: var(--clr-primary-10);
+      background: var(--clr-gray-100);
+    }
+
+    .notebook-option.current {
+      border-color: var(--clr-primary-10);
+      background: var(--clr-primary-10);
+      color: var(--clr-white);
+    }
+
+    .notebook-option input[type="radio"] {
+      margin: 2px 12px 0 0;
+      flex-shrink: 0;
+    }
+
+    .notebook-option label {
+      flex: 1;
+      cursor: pointer;
+      margin: 0;
+    }
+
+    .notebook-option strong {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--clr-body);
+      margin-bottom: 4px;
+    }
+
+    .notebook-url,
+    .notebook-date,
+    .notebook-hint {
+      display: block;
+      font-size: 12px;
+      color: var(--clr-gray-600);
+    }
+
+    .notebook-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+    }
+
+    .btn-secondary {
+      padding: 8px 16px;
+      border: 1.5px solid var(--clr-btn-border);
+      background: var(--clr-card-bg);
+      color: var(--clr-heading);
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.2s, border-color 0.2s;
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--clr-primary-10);
+      background: var(--clr-btn-bg);
+    }
+
+    .btn-primary {
+      padding: 8px 16px;
+      border: 1.5px solid var(--clr-btn-border);
+      background: var(--clr-btn-bg);
+      color: var(--clr-heading);
+      border-radius: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.2s, border-color 0.2s;
+    }
+
+    .btn-primary:hover {
+      background: var(--clr-btn-hover-bg);
+      border-color: var(--clr-primary-10);
+    }
+
+    /* Responsive adjustments for notebook selector */
+    @media (max-width: 480px) {
+      .notebook-selector-content {
+        padding: 16px;
+        margin: 16px;
+      }
+      
+      .notebook-actions {
+        flex-direction: column;
+      }
+      
+      .btn-secondary,
+      .btn-primary {
+        width: 100%;
+        text-align: center;
+      }
+    }
+
+    .exportSection {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .btn-primary {
+      flex: 1;
+      background: var(--clr-btn-bg);
+      color: var(--clr-heading);
+      border: 1.5px solid var(--clr-btn-border);
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+    }
+
+    .btn-primary:hover {
+      background: var(--clr-btn-hover-bg);
+      border-color: var(--clr-primary-10);
+    }
+
+    .btn-secondary {
+      padding: 8px 12px;
+      border: 1.5px solid var(--clr-btn-border);
+      background: var(--clr-card-bg);
+      color: var(--clr-heading);
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: background 0.2s, border-color 0.2s;
+      white-space: nowrap;
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--clr-primary-10);
+      color: var(--clr-heading);
+      background: var(--clr-btn-bg);
+    }
+    .setup-note {
+      background: var(--clr-gray-100);
+      border: 1px solid var(--clr-gray-200);
+      border-radius: 12px;
+      margin-bottom: 15px;
+      font-size: 11px;
+      line-height: 1.4;
+      color: var(--clr-body);
+      position: relative;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    
+    .setup-content {
+      margin-right: 20px;
+    }
+    
+    .setup-content p {
+      margin: 0 0 8px 0;
+    }
+    
+    .setup-content p:last-child {
+      margin-bottom: 0;
+    }
+    
+    .dismiss-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: none;
+      border: none;
+      color: var(--clr-gray-500);
+      cursor: pointer;
+      font-size: 14px;
+      padding: 4px;
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+    
+    .dismiss-btn:hover {
+      background: var(--clr-gray-200);
+      color: var(--clr-gray-700);
+    }
   </style>
 </head>
 <body>
-  <div class="header">
-    <h1>SmartGrab AI Search</h1>
-    <button id="settingsIconBtn" title="Settings" style="position: absolute; top: 18px; right: 18px; background: none; border: none; color: #FFE082; font-size: 22px; cursor: pointer; z-index: 10;">
+  <div class="content">
+    <!-- Unified Fixed Top Component - Fixed at very top with no space -->
+    <div class="unified-fixed-top" style="position: fixed; top: 0; left: 0; right: 0; z-index: 100; background: var(--clr-card-bg); padding: 20px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); border-bottom: 1px solid var(--clr-gray-200); border-radius: 0 0 24px 24px;">
+      
+        <!-- Header -->
+        <div class="header" style="padding: 0 0 15px 0; text-align: center; background: transparent; backdrop-filter: none; position: relative;">
+          <h1 style="font-size: 20px; margin: 0 0 10px 0; font-weight: 600; color: var(--clr-heading);">SmartGrab AI Search</h1>
+          <button id="settingsIconBtn" title="Settings" style="position: absolute; top: 0; right: 0; background: none; border: none; color: var(--clr-primary-10); font-size: 22px; cursor: pointer; z-index: 10;">
       <span role="img" aria-label="Settings">⚙️</span>
     </button>
-          <div class="shortcut-info" style="display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.1); padding: 10px 15px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.2); white-space: nowrap;">
-        <span style="display: inline; white-space: nowrap;">Press <button id="capturePageBtn" class="button" style="background: linear-gradient(135deg, #4CAF50, #45a049); font-weight: 600; padding: 0px 1px; border-radius: 2px; border: none; color: white; cursor: pointer; font-size: 11px; transition: all 0.2s; box-shadow: 0 1px 1px rgba(0,0,0,0.1); margin: 0 1px; line-height: 1.2; width: auto; max-width: fit-content; display: inline;">Capture</button> or <span class="shortcut">Cmd+Shift+S</span> to capture text</span>
-      </div>
+          <div class="shortcut-info" style="font-size: 12px; opacity: 0.9; background: var(--clr-gray-100); color: var(--clr-body); padding: 8px 12px; border-radius: 12px; margin-top: 10px; border: 1px solid var(--clr-gray-200);">
+            Press <button id="captureBtn" class="shortcut" style="font-family: 'Courier New', monospace; font-weight: bold; color: var(--clr-heading); background: var(--clr-btn-bg); border: 1.5px solid var(--clr-btn-border); border-radius: 8px; padding: 4px 8px; cursor: pointer; font-size: 11px; transition: background 0.2s, border-color 0.2s;">Capture</button> or <span class="shortcut" style="font-family: 'Courier New', monospace; font-weight: bold; color: var(--clr-primary-10);">Cmd+Shift+S</span> to capture text
+    </div>
   </div>
-  <div class="content">
-    <div class="setup-note" id="setupNote">
-      <div class="setup-content">
-        <p>⌨️ Go to <a href="#" id="shortcutsLink" style="color: #4285f4; text-decoration: underline; cursor: pointer;">chrome://extensions/shortcuts</a> to configure the keyboard shortcut for quick capture.</p>
-        <p>🤖 AI Semantic Search is now available locally - no API key required! It finds results by meaning, not just keywords.</p>
-        <p>🔒 Your API key is stored locally in your Chrome browser storage only.</p>
-        <p>💡 For first-time use, you may need to reload the Chrome browser to activate the extension.</p>
-      </div>
-      <button class="dismiss-btn" id="dismissSetupNote" title="Don't show again">✕</button>
+  
+        <!-- Search Container -->
+        <div class="search-container" style="margin-bottom: 15px;">
+          <input type="text" class="search-input" id="searchInput" placeholder="Ask AI about your saved text..." style="background: var(--clr-card-bg); border: 1.5px solid var(--clr-gray-200); color: var(--clr-body); border-radius: 18px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);">
+          <button class="search-filters-icon" id="toggleFilters" title="Filters" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--clr-primary-10); font-size: 18px; cursor: pointer; z-index: 2;">
+            <span role="img" aria-label="Filters">🔧</span>
+          </button>
+          <button class="search-clear" id="searchClear" style="right: 38px; color: var(--clr-gray-500);">✕</button>
     </div>
 
-    <div class="tab-content active" id="searchTab">
+        <!-- Search Options -->
+        <div class="search-options" style="margin-bottom: 10px;">
+          <button class="search-option" data-mode="semantic" style="background: var(--clr-btn-bg); border: 1.5px solid var(--clr-btn-border); color: var(--clr-heading); border-radius: 12px;">🤖 Local AI</button>
+          <button class="search-option active" data-mode="keyword" style="background: var(--clr-btn-hover-bg); border: 1.5px solid var(--clr-primary-10); color: var(--clr-heading); border-radius: 12px;">📝 Keyword</button>
+    </div>
 
-
-      <div class="search-container">
-        <input type="text" class="search-input" id="searchInput" placeholder="Search your saved text...">
-        <button class="search-filters-icon" id="toggleFilters" title="Filters" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #FFE082; font-size: 18px; cursor: pointer; z-index: 2;">
-          <span role="img" aria-label="Filters">🔧</span>
+        <!-- Selection Toolbar for Export to NotebookLM -->
+        <div class="selection-toolbar" id="selectionToolbar" style="padding: 12px; background: var(--clr-gray-100); backdrop-filter: blur(10px); border-radius: 18px; border: 1px solid var(--clr-gray-200); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);">
+          <div class="selection-info" style="margin-bottom: 8px; color: var(--clr-body);">
+            <span id="homeSelectedCount">0</span> articles selected
+          </div>
+          <div class="selection-actions" style="display: flex; gap: 8px; align-items: center;">
+            <button id="selectAllHome" class="selection-btn" style="background: var(--clr-btn-bg); border: 1.5px solid var(--clr-btn-border); color: var(--clr-heading); border-radius: 12px;">Select All</button>
+            <button id="selectNoneHome" class="selection-btn" style="background: var(--clr-btn-bg); border: 1.5px solid var(--clr-btn-border); color: var(--clr-heading); border-radius: 12px;">Select None</button>
+            <button id="exportToNotebookLM" class="btn-primary" style="margin-left: auto; background: var(--clr-btn-bg); color: var(--clr-heading); border: 1.5px solid var(--clr-btn-border); border-radius: 12px;">
+              🧠 Export to NotebookLM
         </button>
-        <button class="search-clear" id="searchClear" style="right: 38px;">✕</button>
       </div>
-      <div class="search-options">
-        <button class="search-option" data-mode="semantic">🤖 Local AI</button>
-        <button class="search-option active" data-mode="keyword">📝 Keyword</button>
+        </div>
       </div>
+
+    <!-- Scrollable Content Area -->
+    <div class="scrollable-content-area" style="margin-top: 0; padding-top: 340px; padding-left: 0; padding-right: 0; position: relative;">
+      
+        <!-- Subtle gradient overlay for seamless transition -->
+        <div style="position: absolute; top: 0; left: 0; right: 0; height: 20px; background: linear-gradient(to bottom, rgba(228, 238, 251, 0.8), transparent); pointer-events: none; z-index: 1;"></div>
+
+      <div class="setup-note" id="setupNote" style="position: relative; z-index: 2; margin: 0 0 15px 0; padding: 12px;">
+        <div class="setup-content">
+          <p>⌨️ Go to <a href="#" id="shortcutsLink" style="color: var(--clr-primary-10); text-decoration: underline; cursor: pointer;">chrome://extensions/shortcuts</a> to configure the keyboard shortcut for quick capture.</p>
+          <p>🤖 AI Semantic Search is now available locally - no API key required! It finds results by meaning, not just keywords.</p>
+          <p>🔒 Your API key is stored locally in your Chrome browser storage only.</p>
+          <p>💡 For first-time use, you may need to reload the Chrome browser to activate the extension.</p>
+      </div>
+        <button class="dismiss-btn" id="dismissSetupNote" title="Don't show again">✕</button>
+      </div>
+
+      <div class="tab-content active" id="searchTab">
+        <!-- Scrollable Content Area -->
+        <div class="scrollable-content">
+
+
       <div class="search-filters" id="searchFilters" style="display: none;">
         <div class="filter-group">
           <label class="filter-label">⏰ Time:</label>
@@ -1740,22 +2163,11 @@
       
       <div class="search-results" id="searchResults" style="display: none;">
         <div class="search-results-header">
-          <span id="loadingIndicator" class="loading" style="display: none;"></span>
-          Found <span id="resultCount">0</span> results for "<span id="searchTerm"></span>"
-        </div>
+        <span id="loadingIndicator" class="loading" style="display: none;"></span>
+        Found <span id="resultCount">0</span> results for "<span id="searchTerm"></span>"
+      </div>
         <div class="search-results-content">
           <!-- Search results will be populated here -->
-        </div>
-      </div>
-      
-      <!-- Selection Toolbar for Export to NotebookLM -->
-      <div class="selection-toolbar" id="selectionToolbar" style="display: none;">
-        <div class="selection-info">
-          <span id="homeSelectedCount">0</span> articles selected
-        </div>
-        <div class="selection-actions">
-          <button id="selectAllHome" class="selection-btn">Select All</button>
-          <button id="selectNoneHome" class="selection-btn">Select None</button>
         </div>
       </div>
       
@@ -1770,30 +2182,17 @@
         </div>
       </div>
       
-      <div id="entries" class="entries">
+      <div class="entries" id="entries" style="position: relative; z-index: 2; margin: 0 0 0 0;">
         <!-- Entries will be populated here -->
-      </div>
-      
-      <!-- Export to NotebookLM Section -->
-      <div id="exportSection" class="export-section" style="margin-top: 15px; padding: 15px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; display: none;">
-        <div style="font-size: 14px; font-weight: 600; margin-bottom: 10px; color: #FFE082;">
-          🧠 Export to NotebookLM
-        </div>
-        <div style="font-size: 11px; color: rgba(255, 255, 255, 0.7); margin-bottom: 12px; line-height: 1.4;">
-          Selected articles will be automatically added to your NotebookLM notebook
-        </div>
-        <button id="exportToNotebookLM" class="button" style="width: 100%; background: linear-gradient(135deg, #4285F4, #34A853); font-weight: 600; padding: 12px;">
-          🧠 Export to NotebookLM
-        </button>
       </div>
       
       <div id="emptyState" class="empty-state">
         <p>📄 No text saved yet</p>
         <p>Visit any webpage and click <strong>📄 Capture Page</strong> or press <strong>Cmd+Shift+S</strong> to start grabbing text!</p>
-        <button id="testSidePanelBtn" class="button" style="margin-top: 10px; background: rgba(255, 193, 7, 0.2); border-color: rgba(255, 193, 7, 0.5);">
+        <button id="testSidePanelBtn" class="button" style="margin-top: 10px; background: var(--clr-warning); border-color: var(--clr-success);">
           🧪 Test Side Panel
         </button>
-        <button id="inspectNotebookLMBtn" class="button" style="margin-top: 10px; background: rgba(33, 150, 243, 0.2); border-color: rgba(33, 150, 243, 0.5);">
+        <button id="inspectNotebookLMBtn" class="button" style="margin-top: 10px; background: var(--clr-info); border-color: var(--clr-primary-10);">
           🔍 Inspect NotebookLM
         </button>
 
@@ -1803,17 +2202,18 @@
         <p>🔍 No results found</p>
         <p>Try different keywords or check your spelling</p>
       </div>
+      </div> <!-- Close scrollable-content -->
     </div>
 
 
 
     <div class="tab-content" id="settingsTab" style="display: none;">
-      <div class="ai-search-info" style="background: rgba(156, 39, 176, 0.1); border: 1px solid rgba(156, 39, 176, 0.3); padding: 12px; border-radius: 6px; margin-bottom: 15px; font-size: 12px;">
+      <div class="ai-search-info" style="background: var(--clr-primary-10); border: 1px solid var(--clr-primary-90); padding: 12px; border-radius: 6px; margin-bottom: 15px; font-size: 12px;">
         <div>🤖 <strong>Local AI Semantic Search</strong> </div>
         <div style="margin: 8px 0; font-size: 10px; opacity: 0.8;">
           AI-powered semantic search runs entirely in your browser. No API keys or internet connection required for search.
         </div>
-        <div style="margin-top: 8px; font-size: 10px; color: #E1BEE7;">
+        <div style="margin-top: 8px; font-size: 10px; color: var(--clr-primary-10);">
           <span>✅ Model loaded: </span><span id="aiModelStatus">Checking...</span>
         </div>
       </div>
@@ -1822,13 +2222,13 @@
 
       <div class="controls">
         <button class="button" id="exportBtn">📤 Export Data</button>
-                  <button class="button" id="clearErrorStatesBtn" style="margin-top: 8px; width: 100%; background: rgba(255, 193, 7, 0.2); border-color: rgba(255, 193, 7, 0.5);">🧹 Clear Error States</button>
+                  <button class="button" id="clearErrorStatesBtn" style="margin-top: 8px; width: 100%; background: var(--clr-warning); border-color: var(--clr-success);">🧹 Clear Error States</button>
 
-          <button class="button" id="showReloadBtn" style="margin-top: 8px; width: 100%; background: rgba(255, 152, 0, 0.2); border-color: rgba(255, 152, 0, 0.5);">📋 Show Reload Instructions</button>
+          <button class="button" id="showReloadBtn" style="margin-top: 8px; width: 100%; background: var(--clr-warning); border-color: var(--clr-success);">📋 Show Reload Instructions</button>
       </div>
       
-      <div style="margin-top: 20px; padding: 15px; background: rgba(244, 67, 54, 0.1); border: 1px solid rgba(244, 67, 54, 0.3); border-radius: 8px;">
-        <div style="font-size: 12px; font-weight: 600; color: #FF8A80; margin-bottom: 8px;">
+      <div style="margin-top: 20px; padding: 15px; background: var(--clr-error); border: 1px solid var(--clr-error); border-radius: 8px;">
+        <div style="font-size: 12px; font-weight: 600; color: var(--clr-white); margin-bottom: 8px;">
           ⚠️ Danger Zone
         </div>
         <div style="font-size: 11px; opacity: 0.8; margin-bottom: 10px; line-height: 1.4;">
@@ -1840,7 +2240,7 @@
 
     <div class="search-container" id="semanticSearchContainer" style="display: none;">
       <input type="text" class="search-input" id="semanticInput" placeholder="Search your saved text...">
-      <button class="search-filters-icon" id="toggleFiltersSemantic" title="Filters" style="position: absolute; right: 38px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #FFE082; font-size: 18px; cursor: pointer; z-index: 2;">
+      <button class="search-filters-icon" id="toggleFiltersSemantic" title="Filters" style="position: absolute; right: 38px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--clr-primary-90); font-size: 18px; cursor: pointer; z-index: 2;">
         <span role="img" aria-label="Filters">🔧</span>
       </button>
       <button class="search-clear" id="semanticClear">✕</button>

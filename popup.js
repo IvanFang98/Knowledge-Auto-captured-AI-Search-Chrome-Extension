@@ -199,6 +199,7 @@ const Elements = {
     
     // NotebookLM elements
     this.exportToNotebookLM = Utils.$('#exportToNotebookLM');
+    this.detectNotebook = Utils.$('#detectNotebook');
     
     // Selection elements
     this.toggleSelectionBtn = Utils.$('#toggleSelectionBtn');
@@ -208,9 +209,6 @@ const Elements = {
     this.selectNoneHome = Utils.$('#selectNoneHome');
     this.selectionToolbar = Utils.$('#selectionToolbar');
     
-    // Export section
-    this.exportSection = Utils.$('#exportSection');
-    
     // Settings elements
     this.settingsIconBtn = Utils.$('#settingsIconBtn');
     
@@ -219,10 +217,6 @@ const Elements = {
     this.semanticInput = Utils.$('#semanticInput');
     this.toggleFiltersSemantic = Utils.$('#toggleFiltersSemantic');
     this.semanticClear = Utils.$('#semanticClear');
-    
-          // Debug elements
-      this.testSidePanelBtn = Utils.$('#testSidePanelBtn');
-      this.inspectNotebookLMBtn = Utils.$('#inspectNotebookLMBtn');
 
   }
 };
@@ -311,7 +305,7 @@ const Search = {
       if (entries.length === 0) {
         console.log('Search: No entries to search');
         this.showLoading(false);
-        return [];
+    return [];
       }
       
       // Perform semantic search
@@ -492,7 +486,7 @@ const Search = {
       console.log('Search: Updated search-results-content');
     } else {
       // Fallback to old structure
-      Elements.searchResults.innerHTML = resultsHTML;
+    Elements.searchResults.innerHTML = resultsHTML;
       console.log('Search: Updated searchResults directly');
     }
     
@@ -542,9 +536,9 @@ const Search = {
           <h4>${Utils.escapeHtml(result.title)}</h4>
           <div class="result-meta">
             <span class="author">${author}</span>
-            <span class="timestamp">${timestamp}</span>
+          <span class="timestamp">${timestamp}</span>
             ${similarityBadge}
-          </div>
+        </div>
         </div>
         <div class="result-actions">
           <button class="btn-view-full" data-action="view-full" data-entry-id="${result.id}">View Full Text</button>
@@ -662,6 +656,30 @@ const UI = {
     this.setupSearchOptions();
     this.setupEventListeners();
     this.updateSearchOptions();
+    
+    // Set up message listener for auto-detection
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      if (message.type === 'NOTEBOOKLM_AUTO_DETECTED') {
+        console.log('Popup: Received auto-detection notification:', message);
+        
+        // Update UI to show auto-detection status
+        if (Elements.exportToNotebookLM) {
+          Elements.exportToNotebookLM.textContent = '🔄 Auto-Exporting...';
+          Elements.exportToNotebookLM.disabled = true;
+          
+          // Re-enable after a delay
+          setTimeout(() => {
+            if (Elements.exportToNotebookLM) {
+              Elements.exportToNotebookLM.textContent = 'Export to NotebookLM';
+              Elements.exportToNotebookLM.disabled = false;
+            }
+          }, 5000);
+        }
+        
+        // Show notification
+        Utils.showNotification(message.message || 'Auto-detected NotebookLM notebook!', 'success');
+      }
+    });
   },
   
   setupTabs() {
@@ -784,81 +802,26 @@ const UI = {
     // Also try again after a short delay to ensure DOM is ready
     setTimeout(addButtonListeners, 100);
     
-    // Selection listeners
-    Elements.selectAllHome?.addEventListener('click', () => Data.selectHomeArticlesBulk('all'));
-    Elements.selectNoneHome?.addEventListener('click', () => Data.selectHomeArticlesBulk('none'));
-
-    
-    // Settings listeners
-    Elements.settingsIconBtn?.addEventListener('click', () => this.switchTab('settings'));
-    
-    // Semantic search listeners
-    Elements.semanticInput?.addEventListener('input', Search.handleInput.bind(Search));
-    Elements.semanticInput?.addEventListener('keydown', Search.handleKeydown.bind(Search));
-    Elements.toggleFiltersSemantic?.addEventListener('click', Filters.toggleVisibility.bind(Filters));
-    Elements.semanticClear?.addEventListener('click', Search.clearResults.bind(Search));
+    // Detect current notebook button
+    Elements.detectNotebook?.addEventListener('click', async () => {
+      console.log('UI: Detect notebook button clicked');
+      try {
+        const currentNotebookId = await NotebookLM.getCurrentNotebook();
+        if (currentNotebookId) {
+          Utils.showNotification('Current notebook detected!', 'success');
+        } else {
+          Utils.showNotification('No NotebookLM notebook found. Please open a notebook first.', 'warning');
+        }
+      } catch (error) {
+        console.error('UI: Error detecting notebook:', error);
+        Utils.showNotification('Failed to detect notebook: ' + error.message, 'error');
+      }
+    });
     
     // Misc
     Elements.dismissSetupNote?.addEventListener('click', this.dismissSetupNote.bind(this));
     Elements.shortcutsLink?.addEventListener('click', this.openShortcutsPage.bind(this));
     Elements.clearErrorStatesBtn?.addEventListener('click', Data.clearErrorStates.bind(Data));
-    
-    // Debug
-    Elements.testSidePanelBtn?.addEventListener('click', async () => {
-      console.log('Testing side panel from popup...');
-      try {
-        await chrome.runtime.sendMessage({ action: 'testSidePanel' });
-        Utils.showNotification('Side panel test initiated. Check console for results.', 'info');
-      } catch (error) {
-        console.error('Failed to test side panel:', error);
-        Utils.showNotification('Failed to test side panel', 'error');
-      }
-    });
-
-    Elements.inspectNotebookLMBtn?.addEventListener('click', async () => {
-      console.log('Inspecting NotebookLM page from popup...');
-      try {
-        // First, open the NotebookLM page
-        const url = 'https://notebooklm.google.com/u/0/notebook/1f0075d4-a616-4258-87f7-3c62674d0ac4';
-        const { id: tabId } = await chrome.tabs.create({ url });
-        
-        // Wait for the page to load and then send inspection message
-        chrome.tabs.onUpdated.addListener(function listener(tId, info) {
-          if (tId === tabId && info.status === "complete") {
-            chrome.tabs.onUpdated.removeListener(listener);
-            
-            setTimeout(() => {
-              chrome.tabs.sendMessage(tabId, {
-                type: "INSPECT_PAGE"
-              }, (response) => {
-                if (chrome.runtime.lastError) {
-                  console.error('NotebookLM: Inspection failed:', chrome.runtime.lastError.message);
-                  Utils.showNotification('Inspection failed: ' + chrome.runtime.lastError.message, 'error');
-                } else {
-                  console.log('NotebookLM: Inspection response:', response);
-                  Utils.showNotification('Page inspection completed. Check console for details.', 'success');
-                }
-              });
-            }, 2000);
-          }
-        });
-      } catch (error) {
-        console.error('NotebookLM: Inspection failed:', error);
-        Utils.showNotification('Inspection failed: ' + error.message, 'error');
-      }
-    });
-
-
-
-    // Elements.showReloadBtn?.addEventListener('click', NotebookLM.showReloadInstructions.bind(NotebookLM));
-    
-    // Global keyboard shortcuts
-    document.addEventListener('keydown', (e) => {
-      if (e.ctrlKey && e.shiftKey && e.key === 'E') {
-        e.preventDefault();
-        Data.clearErrorStates();
-      }
-    });
   },
   
   showFullTextModal(entry, searchQuery = '') {
@@ -1123,9 +1086,14 @@ const Data = {
   
   createEntryHTML(entry) {
     const timestamp = Utils.formatTimestamp(entry.timestamp);
-    const truncatedText = Utils.truncateText(entry.text, 300);
     const isSelected = AppState.homeSelectedArticles.has(entry.id);
     const checkboxVisible = AppState.isSelectionMode ? 'block' : 'none';
+    
+    // Extract author from URL or use a default
+    const url = entry.url || '';
+    const author = url.includes('paulgraham.com') ? 'Paul Graham' : 
+                   url.includes('samaltman.com') ? 'Sam Altman' : 
+                   'Unknown Author';
     
     return `
       <div class="entry" data-entry-id="${entry.id}">
@@ -1136,17 +1104,16 @@ const Data = {
                    ${isSelected ? 'checked' : ''}
                    data-entry-id="${entry.id}">
           </div>
-          <h3>${Utils.escapeHtml(entry.title)}</h3>
-          <span class="timestamp">${timestamp}</span>
-        </div>
-        <div class="entry-content">
-          <div class="entry-text">${Utils.escapeHtml(truncatedText)}</div>
-          ${entry.text.length > 300 ? '<button class="expand-btn" data-action="expand">Show more</button>' : ''}
+          <div class="entry-info">
+            <h3 class="entry-title">${Utils.escapeHtml(entry.title)}</h3>
+            <div class="entry-meta">
+              <span class="author">${author}</span>
+              <span class="timestamp">${timestamp}</span>
+            </div>
+          </div>
         </div>
         <div class="entry-actions">
-          <button data-action="copy" data-entry-id="${entry.id}">Copy</button>
-          <button data-action="view" data-entry-id="${entry.id}">View</button>
-          <button data-action="delete" data-entry-id="${entry.id}">Delete</button>
+          <button data-action="view-full" data-entry-id="${entry.id}">Show Full Text</button>
         </div>
       </div>
     `;
@@ -1173,16 +1140,6 @@ const Data = {
     // Update home selection count
     if (Elements.homeSelectedCount) {
       Elements.homeSelectedCount.textContent = selectedCount;
-    }
-    
-    // Update selection toolbar visibility
-    if (Elements.selectionToolbar) {
-      Utils.showElement(Elements.selectionToolbar, selectedCount > 0);
-    }
-    
-    // Update export section visibility
-    if (Elements.exportSection) {
-      Utils.showElement(Elements.exportSection, selectedCount > 0);
     }
   },
   
@@ -1512,11 +1469,14 @@ const NotebookLM = {
   notebooks: [],
   sources: [],
   selectedNotebookId: '',
+  recentNotebooks: [],
 
   // UI Elements
   get exportToNotebookLMBtn() { return Elements.exportToNotebookLM; },
+  get detectNotebook() { return Elements.detectNotebook; },
 
   // State
+  notebooks: [],
   sources: [],
   isButtonActionRunning: false,
 
@@ -1557,14 +1517,245 @@ const NotebookLM = {
     return null;
   },
 
+  // Clear stored notebook preferences (for testing/reset)
+  async clearNotebookPreferences() {
+    try {
+      await Utils.remove('selectedNotebookId');
+      await Utils.remove('recentNotebooks');
+      this.selectedNotebookId = '';
+      this.recentNotebooks = [];
+      console.log('NotebookLM: Cleared all notebook preferences');
+      Utils.showNotification('Notebook preferences cleared', 'info');
+    } catch (error) {
+      console.error('NotebookLM: Error clearing preferences:', error);
+    }
+  },
 
+  // Get current notebook from URL (when user is on NotebookLM)
+  async getCurrentNotebook() {
+    try {
+      const tabs = await chrome.tabs.query({ url: 'https://notebooklm.google.com/*' });
+      if (tabs.length > 0) {
+        const url = tabs[0].url;
+        const match = url.match(/\/notebook\/([a-f0-9-]+)/);
+        if (match) {
+          const notebookId = match[1];
+          console.log('NotebookLM: Detected current notebook ID:', notebookId);
+          return notebookId;
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error('NotebookLM: Error getting current notebook:', error);
+      return null;
+    }
+  },
 
+  // Show notebook selection UI (auto-detection approach)
+  async showNotebookSelector() {
+    console.log('NotebookLM: showNotebookSelector called');
+    
+    const currentNotebookId = await this.getCurrentNotebook();
+    console.log('NotebookLM: Current notebook ID:', currentNotebookId);
+    
+    if (currentNotebookId) {
+      // Auto-detect current notebook - proceed directly
+      console.log('NotebookLM: Auto-detected notebook, proceeding with export');
+      
+      // Show a brief notification about auto-detection
+      Utils.showNotification('🎯 Auto-detected NotebookLM notebook! Starting export...', 'success');
+      
+      await this.performExportWithNotebook(currentNotebookId);
+      return;
+    }
+    
+    // No notebook detected - show instructions with improved messaging
+    const dialog = document.createElement('div');
+    dialog.className = 'notebook-selector-modal';
+    dialog.innerHTML = `
+      <div class="notebook-selector-content">
+        <h3>📖 Open Your NotebookLM Notebook</h3>
+        <p style="margin: 0 0 20px 0; color: #666; font-size: 14px;">
+          To export articles to NotebookLM, please:
+        </p>
+        <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+          <ol style="margin: 0; padding-left: 20px; line-height: 1.6;">
+            <li><strong>Open NotebookLM</strong> in a new tab</li>
+            <li><strong>Navigate to your notebook</strong> (or create a new one)</li>
+            <li><strong>Come back here</strong> and click "Export to NotebookLM" again</li>
+          </ol>
+          <div style="margin-top: 12px; padding: 8px; background: #e3f2fd; border-radius: 4px; font-size: 12px; color: #1976d2;">
+            💡 <strong>Auto-Export Tip:</strong> Once you open a specific notebook, the extension will automatically detect it and start exporting!
+          </div>
+        </div>
+        <div style="text-align: center;">
+          <button class="btn-primary" data-action="open-notebooklm" style="margin-right: 8px;">
+            🚀 Open NotebookLM
+          </button>
+          <button class="btn-secondary" data-action="close">
+            Close
+          </button>
+        </div>
+      </div>
+    `;
+    
+    console.log('NotebookLM: Dialog HTML created');
+    
+    // Add event listeners to buttons
+    const openNotebookLMBtn = dialog.querySelector('[data-action="open-notebooklm"]');
+    const closeBtn = dialog.querySelector('[data-action="close"]');
+    
+    console.log('NotebookLM: Open NotebookLM button found:', !!openNotebookLMBtn);
+    console.log('NotebookLM: Close button found:', !!closeBtn);
+    
+    openNotebookLMBtn.addEventListener('click', () => {
+      console.log('NotebookLM: Open NotebookLM button clicked');
+      window.open('https://notebooklm.google.com/', '_blank');
+      
+      // Show helpful notification but don't close dialog yet
+      Utils.showNotification('📖 NotebookLM opened! Navigate to your specific notebook, then return here. The dialog will close automatically when a notebook is detected.', 'info');
+      
+      // Update the dialog content to show waiting state
+      const content = dialog.querySelector('.notebook-selector-content');
+      content.innerHTML = `
+        <h3>⏳ Waiting for Notebook Detection</h3>
+        <p style="margin: 0 0 20px 0; color: #666; font-size: 14px;">
+          NotebookLM is open. Please:
+        </p>
+        <div style="background: #fff3cd; padding: 16px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ffeaa7;">
+          <ol style="margin: 0; padding-left: 20px; line-height: 1.6;">
+            <li><strong>Navigate to your specific notebook</strong> in the NotebookLM tab</li>
+            <li><strong>Wait for auto-detection</strong> - this dialog will close automatically</li>
+            <li><strong>Or click "Export to NotebookLM" again</strong> once you're in your notebook</li>
+          </ol>
+          <div style="margin-top: 12px; padding: 8px; background: #e8f5e8; border-radius: 4px; font-size: 12px; color: #2e7d32;">
+            🔄 <strong>Auto-detection active:</strong> The extension is monitoring for notebook detection...
+          </div>
+        </div>
+        <div style="text-align: center;">
+          <button class="btn-secondary" data-action="close">
+            Close Dialog
+          </button>
+        </div>
+      `;
+      
+      // Re-attach close button listener
+      const newCloseBtn = dialog.querySelector('[data-action="close"]');
+      newCloseBtn.addEventListener('click', () => {
+        console.log('NotebookLM: Close button clicked');
+        dialog.remove();
+      });
+    });
+    
+    closeBtn.addEventListener('click', () => {
+      console.log('NotebookLM: Close button clicked');
+      dialog.remove();
+    });
+    
+    // Close on outside click
+    dialog.addEventListener('click', (e) => {
+      if (e.target === dialog) {
+        console.log('NotebookLM: Outside click detected');
+        dialog.remove();
+      }
+    });
+    
+    // Set up auto-close when notebook is detected
+    const autoCloseListener = (message, sender, sendResponse) => {
+      console.log('NotebookLM: Received message in auto-close listener:', message);
+      if (message.type === 'NOTEBOOKLM_AUTO_DETECTED' && message.notebookId) {
+        console.log('NotebookLM: Auto-detection received, closing dialog');
+        dialog.remove();
+        // Remove this listener since dialog is closed
+        chrome.runtime.onMessage.removeListener(autoCloseListener);
+      }
+    };
+    
+    chrome.runtime.onMessage.addListener(autoCloseListener);
+    
+    // Also set up a fallback: check for notebook detection periodically
+    const checkNotebookDetection = async () => {
+      try {
+        const currentNotebookId = await this.getCurrentNotebook();
+        if (currentNotebookId) {
+          console.log('NotebookLM: Fallback detection found notebook:', currentNotebookId);
+          dialog.remove();
+          chrome.runtime.onMessage.removeListener(autoCloseListener);
+          return true;
+        }
+        return false;
+      } catch (error) {
+        console.error('NotebookLM: Error in fallback detection:', error);
+        return false;
+    }
+    };
+    
+    // Check every 2 seconds for up to 30 seconds
+    let checkCount = 0;
+    const maxChecks = 15;
+    const fallbackInterval = setInterval(async () => {
+      checkCount++;
+      const detected = await checkNotebookDetection();
+      if (detected || checkCount >= maxChecks) {
+        clearInterval(fallbackInterval);
+      }
+    }, 2000);
+    
+    console.log('NotebookLM: Adding dialog to document.body');
+    document.body.appendChild(dialog);
+    console.log('NotebookLM: Modal should now be visible');
+    
+    // Force a reflow to ensure the modal is visible
+    dialog.offsetHeight;
+    console.log('NotebookLM: Modal should now be visible');
+  },
 
+  // Export with specific notebook ID
+  async performExportWithNotebook(notebookId) {
+    console.log('NotebookLM: Exporting to notebook:', notebookId);
+    
+    // Get selected articles
+    const selectedEntryIds = Array.from(AppState.homeSelectedArticles);
+    if (!selectedEntryIds || selectedEntryIds.length === 0) {
+      Utils.showNotification('Please select at least one article to export', 'error');
+      return;
+    }
+    
+    // Use the automation approach with selected notebook
+    console.log('NotebookLM: Using automation for notebook:', notebookId);
+    
+    const selectedArticles = selectedEntryIds.map(id => {
+      const entry = this.getEntryById(id);
+      return entry ? {
+        title: entry.title || 'Untitled',
+        url: entry.url || '',
+        content: entry.content || ''
+      } : null;
+    }).filter(Boolean);
 
-  // Export handler - uses content script automation
+    if (selectedArticles.length === 0) {
+      Utils.showNotification('No valid articles found for export', 'error');
+        return;
+      }
+      
+    // Send to background script for automation
+        try {
+          await chrome.runtime.sendMessage({
+            action: 'addArticlesToNotebookLM',
+        notebookId: notebookId,
+        articles: selectedArticles
+          });
+      
+      Utils.showNotification(`Exporting ${selectedArticles.length} articles to NotebookLM...`, 'info');
+        } catch (error) {
+      console.error('NotebookLM: Export failed:', error);
+      Utils.showNotification('Export failed: ' + error.message, 'error');
+    }
+  },
+
+  // Export handler - simplified with auto-detection
   async performExport() {
     console.log('NotebookLM: performExport called');
-    console.log('NotebookLM: this.isButtonActionRunning:', this.isButtonActionRunning);
     
     // Prevent multiple simultaneous executions
     if (this.isButtonActionRunning) {
@@ -1574,51 +1765,29 @@ const NotebookLM = {
     }
     
     this.isButtonActionRunning = true;
-    console.log('NotebookLM: Set isButtonActionRunning to true');
     
     try {
-      // Get selected articles from the main search tab
-      const selectedEntryIds = Array.from(AppState.homeSelectedArticles);
-      console.log('NotebookLM: Selected entry IDs:', selectedEntryIds);
-      
-      if (!selectedEntryIds || selectedEntryIds.length === 0) {
-        console.log('NotebookLM: No entries selected');
-        Utils.showNotification('Please select at least one article to export', 'error');
-        return;
-      }
-      
-      // Use the hardcoded notebook ID for automation
-      const notebookId = '1f0075d4-a616-4258-87f7-3c62674d0ac4';
-      console.log('NotebookLM: Using notebook ID:', notebookId);
-      
-      // Use the automation approach
-      console.log('NotebookLM: Using automation for notebook');
-      try {
-        const articles = selectedEntryIds.map(id => this.getEntryById(id)).filter(Boolean);
-        console.log('NotebookLM: Articles to send:', articles);
-        
-        await chrome.runtime.sendMessage({
-          action: 'addArticlesToNotebookLM',
-          notebookId: notebookId,
-          articles: articles
-        });
-        console.log('NotebookLM: Message sent successfully');
-        Utils.showNotification(`Starting to add ${selectedEntryIds.length} articles to NotebookLM...`, 'success');
-      } catch (error) {
-        console.error('Failed to add articles to NotebookLM:', error);
-        Utils.showNotification('Failed to add articles to NotebookLM', 'error');
-      }
+      // Always show notebook selector (auto-detects or shows instructions)
+      console.log('NotebookLM: Showing notebook selector');
+      await this.showNotebookSelector();
     } catch (error) {
-      console.error('NotebookLM: Error in performExport:', error);
+      console.error('NotebookLM: Export error:', error);
+      Utils.showNotification('Export failed: ' + error.message, 'error');
     } finally {
       this.isButtonActionRunning = false;
-      console.log('NotebookLM: Set isButtonActionRunning to false');
     }
   },
 
-
-
-
+  // Manual trigger for notebook selector (for debugging)
+  async showNotebookSelectorManual() {
+    console.log('NotebookLM: Manual notebook selector trigger');
+    try {
+      await this.showNotebookSelector();
+    } catch (error) {
+      console.error('NotebookLM: Error showing notebook selector:', error);
+      Utils.showNotification('Failed to show notebook selector: ' + error.message, 'error');
+      }
+  },
 
   // Flag to prevent multiple simultaneous button clicks
   isButtonActionRunning: false,
