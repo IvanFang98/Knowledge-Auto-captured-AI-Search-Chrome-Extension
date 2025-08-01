@@ -7,7 +7,9 @@
   "permissions": ["identity", "storage", "tabs", "scripting", "sidePanel", "notifications"],
   
   "host_permissions": [
-    "https://notebooklm.google.com/*"
+    "https://notebooklm.google.com/*",
+    "https://*/*",
+    "http://*/*"
   ],
   
   "background": {
@@ -20,6 +22,13 @@
       "js": ["notebooklm_automation.js"],
       "all_frames": true,
       "run_at": "document_start"
+    },
+    {
+      "matches": ["<all_urls>"],
+      "exclude_matches": ["https://notebooklm.google.com/*"],
+      "js": ["content.js"],
+      "all_frames": false,
+      "run_at": "document_end"
     }
   ],
   
@@ -54,7 +63,7 @@
   
   "web_accessible_resources": [
     {
-      "resources": ["model/*", "tfjs/*"],
+      "resources": ["model/*", "tfjs/*", "semantic_search_v2.js", "lib/*"],
       "matches": ["<all_urls>"]
     }
   ]

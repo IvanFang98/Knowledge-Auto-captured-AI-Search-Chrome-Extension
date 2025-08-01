@@ -14,6 +14,7 @@ const AppState = {
   lastSearchResults: [],
   isSearching: false,
   userAnswerContentHeight: 200,
+  currentSort: 'date-desc', // 'date-desc', 'date-asc', 'alpha'
   searchFilterState: {
     timeFilter: 'any',
     resultsFilter: 'any',
@@ -69,7 +70,11 @@ const Utils = {
   },
   
   toggleClass(element, className, condition) {
-    if (element) element.classList.toggle(className, condition);
+    if (element) {
+      console.log('Utils: toggleClass called for', element.dataset?.mode, 'class:', className, 'condition:', condition);
+      element.classList.toggle(className, condition);
+      console.log('Utils: Element classes after toggle:', element.className);
+    }
   },
   
   setDisabled(element, disabled) {
@@ -205,18 +210,17 @@ const Elements = {
     this.toggleSelectionBtn = Utils.$('#toggleSelectionBtn');
     this.selectionHint = Utils.$('#selectionHint');
     this.homeSelectedCount = Utils.$('#homeSelectedCount');
-    this.selectAllHome = Utils.$('#selectAllHome');
-    this.selectNoneHome = Utils.$('#selectNoneHome');
+    this.selectToggleBtn = Utils.$('#selectToggleBtn');
     this.selectionToolbar = Utils.$('#selectionToolbar');
+    
+    // Sorting elements
+    this.sortDropdown = Utils.$('#sortDropdown');
     
     // Settings elements
     this.settingsIconBtn = Utils.$('#settingsIconBtn');
     
-    // Semantic search elements
+    // Semantic search elements (removed unused elements)
     this.semanticSearchContainer = Utils.$('#semanticSearchContainer');
-    this.semanticInput = Utils.$('#semanticInput');
-    this.toggleFiltersSemantic = Utils.$('#toggleFiltersSemantic');
-    this.semanticClear = Utils.$('#semanticClear');
 
   }
 };
@@ -224,29 +228,58 @@ const Elements = {
 // === SEARCH FUNCTIONALITY ===
 const Search = {
   async handleInput(e) {
+    console.log('Search: handleInput START - Event received');
+    console.log('Search: Event type:', e.type);
+    console.log('Search: Event target:', e.target);
+    console.log('Search: Event target value:', e.target.value);
+    
+    // Prevent any default form submission behavior
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    
+    // Also prevent any browser search behavior
+    if (e.target.type === 'search') {
+      e.target.type = 'text';
+    }
+    
+    console.log('Search: Default behavior prevented');
+    
     const query = e.target.value.trim();
+    console.log('Search: Query after trim:', query);
+    
     AppState.currentSearch = query;
     
     if (!query) {
+      console.log('Search: Empty query, clearing results');
       this.clearResults();
       return;
     }
     
+    console.log('Search: About to save state...');
     await this.saveState();
+    console.log('Search: State saved');
     
-    if (AppState.currentSearchMode === 'semantic') {
-      this.displaySemanticPrompt(query);
-    } else {
-      await this.performSearch(query);
-    }
+    console.log('Search: handleInput END - Only saving state, no search performed');
   },
   
   async handleKeydown(e) {
     if (e.key === 'Enter' && !e.shiftKey) {
+      console.log('Search: Enter key pressed, performing search');
       e.preventDefault();
+      e.stopPropagation();
+      
       const query = e.target.value.trim();
       if (query) {
-        await this.performSearch(query);
+        console.log('Search: Performing search for query:', query, 'mode:', AppState.currentSearchMode);
+        try {
+          await this.performSearch(query);
+          console.log('Search: Search completed successfully');
+        } catch (error) {
+          console.error('Search: Error in handleKeydown:', error);
+        }
+      } else {
+        console.log('Search: Empty query, no search performed');
       }
     }
   },
@@ -258,19 +291,35 @@ const Search = {
     this.showLoading(true);
     
     try {
-      const results = AppState.currentSearchMode === 'semantic' 
-        ? await this.performSemanticSearch(query)
-        : await this.performKeywordSearch(query);
+      console.log('Search: performSearch called with query:', query, 'mode:', AppState.currentSearchMode);
       
+      // Test each step individually
+      console.log('Search: Step 1 - About to call search');
+      let results;
+      if (AppState.currentSearchMode === 'semantic') {
+        console.log('Search: Using semantic search');
+        results = await this.performSemanticSearch(query);
+      } else {
+        console.log('Search: Using keyword search');
+        results = await this.performKeywordSearch(query);
+      }
+      console.log('Search: Step 2 - Search completed, results:', results?.length);
+      
+      console.log('Search: Step 3 - About to display results');
       this.displayResults(results, query);
+      console.log('Search: Step 4 - Results displayed');
+      
       AppState.lastSearchResults = results;
       await this.saveState();
+      console.log('Search: Step 5 - State saved');
+      
     } catch (error) {
       console.error('Search error:', error);
       Utils.showNotification('Search failed. Please try again.', 'error');
     } finally {
       AppState.isSearching = false;
       this.showLoading(false);
+      console.log('Search: Step 6 - Search completed');
     }
   },
   
@@ -289,15 +338,25 @@ const Search = {
   
   async performSemanticSearch(query) {
     try {
-      console.log('Search: Performing local semantic search for:', query);
+      console.log('Search: Performing semantic search for:', query);
       
       // Show loading indicator
       this.showLoading(true);
       
-      // Initialize semantic search if not already done
-      if (!window.semanticSearch) {
-        window.semanticSearch = new SemanticSearch();
-        Utils.showNotification('Loading AI model for semantic search...', 'info');
+      // Initialize new semantic search if not already done
+      if (!window.semanticSearchV2) {
+        console.log('Search: Initializing SemanticSearchV2...');
+        try {
+          // Load the semantic search module
+          await import('./semantic_search_v2.js');
+          window.semanticSearchV2 = new window.SemanticSearchV2();
+          await window.semanticSearchV2.init();
+          console.log('Search: SemanticSearchV2 initialized successfully');
+          Utils.showNotification('Loading AI model for semantic search...', 'info');
+        } catch (error) {
+          console.error('Search: Failed to initialize SemanticSearchV2:', error);
+          throw error;
+        }
       }
       
       // Get all entries for search
@@ -305,26 +364,44 @@ const Search = {
       if (entries.length === 0) {
         console.log('Search: No entries to search');
         this.showLoading(false);
-    return [];
+        return [];
       }
       
+      console.log('Search: About to call semanticSearchV2.semanticSearch with query:', query);
+      
       // Perform semantic search
-      const results = await window.semanticSearch.search(query, entries, 20);
+      const searchResult = await window.semanticSearchV2.semanticSearch(query, 20);
       
       // Debug: Log the raw results from semantic search
-      console.log('Search: Raw semantic search results:', results);
-      console.log('Search: First result similarity:', results[0]?.similarity);
-      console.log('Search: Results sorted by similarity:', results.map(r => ({ title: r.title, similarity: r.similarity })));
+      console.log('Search: Raw semantic search results:', searchResult);
+      console.log('Search: First result score:', searchResult.results[0]?.score);
+      console.log('Search: Results sorted by score:', searchResult.results.map(r => ({ id: r.id, score: r.score })));
+      
+      // Get the actual entries for the returned IDs
+      const entryMap = new Map(entries.map(entry => [entry.id, entry]));
+      const results = searchResult.results
+        .map(({ id, score }) => {
+          const entry = entryMap.get(id);
+          if (!entry) return null;
+          
+          return {
+            ...entry,
+            similarity: Math.round(score * 100) / 100,
+            searchType: 'semantic'
+          };
+        })
+        .filter(Boolean);
       
       // Apply filters
       const filteredResults = this.applyFilters(results, query);
       
-      console.log(`Search: Semantic search returned ${filteredResults.length} results`);
+      console.log(`Search: Semantic search returned ${filteredResults.length} results (${searchResult.isFallback ? 'fallback' : 'HNSW'})`);
       this.showLoading(false);
       return filteredResults;
       
     } catch (error) {
       console.error('Search: Semantic search failed, falling back to keyword search:', error);
+      console.error('Search: Error stack:', error.stack);
       Utils.showNotification('AI search failed, using keyword search instead', 'warning');
       
       // Fallback to keyword search
@@ -336,6 +413,7 @@ const Search = {
         return filteredResults;
       } catch (fallbackError) {
         console.error('Search: Fallback search also failed:', fallbackError);
+        console.error('Search: Fallback error stack:', fallbackError.stack);
         this.showLoading(false);
         return [];
       }
@@ -432,29 +510,16 @@ const Search = {
     });
   },
   
-  displaySemanticPrompt(query) {
-    if (!Elements.searchResults) return;
-    
-    Elements.searchResults.innerHTML = `
-      <div class="semantic-prompt">
-        <div class="semantic-icon">🤖</div>
-        <h3>Ask AI about: "${Utils.escapeHtml(query)}"</h3>
-        <p>Press Enter to search with AI, or switch to keyword search for exact matches.</p>
-      </div>
-    `;
-    Utils.showElement(Elements.searchResults);
-  },
+
   
   displayResults(results, query) {
-    if (!Elements.searchResults) return;
-    
     console.log('Search: displayResults called with', results.length, 'results');
-    console.log('Search: Elements.searchResults exists:', !!Elements.searchResults);
     console.log('Search: Elements.entriesContainer exists:', !!Elements.entriesContainer);
+    console.log('Search: Results array:', results);
     
-    if (results.length === 0) {
+    if (!results || results.length === 0) {
+      console.log('Search: No results to display');
       Utils.showElement(Elements.noResults);
-      Utils.hideElement(Elements.searchResults);
       // Show regular entries when no search results
       if (Elements.entriesContainer) {
         Utils.showElement(Elements.entriesContainer);
@@ -463,65 +528,64 @@ const Search = {
     }
     
     Utils.hideElement(Elements.noResults);
-    Utils.hideElement(Elements.entriesContainer); // Hide regular entries during search
     
     // Debug: Log the first result to see if similarity scores are present
     console.log('Search: First result for display:', results[0]);
     console.log('Search: Similarity score:', results[0]?.similarity);
     console.log('Search: Search type:', results[0]?.searchType);
+    console.log('Search: Title:', results[0]?.title);
+    console.log('Search: URL:', results[0]?.url);
     
-    // Update search info
-    if (Elements.resultCount) Elements.resultCount.textContent = results.length;
-    if (Elements.searchTerm) Elements.searchTerm.textContent = query;
+    // Generate entries HTML for the main entries container
+    console.log('Search: About to generate entries HTML for', results.length, 'results');
+    const entriesHTML = results.map(result => this.createEntryHTML(result, query)).join('');
+    console.log('Search: Generated entries HTML length:', entriesHTML.length);
+    console.log('Search: First 500 characters of HTML:', entriesHTML.substring(0, 500));
     
-    // Generate results HTML
-    const resultsHTML = results.map(result => this.createResultHTML(result, query)).join('');
-    console.log('Search: Generated results HTML length:', resultsHTML.length);
-    
-    const searchResultsContent = Elements.searchResults.querySelector('.search-results-content');
-    console.log('Search: searchResultsContent found:', !!searchResultsContent);
-    
-    if (searchResultsContent) {
-      searchResultsContent.innerHTML = resultsHTML;
-      console.log('Search: Updated search-results-content');
+    if (Elements.entriesContainer) {
+      console.log('Search: Setting innerHTML on entriesContainer');
+      console.log('Search: entriesContainer before:', Elements.entriesContainer.innerHTML.substring(0, 100));
+      Elements.entriesContainer.innerHTML = entriesHTML;
+      console.log('Search: Updated entries container with search results');
+      console.log('Search: entriesContainer after:', Elements.entriesContainer.innerHTML.substring(0, 100));
+      console.log('Search: entriesContainer children count:', Elements.entriesContainer.children.length);
+      Utils.showElement(Elements.entriesContainer);
     } else {
-      // Fallback to old structure
-    Elements.searchResults.innerHTML = resultsHTML;
-      console.log('Search: Updated searchResults directly');
+      console.error('Search: entriesContainer not found!');
     }
     
-    Utils.showElement(Elements.searchResults);
-    console.log('Search: Made searchResults visible');
+    // Set up event listeners for the new entries
+    Data.setupEntryEventListeners();
     
-    // Force the search results to be visible and check if it worked
-    setTimeout(() => {
-      console.log('Search: After timeout - searchResults display:', Elements.searchResults.style.display);
-      console.log('Search: After timeout - entriesContainer display:', Elements.entriesContainer.style.display);
-      console.log('Search: After timeout - searchResults visible:', Elements.searchResults.offsetParent !== null);
-    }, 100);
-    
-    this.setupResultEventListeners();
+    console.log('Search: Search results displayed in main entries area');
   },
   
-  createResultHTML(result, query) {
-    const fullText = result.text;
-    const timestamp = Utils.formatTimestamp(result.timestamp);
-    
-    // Debug: Log the result object to see what properties it has
-    console.log('Search: Creating result HTML for:', {
+  createEntryHTML(result, query) {
+    console.log('Search: Creating entry HTML for:', {
       id: result.id,
       title: result.title,
       similarity: result.similarity,
       searchType: result.searchType,
-      hasSimilarity: !!result.similarity
+      url: result.url,
+      timestamp: result.timestamp
     });
+    
+    // Check if required fields exist
+    if (!result.title) {
+      console.error('Search: Missing title for result:', result);
+      return '';
+    }
+    
+    const timestamp = Utils.formatTimestamp(result.timestamp);
+    const isSelected = AppState.homeSelectedArticles.has(String(result.id));
+    const checkboxVisible = 'block';
     
     // Add similarity score if available
     const similarityBadge = result.similarity ? `
-      <div class="similarity-badge ${result.searchType || 'keyword'}">
+      <span class="similarity-badge" style="background: #E4EEFB; color: #1C3F99; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; margin-left: 8px; border: 1px solid #D0E1F9; display: inline-flex; align-items: center; gap: 4px;">
         <span class="similarity-score">${(result.similarity * 100).toFixed(0)}%</span>
         <span class="search-type">${result.searchType === 'semantic' ? '🤖' : '📝'}</span>
-      </div>
+      </span>
     ` : '';
     
     // Extract author from URL or use a default
@@ -530,21 +594,35 @@ const Search = {
                    url.includes('samaltman.com') ? 'Sam Altman' : 
                    'Unknown Author';
     
-    return `
-      <div class="search-result" data-entry-id="${result.id}">
-        <div class="result-header">
-          <h4>${Utils.escapeHtml(result.title)}</h4>
-          <div class="result-meta">
-            <span class="author">${author}</span>
-          <span class="timestamp">${timestamp}</span>
-            ${similarityBadge}
-        </div>
-        </div>
-        <div class="result-actions">
-          <button class="btn-view-full" data-action="view-full" data-entry-id="${result.id}">View Full Text</button>
+    const html = `
+      <div class="entry" data-entry-id="${result.id}">
+        <div class="entry-header">
+          <div class="entry-selection">
+            <input type="checkbox" class="entry-checkbox" 
+                   style="display: ${checkboxVisible};"
+                   ${isSelected ? 'checked' : ''}
+                   data-entry-id="${result.id}">
+          </div>
+          <div class="entry-info">
+            <h3 class="entry-title" title="${Utils.escapeHtml(result.title)}">
+              <a href="${result.url || '#'}" target="_blank" class="entry-title-link" style="color: inherit; text-decoration: none; cursor: pointer;">
+                ${Utils.escapeHtml(result.title)}
+              </a>
+            </h3>
+            <div class="entry-meta">
+              <span class="author">${author}</span>
+              <span class="timestamp">${timestamp}</span>
+              ${similarityBadge}
+            </div>
+          </div>
         </div>
       </div>
     `;
+    
+    console.log('Search: Generated HTML for entry:', result.title);
+    console.log('Search: HTML length:', html.length);
+    console.log('Search: HTML preview:', html.substring(0, 200));
+    return html;
   },
   
   highlightSearchTerms(text, query) {
@@ -561,24 +639,7 @@ const Search = {
     return highlighted;
   },
   
-  setupResultEventListeners() {
-    // Event delegation for result actions
-    Elements.searchResults?.addEventListener('click', (e) => {
-      const button = e.target.closest('button[data-action]');
-      if (!button) return;
-      
-      const action = button.dataset.action;
-      const entryId = button.dataset.entryId;
-      
-      if (action === 'copy') {
-        this.copyResult(entryId);
-      } else if (action === 'view') {
-        this.viewResult(entryId);
-      } else if (action === 'view-full') {
-        this.viewFullText(entryId);
-      }
-    });
-  },
+
   
   async copyResult(entryId) {
     const entry = AppState.allEntries.find(e => e.id === entryId);
@@ -649,6 +710,64 @@ const Search = {
   }
 };
 
+// === SORTING FUNCTIONALITY ===
+const Sorting = {
+  init() {
+    this.setupSortButtons();
+    this.updateSortButtons();
+  },
+  
+  setupSortButtons() {
+    Elements.sortDropdown?.addEventListener('change', (e) => this.setSort(e.target.value));
+  },
+  
+  setSort(sortType) {
+    AppState.currentSort = sortType;
+    this.updateSortButtons();
+    this.sortAndDisplayEntries();
+    this.saveSortState();
+  },
+  
+  updateSortButtons() {
+    // Update dropdown value to match current sort
+    if (Elements.sortDropdown) {
+      Elements.sortDropdown.value = AppState.currentSort;
+    }
+  },
+  
+  sortAndDisplayEntries() {
+    const sortedEntries = this.sortEntries(AppState.allEntries);
+    Data.displayEntries(sortedEntries);
+  },
+  
+  sortEntries(entries) {
+    const sorted = [...entries];
+    
+    switch (AppState.currentSort) {
+      case 'date-desc':
+        return sorted.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      case 'date-asc':
+        return sorted.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+      case 'alpha':
+        return sorted.sort((a, b) => a.title.localeCompare(b.title));
+      default:
+        return sorted;
+    }
+  },
+  
+  async saveSortState() {
+    await Utils.set('sortState', { currentSort: AppState.currentSort });
+  },
+  
+  async restoreSortState() {
+    const saved = await Utils.get('sortState');
+    if (saved && saved.currentSort) {
+      AppState.currentSort = saved.currentSort;
+      this.updateSortButtons();
+    }
+  }
+};
+
 // === UI MANAGEMENT ===
 const UI = {
   init() {
@@ -708,34 +827,54 @@ const UI = {
   },
   
   setupSearchOptions() {
+    console.log('UI: Setting up search options, found:', Elements.searchOptions.length);
     Elements.searchOptions.forEach(option => {
+      console.log('UI: Adding click listener to:', option.dataset.mode);
       option.addEventListener('click', async () => {
+        console.log('UI: Search option clicked:', option.dataset.mode);
         AppState.currentSearchMode = option.dataset.mode;
+        console.log('UI: Current search mode set to:', AppState.currentSearchMode);
         this.updateSearchOptions();
         await Search.saveState();
         
         // Re-run search if active
         if (AppState.currentSearch) {
-          if (AppState.currentSearchMode === 'keyword') {
-            await Search.performSearch(AppState.currentSearch);
-          } else {
-            Search.displaySemanticPrompt(AppState.currentSearch);
-          }
+          await Search.performSearch(AppState.currentSearch);
         }
       });
     });
   },
   
   updateSearchOptions() {
+    console.log('UI: Updating search options, current mode:', AppState.currentSearchMode);
     Elements.searchOptions.forEach(option => {
-      Utils.toggleClass(option, 'active', option.dataset.mode === AppState.currentSearchMode);
+      const shouldBeActive = option.dataset.mode === AppState.currentSearchMode;
+      console.log('UI: Option', option.dataset.mode, 'should be active:', shouldBeActive);
+      
+      if (shouldBeActive) {
+        // Set active styles
+        option.style.background = 'var(--clr-btn-hover-bg)';
+        option.style.border = '1.5px solid var(--clr-primary-10)';
+        option.style.color = 'var(--clr-heading)';
+      } else {
+        // Set inactive styles
+        option.style.background = 'var(--clr-btn-bg)';
+        option.style.border = '1.5px solid var(--clr-btn-border)';
+        option.style.color = 'var(--clr-heading)';
+      }
+      
+      Utils.toggleClass(option, 'active', shouldBeActive);
     });
     
     // Update search input placeholder
     if (Elements.searchInput) {
-      Elements.searchInput.placeholder = AppState.currentSearchMode === 'semantic' 
-        ? "Ask AI about your saved text..."
-        : "Search your saved text...";
+      const newPlaceholder = AppState.currentSearchMode === 'semantic' 
+        ? "Semantic search your saved text..."
+        : "Keyword search your saved text...";
+      console.log('UI: Updating placeholder to:', newPlaceholder, 'for mode:', AppState.currentSearchMode);
+      Elements.searchInput.placeholder = newPlaceholder;
+    } else {
+      console.log('UI: searchInput element not found!');
     }
     
     // Show/hide results filter for keyword search only
@@ -745,16 +884,119 @@ const UI = {
     }
   },
   
+  showHNSWNotification(message, type = 'info') {
+    // Remove existing notification
+    this.hideHNSWNotification();
+    
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.id = 'hnsw-notification';
+    notification.className = `notification ${type}`;
+    notification.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: ${type === 'warning' ? '#fef3c7' : '#dbeafe'};
+      color: ${type === 'warning' ? '#92400e' : '#1e40af'};
+      border: 1px solid ${type === 'warning' ? '#f59e0b' : '#3b82f6'};
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 14px;
+      font-weight: 500;
+      z-index: 10000;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      max-width: 300px;
+      animation: slideIn 0.3s ease-out;
+    `;
+    
+    notification.textContent = message;
+    
+    // Add close button
+    const closeBtn = document.createElement('button');
+    closeBtn.innerHTML = '×';
+    closeBtn.style.cssText = `
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: none;
+      border: none;
+      font-size: 18px;
+      cursor: pointer;
+      color: inherit;
+      opacity: 0.7;
+    `;
+    closeBtn.onclick = () => this.hideHNSWNotification();
+    notification.appendChild(closeBtn);
+    
+    // Auto-hide after 6 seconds
+    setTimeout(() => this.hideHNSWNotification(), 6000);
+    
+    document.body.appendChild(notification);
+  },
+  
+  hideHNSWNotification() {
+    const notification = document.getElementById('hnsw-notification');
+    if (notification) {
+      notification.remove();
+    }
+  },
+  
   setupEventListeners() {
     // Search listeners
-    Elements.searchInput?.addEventListener('input', Search.handleInput.bind(Search));
-    Elements.searchInput?.addEventListener('keydown', Search.handleKeydown.bind(Search));
+    console.log('UI: Setting up search input listeners');
+    console.log('UI: searchInput element:', Elements.searchInput);
+    
+    if (Elements.searchInput) {
+      Elements.searchInput.addEventListener('input', (e) => {
+        console.log('UI: Search input event triggered');
+        Search.handleInput(e);
+      });
+      
+      Elements.searchInput.addEventListener('keydown', (e) => {
+        console.log('UI: Search keydown event triggered');
+        Search.handleKeydown(e);
+      });
+      
+      // Prevent any form submission
+      Elements.searchInput.addEventListener('submit', (e) => {
+        console.log('UI: Search submit event prevented');
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      });
+    }
+    
     Elements.searchClear?.addEventListener('click', Search.clearResults.bind(Search));
     
     // Entry management
     Elements.clearBtn?.addEventListener('click', Data.clearAllEntries.bind(Data));
     Elements.exportBtn?.addEventListener('click', Data.exportData.bind(Data));
     Elements.capturePageBtn?.addEventListener('click', Data.capturePage.bind(Data));
+    
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      // Cmd+Shift+S for capture
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'S') {
+        e.preventDefault();
+        Data.capturePage();
+      }
+    });
+    
+    // Global event listeners to prevent unwanted navigation
+    document.addEventListener('submit', (e) => {
+      console.log('UI: Global submit event detected and prevented');
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
+    });
+    
+    // Monitor for any navigation attempts
+    const originalOpen = window.open;
+    window.open = function(...args) {
+      console.log('UI: window.open called with args:', args);
+      console.trace('UI: window.open stack trace');
+      return originalOpen.apply(this, args);
+    };
     
     // Settings
     Elements.saveApiKeyBtn?.addEventListener('click', Data.saveApiKey.bind(Data));
@@ -799,6 +1041,15 @@ const UI = {
     // Try to add listeners immediately
     addButtonListeners();
     
+    // Listen for HNSW status messages
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      if (message.action === 'hnswCold') {
+        this.showHNSWNotification('⚠️ Semantic index is still warming up—results may be slower for a minute.', 'warning');
+      } else if (message.action === 'hnswWarm') {
+        this.hideHNSWNotification();
+      }
+    });
+    
     // Also try again after a short delay to ensure DOM is ready
     setTimeout(addButtonListeners, 100);
     
@@ -817,6 +1068,21 @@ const UI = {
         Utils.showNotification('Failed to detect notebook: ' + error.message, 'error');
       }
     });
+    
+    // Selection toggle button
+    console.log('Setting up selection toggle button:', {
+      selectToggleBtn: Elements.selectToggleBtn
+    });
+    
+    if (Elements.selectToggleBtn) {
+      Elements.selectToggleBtn.addEventListener('click', () => {
+        const isAllSelected = AppState.homeSelectedArticles.size === AppState.allEntries.length;
+        const mode = isAllSelected ? 'none' : 'all';
+        console.log(`Select toggle clicked, mode: ${mode}`);
+        Data.selectHomeArticlesBulk(mode);
+        Data.updateToggleButtonText();
+      });
+    }
     
     // Misc
     Elements.dismissSetupNote?.addEventListener('click', this.dismissSetupNote.bind(this));
@@ -1077,7 +1343,10 @@ const Data = {
     Utils.hideElement(Elements.emptyState);
     Utils.showElement(Elements.entriesContainer);
     
-    const entriesHTML = entries.map(entry => this.createEntryHTML(entry)).join('');
+    // Apply current sort to entries
+    const sortedEntries = Sorting.sortEntries(entries);
+    
+    const entriesHTML = sortedEntries.map(entry => this.createEntryHTML(entry)).join('');
     Elements.entriesContainer.innerHTML = entriesHTML;
     
     this.setupEntryEventListeners();
@@ -1086,8 +1355,9 @@ const Data = {
   
   createEntryHTML(entry) {
     const timestamp = Utils.formatTimestamp(entry.timestamp);
-    const isSelected = AppState.homeSelectedArticles.has(entry.id);
-    const checkboxVisible = AppState.isSelectionMode ? 'block' : 'none';
+    const isSelected = AppState.homeSelectedArticles.has(String(entry.id));
+    // Always show checkboxes since we have Select All/None buttons
+    const checkboxVisible = 'block';
     
     // Extract author from URL or use a default
     const url = entry.url || '';
@@ -1105,25 +1375,28 @@ const Data = {
                    data-entry-id="${entry.id}">
           </div>
           <div class="entry-info">
-            <h3 class="entry-title">${Utils.escapeHtml(entry.title)}</h3>
+            <h3 class="entry-title" title="${Utils.escapeHtml(entry.title)}">
+              <a href="${entry.url || '#'}" target="_blank" class="entry-title-link" style="color: inherit; text-decoration: none; cursor: pointer;">
+                ${Utils.escapeHtml(entry.title)}
+              </a>
+            </h3>
             <div class="entry-meta">
               <span class="author">${author}</span>
-              <span class="timestamp">${timestamp}</span>
-            </div>
+          <span class="timestamp">${timestamp}</span>
+        </div>
           </div>
         </div>
-        <div class="entry-actions">
-          <button data-action="view-full" data-entry-id="${entry.id}">Show Full Text</button>
-        </div>
+
       </div>
     `;
   },
   
   handleEntrySelection(entryId, isSelected) {
+    const stringId = String(entryId);
     if (isSelected) {
-      AppState.homeSelectedArticles.add(entryId);
+      AppState.homeSelectedArticles.add(stringId);
     } else {
-      AppState.homeSelectedArticles.delete(entryId);
+      AppState.homeSelectedArticles.delete(stringId);
     }
     this.updateSelectionUI();
   },
@@ -1141,12 +1414,18 @@ const Data = {
     if (Elements.homeSelectedCount) {
       Elements.homeSelectedCount.textContent = selectedCount;
     }
+    
+    // Update toggle button text
+    this.updateToggleButtonText();
   },
   
   selectHomeArticlesBulk(mode) {
+    console.log('selectHomeArticlesBulk called with mode:', mode);
+    console.log('AppState.allEntries:', AppState.allEntries);
+    
     switch (mode) {
       case 'all':
-        AppState.allEntries.forEach(entry => AppState.homeSelectedArticles.add(entry.id));
+        AppState.allEntries.forEach(entry => AppState.homeSelectedArticles.add(String(entry.id)));
         break;
       case 'none':
         AppState.homeSelectedArticles.clear();
@@ -1155,15 +1434,22 @@ const Data = {
         const oneWeekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
         AppState.allEntries
           .filter(entry => entry.timestamp > oneWeekAgo)
-          .forEach(entry => AppState.homeSelectedArticles.add(entry.id));
+          .forEach(entry => AppState.homeSelectedArticles.add(String(entry.id)));
         break;
     }
     
+    console.log('After selection, homeSelectedArticles:', AppState.homeSelectedArticles);
+    
     // Update checkboxes
     const checkboxes = Utils.$$('.entry-checkbox');
+    console.log('Found checkboxes:', checkboxes.length);
     checkboxes.forEach(checkbox => {
       const entryId = checkbox.closest('.entry').dataset.entryId;
-      checkbox.checked = AppState.homeSelectedArticles.has(entryId);
+      const shouldBeChecked = AppState.homeSelectedArticles.has(String(entryId));
+      console.log(`Checkbox for entry ${entryId}: shouldBeChecked=${shouldBeChecked}, current=${checkbox.checked}`);
+      checkbox.checked = shouldBeChecked;
+      // Force a visual update
+      checkbox.style.display = 'block';
     });
     
     this.updateSelectionUI();
@@ -1181,6 +1467,13 @@ const Data = {
     }
   },
   
+  updateToggleButtonText() {
+    if (Elements.selectToggleBtn) {
+      const isAllSelected = AppState.homeSelectedArticles.size === AppState.allEntries.length && AppState.allEntries.length > 0;
+      Elements.selectToggleBtn.textContent = isAllSelected ? 'Select None' : 'Select All';
+    }
+  },
+  
   async copyEntry(entryId) {
     const entry = AppState.allEntries.find(e => e.id === entryId);
     if (!entry) return;
@@ -1195,9 +1488,15 @@ const Data = {
   },
   
   viewEntry(entryId) {
-    const entry = AppState.allEntries.find(e => e.id === entryId);
+    console.log('viewEntry called with entryId:', entryId);
+    console.log('AppState.allEntries:', AppState.allEntries);
+    const entry = AppState.allEntries.find(e => String(e.id) === String(entryId));
+    console.log('Found entry:', entry);
     if (entry) {
+      console.log('Calling UI.showFullTextModal');
       UI.showFullTextModal(entry);
+    } else {
+      console.log('Entry not found!');
     }
   },
   
@@ -1405,12 +1704,14 @@ const Data = {
       
       const action = button.dataset.action;
       const entryId = button.dataset.entryId;
+      console.log('Button clicked:', { action, entryId });
       
       switch (action) {
         case 'copy':
           this.copyEntry(entryId);
           break;
         case 'view':
+        case 'view-full':
           this.viewEntry(entryId);
           break;
         case 'delete':
@@ -1664,10 +1965,12 @@ const NotebookLM = {
     const autoCloseListener = (message, sender, sendResponse) => {
       console.log('NotebookLM: Received message in auto-close listener:', message);
       if (message.type === 'NOTEBOOKLM_AUTO_DETECTED' && message.notebookId) {
-        console.log('NotebookLM: Auto-detection received, closing dialog');
+        console.log('NotebookLM: Auto-detection received, closing dialog and auto-exporting');
         dialog.remove();
         // Remove this listener since dialog is closed
         chrome.runtime.onMessage.removeListener(autoCloseListener);
+        // Auto-trigger export with the detected notebook
+        this.performExportWithNotebook(message.notebookId);
       }
     };
     
@@ -1681,6 +1984,8 @@ const NotebookLM = {
           console.log('NotebookLM: Fallback detection found notebook:', currentNotebookId);
           dialog.remove();
           chrome.runtime.onMessage.removeListener(autoCloseListener);
+          // Auto-trigger export with the detected notebook
+          this.performExportWithNotebook(currentNotebookId);
           return true;
         }
         return false;
@@ -1797,6 +2102,252 @@ const NotebookLM = {
 
 };
 
+// === DRAG SELECT FUNCTIONALITY ===
+const DragSelect = {
+  isDragging: false,
+  startElement: null,
+  endElement: null,
+  dragOverlay: null,
+  
+  init() {
+    this.createDragOverlay();
+    this.setupEventListeners();
+  },
+  
+  createDragOverlay() {
+    this.dragOverlay = document.createElement('div');
+    this.dragOverlay.className = 'drag-overlay';
+    this.dragOverlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 123, 255, 0.05);
+      border: 1px solid rgba(0, 123, 255, 0.3);
+      pointer-events: none;
+      z-index: 9999;
+      display: none;
+    `;
+    document.body.appendChild(this.dragOverlay);
+  },
+  
+  setupEventListeners() {
+    // Mouse events for drag selection
+    document.addEventListener('mousedown', this.handleMouseDown.bind(this));
+    document.addEventListener('mousemove', this.handleMouseMove.bind(this));
+    document.addEventListener('mouseup', this.handleMouseUp.bind(this));
+    
+    // Prevent text selection during drag
+    document.addEventListener('selectstart', this.handleSelectStart.bind(this));
+  },
+  
+  handleMouseDown(e) {
+    // Only start drag selection if clicking on entry containers and selection mode is enabled
+    const entryContainer = e.target.closest('.entry, .search-result');
+    if (!entryContainer || !AppState.isSelectionMode) return;
+    
+    // Don't start drag if clicking on interactive elements
+    if (e.target.closest('button, input, a')) return;
+    
+    this.isDragging = true;
+    this.startElement = entryContainer;
+    this.endElement = entryContainer;
+    
+    // Determine if we're selecting or deselecting based on the starting element's state
+    const checkbox = entryContainer.querySelector('.entry-checkbox');
+    const entryId = checkbox?.dataset.entryId;
+    this.isDeselecting = entryId ? AppState.homeSelectedArticles.has(entryId) : false;
+    
+    // Add visual feedback
+    entryContainer.style.backgroundColor = this.isDeselecting ? 'rgba(255, 0, 0, 0.1)' : 'rgba(0, 123, 255, 0.1)';
+    
+    // Prevent default to avoid text selection
+    e.preventDefault();
+  },
+  
+  handleMouseMove(e) {
+    if (!this.isDragging) return;
+    
+    // Auto-scroll when near edges (do this first)
+    this.handleAutoScroll(e);
+    
+    // Find the element under the current mouse position using enhanced detection
+    const currentElement = this.getElementAtPosition(e.clientX, e.clientY);
+    if (currentElement && currentElement !== this.endElement) {
+      this.endElement = currentElement;
+      this.updateSelection();
+    }
+    
+    // Update drag overlay
+    this.updateDragOverlay(e);
+  },
+  
+  handleMouseUp(e) {
+    if (!this.isDragging) return;
+    
+    this.isDragging = false;
+    this.clearDragOverlay();
+    
+    // Remove visual feedback
+    if (this.startElement) {
+      this.startElement.style.backgroundColor = '';
+    }
+    
+    // Finalize selection
+    this.finalizeSelection();
+  },
+  
+  handleSelectStart(e) {
+    // Prevent text selection during drag
+    if (this.isDragging) {
+      e.preventDefault();
+    }
+  },
+  
+  updateSelection() {
+    if (!this.startElement || !this.endElement) return;
+    
+    const entries = Array.from(document.querySelectorAll('.entry, .search-result'));
+    const startIndex = entries.indexOf(this.startElement);
+    const endIndex = entries.indexOf(this.endElement);
+    
+    if (startIndex === -1 || endIndex === -1) return;
+    
+    const minIndex = Math.min(startIndex, endIndex);
+    const maxIndex = Math.max(startIndex, endIndex);
+    
+    // Clear previous selection visual feedback
+    entries.forEach(entry => {
+      entry.style.backgroundColor = '';
+    });
+    
+    // Select/deselect range based on starting element's state
+    for (let i = minIndex; i <= maxIndex; i++) {
+      const entry = entries[i];
+      const checkbox = entry.querySelector('.entry-checkbox');
+      const entryId = checkbox?.dataset.entryId;
+      
+      if (checkbox && entryId) {
+        const isCurrentlySelected = AppState.homeSelectedArticles.has(entryId);
+        const shouldBeSelected = this.isDeselecting ? false : true;
+        
+        // Apply the action (select or deselect)
+        if (shouldBeSelected && !isCurrentlySelected) {
+          checkbox.checked = true;
+          AppState.homeSelectedArticles.add(entryId);
+          entry.style.backgroundColor = 'rgba(0, 123, 255, 0.1)';
+        } else if (!shouldBeSelected && isCurrentlySelected) {
+          checkbox.checked = false;
+          AppState.homeSelectedArticles.delete(entryId);
+          entry.style.backgroundColor = 'rgba(255, 0, 0, 0.1)';
+        }
+      }
+    }
+    
+    // Update UI
+    Data.updateSelectionUI();
+  },
+  
+  // Enhanced element detection that works better with scrolling
+  getElementAtPosition(x, y) {
+    const element = document.elementFromPoint(x, y);
+    return element?.closest('.entry, .search-result') || null;
+  },
+  
+  finalizeSelection() {
+    // Clear visual feedback
+    const allEntries = document.querySelectorAll('.entry, .search-result');
+    allEntries.forEach(entry => {
+      entry.style.backgroundColor = '';
+    });
+    
+    // Update UI
+    Data.updateSelectionUI();
+  },
+  
+  updateDragOverlay(e) {
+    if (!this.dragOverlay) return;
+    
+    this.dragOverlay.style.display = 'block';
+    this.dragOverlay.style.left = Math.min(e.clientX, this.startElement?.getBoundingClientRect().left || 0) + 'px';
+    this.dragOverlay.style.top = Math.min(e.clientY, this.startElement?.getBoundingClientRect().top || 0) + 'px';
+    this.dragOverlay.style.width = Math.abs(e.clientX - (this.startElement?.getBoundingClientRect().left || 0)) + 'px';
+    this.dragOverlay.style.height = Math.abs(e.clientY - (this.startElement?.getBoundingClientRect().top || 0)) + 'px';
+  },
+  
+  clearDragOverlay() {
+    if (this.dragOverlay) {
+      this.dragOverlay.style.display = 'none';
+    }
+  },
+  
+  handleAutoScroll(e) {
+    // Now we only scroll the text blocks area, not the entire popup
+    const scrollSpeed = 35;
+    const scrollThreshold = 60; // Reduced threshold for text blocks area
+    
+    // Get the scrollable text blocks container
+    const scrollContainer = document.querySelector('.scrollable-content-area');
+    if (!scrollContainer) return;
+    
+    const rect = scrollContainer.getBoundingClientRect();
+    const mouseY = e.clientY;
+    
+    // Calculate distances from top and bottom of the scrollable area
+    const distanceFromTop = mouseY - rect.top;
+    const distanceFromBottom = rect.bottom - mouseY;
+    
+    // Enhanced scrolling with variable speed based on distance
+    let isScrolling = false;
+    
+    // Scroll down when near bottom of text blocks
+    if (distanceFromBottom < scrollThreshold && distanceFromBottom > 0) {
+      isScrolling = true;
+      const speed = distanceFromBottom < 30 ? 45 : scrollSpeed;
+      
+      scrollContainer.scrollTop += speed;
+    }
+    // Scroll up when near top of text blocks
+    else if (distanceFromTop < scrollThreshold && distanceFromTop > 0) {
+      isScrolling = true;
+      const speed = distanceFromTop < 30 ? 45 : scrollSpeed;
+      
+      scrollContainer.scrollTop -= speed;
+    }
+    
+    // Add visual feedback when scrolling
+    if (isScrolling) {
+      // Add a subtle visual indicator that scrolling is active
+      if (!this.scrollIndicator) {
+        this.scrollIndicator = document.createElement('div');
+        this.scrollIndicator.style.cssText = `
+          position: fixed;
+          right: 10px;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 4px;
+          height: 40px;
+          background: rgba(0, 123, 255, 0.6);
+          border-radius: 2px;
+          z-index: 10000;
+          pointer-events: none;
+        `;
+        document.body.appendChild(this.scrollIndicator);
+      }
+      this.scrollIndicator.style.display = 'block';
+      
+      // Hide indicator after a short delay
+      clearTimeout(this.scrollIndicatorTimeout);
+      this.scrollIndicatorTimeout = setTimeout(() => {
+        if (this.scrollIndicator) {
+          this.scrollIndicator.style.display = 'none';
+        }
+      }, 500);
+    }
+  }
+};
+
 // === INITIALIZATION ===
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('SmartGrab AI Search - Initializing...');
@@ -1808,11 +2359,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Initialize UI
     UI.init();
     
+    // Initialize sorting functionality
+    Sorting.init();
+    
+    // Initialize drag select functionality
+    DragSelect.init();
+    
     // Load initial data
     await Promise.all([
       Data.loadEntries(),
       Data.loadStats(),
-      Search.restoreState()
+      Search.restoreState(),
+      Sorting.restoreSortState()
     ]);
     
     // Update AI model status
@@ -1829,10 +2387,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Clear any lingering error states
     await Data.clearErrorStates();
-    
-    // Setup event listeners and scroll expansion
-    Data.setupEntryEventListeners();
-    Data.setupScrollExpansion();
     
     // Refresh button states after loading data
     await UI.refreshButtonStates();
@@ -1852,5 +2406,6 @@ window.Data = Data;
 window.NotebookLM = NotebookLM;
 window.UI = UI;
 window.Filters = Filters;
+window.Sorting = Sorting;
 
  

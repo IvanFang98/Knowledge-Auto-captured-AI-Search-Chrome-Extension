@@ -199,8 +199,15 @@ const ContentScript = {
   
   async inject(tabId) {
     try {
-      // Content script injection is now handled by manifest.json
-      // No need to manually inject content.js
+      // Manually inject content script
+      await chrome.scripting.executeScript({
+        target: { tabId: tabId },
+        files: ['content.js']
+      });
+      
+      // Wait a bit for the script to initialize
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       return true;
     } catch (error) {
       console.error('Content script injection failed:', error);
@@ -217,9 +224,10 @@ const ContentScript = {
   
   async extractText(tabId) {
     if (!await this.ensureReady(tabId)) {
-      throw new Error('Content script not available');
+      throw new Error('Content script not available - cannot extract text from this page');
     }
     
+    try {
     const response = await chrome.tabs.sendMessage(tabId, {
       action: 'extract_text'
     });
@@ -229,6 +237,12 @@ const ContentScript = {
     }
     
     return response.text;
+    } catch (error) {
+      if (error.message.includes('Could not establish connection')) {
+        throw new Error('Cannot access this page. Try refreshing the page or use a different tab.');
+      }
+      throw error;
+    }
   }
 };
 
@@ -373,43 +387,47 @@ const Search = {
   },
   
   async semanticSearch(query, filters = {}) {
-    const entries = await Storage.getEntries();
-    
-    // Generate embedding for query
-    const queryEmbedding = await AI.generateEmbedding(query);
-    if (!queryEmbedding) {
-      console.log('No query embedding available, using fallback search');
-      return await this.fallbackSemanticSearch(query, filters);
+    try {
+      console.log('Background: Performing semantic search for:', query);
+      
+      // Check if we have the new semantic search available
+      if (window.semanticSearchV2) {
+        console.log('Background: Using SemanticSearchV2');
+        const searchResult = await window.semanticSearchV2.semanticSearch(query, CONFIG.SEARCH_RESULTS_LIMIT);
+        
+        // Get the actual entries for the returned IDs
+        const entries = await Storage.getEntries();
+        const entryMap = new Map(entries.map(entry => [entry.id, entry]));
+        
+        const results = searchResult.results
+          .map(({ id, score }) => {
+            const entry = entryMap.get(id);
+            if (!entry) return null;
+            
+            return {
+              ...entry,
+              similarity: Math.round(score * 100) / 100,
+              searchType: 'semantic'
+            };
+          })
+          .filter(Boolean);
+
+        // Notify UI about fallback if needed
+        if (searchResult.isFallback) {
+          chrome.runtime.sendMessage({ action: 'hnswCold' });
+        }
+
+        console.log(`Background: SemanticSearchV2 returned ${results.length} results (${searchResult.isFallback ? 'fallback' : 'HNSW'})`);
+        return this.applyFilters(results, filters);
+      } else {
+        // Fallback to old semantic search
+        console.log('Background: Using fallback semantic search');
+        return await this.fallbackSemanticSearch(query, filters);
+      }
+    } catch (error) {
+      console.error('Background: Semantic search failed:', error);
+      return { results: [], error: error.message };
     }
-    
-    // Count entries with embeddings
-    const entriesWithEmbeddings = entries.filter(entry => entry.embedding);
-    console.log(`Found ${entriesWithEmbeddings.length} entries with embeddings out of ${entries.length} total`);
-    
-    // If less than 3 entries have embeddings, use fallback
-    if (entriesWithEmbeddings.length < 3) {
-      console.log('Too few entries with embeddings, using fallback search');
-      return await this.fallbackSemanticSearch(query, filters);
-    }
-    
-    // Find similar entries
-    const results = entriesWithEmbeddings
-      .map(entry => {
-        const similarity = Utils.cosineSimilarity(queryEmbedding, entry.embedding);
-        return { ...entry, similarity };
-      })
-      .filter(entry => entry.similarity > 0.1) // Minimum similarity threshold
-      .sort((a, b) => b.similarity - a.similarity)
-      .slice(0, 20);
-    
-    // If no good matches, use fallback
-    if (results.length === 0) {
-      console.log('No semantic matches found, using fallback search');
-      return await this.fallbackSemanticSearch(query, filters);
-    }
-    
-    console.log(`Found ${results.length} semantic search results`);
-    return this.applyFilters(results, filters);
   },
   
   async fallbackSemanticSearch(query, filters) {
@@ -545,6 +563,18 @@ const MessageHandler = {
     search_similar: async (message) => {
       const results = await Search.semanticSearch(message.query, message.filters);
       return { results };
+    },
+    
+    search: async (message) => {
+      // New semantic search endpoint
+      if (window.semanticSearchV2) {
+        const searchResult = await window.semanticSearchV2.semanticSearch(message.q, message.k || 10);
+        return searchResult;
+      } else {
+        // Fallback to old search
+        const results = await Search.semanticSearch(message.q, {});
+        return { results: results.results || results };
+      }
     },
     
     clear_entries: async () => {
