@@ -113,7 +113,7 @@ class SemanticSearch {
             searchType: 'semantic'
           };
           
-          // Debug: Log similarity calculation
+          // Log similarity calculation
           if (result.similarity > 0.1) {
             console.log(`SemanticSearch: "${entry.title}" - similarity: ${result.similarity}`);
           }

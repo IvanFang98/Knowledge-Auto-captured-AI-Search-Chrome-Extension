@@ -4,7 +4,7 @@
   "version": "1.0",
   "description": "Capture, organize, and export articles to NotebookLM",
   
-  "permissions": ["identity", "storage", "tabs", "scripting", "sidePanel", "notifications"],
+  "permissions": ["storage", "tabs", "scripting", "sidePanel", "notifications"],
   
   "host_permissions": [
     "https://notebooklm.google.com/*",
@@ -63,7 +63,7 @@
   
   "web_accessible_resources": [
     {
-      "resources": ["model/*", "tfjs/*", "semantic_search_v2.js", "lib/*"],
+      "resources": ["vertex_ai_search.js", "vertex_config.js", "lib/*"],
       "matches": ["<all_urls>"]
     }
   ]

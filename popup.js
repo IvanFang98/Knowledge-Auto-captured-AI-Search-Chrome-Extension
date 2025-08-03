@@ -71,9 +71,7 @@ const Utils = {
   
   toggleClass(element, className, condition) {
     if (element) {
-      console.log('Utils: toggleClass called for', element.dataset?.mode, 'class:', className, 'condition:', condition);
-      element.classList.toggle(className, condition);
-      console.log('Utils: Element classes after toggle:', element.className);
+        element.classList.toggle(className, condition);
     }
   },
   
@@ -228,10 +226,7 @@ const Elements = {
 // === SEARCH FUNCTIONALITY ===
 const Search = {
   async handleInput(e) {
-    console.log('Search: handleInput START - Event received');
-    console.log('Search: Event type:', e.type);
-    console.log('Search: Event target:', e.target);
-    console.log('Search: Event target value:', e.target.value);
+    // Handle search input events
     
     // Prevent any default form submission behavior
     e.preventDefault();
@@ -243,10 +238,7 @@ const Search = {
       e.target.type = 'text';
     }
     
-    console.log('Search: Default behavior prevented');
-    
     const query = e.target.value.trim();
-    console.log('Search: Query after trim:', query);
     
     AppState.currentSearch = query;
     
@@ -256,30 +248,21 @@ const Search = {
       return;
     }
     
-    console.log('Search: About to save state...');
     await this.saveState();
-    console.log('Search: State saved');
-    
-    console.log('Search: handleInput END - Only saving state, no search performed');
   },
   
   async handleKeydown(e) {
     if (e.key === 'Enter' && !e.shiftKey) {
-      console.log('Search: Enter key pressed, performing search');
       e.preventDefault();
       e.stopPropagation();
       
       const query = e.target.value.trim();
       if (query) {
-        console.log('Search: Performing search for query:', query, 'mode:', AppState.currentSearchMode);
         try {
           await this.performSearch(query);
-          console.log('Search: Search completed successfully');
         } catch (error) {
           console.error('Search: Error in handleKeydown:', error);
         }
-      } else {
-        console.log('Search: Empty query, no search performed');
       }
     }
   },
@@ -291,27 +274,16 @@ const Search = {
     this.showLoading(true);
     
     try {
-      console.log('Search: performSearch called with query:', query, 'mode:', AppState.currentSearchMode);
-      
-      // Test each step individually
-      console.log('Search: Step 1 - About to call search');
       let results;
       if (AppState.currentSearchMode === 'semantic') {
-        console.log('Search: Using semantic search');
         results = await this.performSemanticSearch(query);
       } else {
-        console.log('Search: Using keyword search');
         results = await this.performKeywordSearch(query);
       }
-      console.log('Search: Step 2 - Search completed, results:', results?.length);
       
-      console.log('Search: Step 3 - About to display results');
       this.displayResults(results, query);
-      console.log('Search: Step 4 - Results displayed');
-      
       AppState.lastSearchResults = results;
       await this.saveState();
-      console.log('Search: Step 5 - State saved');
       
     } catch (error) {
       console.error('Search error:', error);
@@ -319,7 +291,6 @@ const Search = {
     } finally {
       AppState.isSearching = false;
       this.showLoading(false);
-      console.log('Search: Step 6 - Search completed');
     }
   },
   
@@ -338,51 +309,53 @@ const Search = {
   
   async performSemanticSearch(query) {
     try {
-      console.log('Search: Performing semantic search for:', query);
-      
       // Show loading indicator
       this.showLoading(true);
       
-      // Initialize new semantic search if not already done
-      if (!window.semanticSearchV2) {
-        console.log('Search: Initializing SemanticSearchV2...');
+      // Initialize Vertex AI semantic search if not already done
+      if (!window.vertexAISearch) {
         try {
-          // Load the semantic search module
-          await import('./semantic_search_v2.js');
-          window.semanticSearchV2 = new window.SemanticSearchV2();
-          await window.semanticSearchV2.init();
-          console.log('Search: SemanticSearchV2 initialized successfully');
-          Utils.showNotification('Loading AI model for semantic search...', 'info');
+          // Initialize with configuration from vertex_config.js
+          window.vertexAISearch = new window.VertexAISearch();
+          await window.vertexAISearch.init();
+          Utils.showNotification('Connecting to Google AI...', 'info');
         } catch (error) {
-          console.error('Search: Failed to initialize SemanticSearchV2:', error);
-          throw error;
+          console.error('Search: Failed to initialize VertexAISearch:', error);
+          // Fallback to old semantic search
+          if (!window.semanticSearchV2) {
+            await import('./semantic_search_v2.js');
+            window.semanticSearchV2 = new window.SemanticSearchV2();
+            await window.semanticSearchV2.init();
+          }
         }
       }
       
       // Get all entries for search
       const entries = AppState.allEntries || [];
       if (entries.length === 0) {
-        console.log('Search: No entries to search');
         this.showLoading(false);
         return [];
       }
       
-      console.log('Search: About to call semanticSearchV2.semanticSearch with query:', query);
-      
-      // Perform semantic search
-      const searchResult = await window.semanticSearchV2.semanticSearch(query, 20);
-      
-      // Debug: Log the raw results from semantic search
-      console.log('Search: Raw semantic search results:', searchResult);
-      console.log('Search: First result score:', searchResult.results[0]?.score);
-      console.log('Search: Results sorted by score:', searchResult.results.map(r => ({ id: r.id, score: r.score })));
+      // Perform semantic search with Vertex AI or fallback
+      let searchResult;
+      if (window.vertexAISearch) {
+        searchResult = await window.vertexAISearch.semanticSearch(query, 20);
+      } else if (window.semanticSearchV2) {
+        searchResult = await window.semanticSearchV2.semanticSearch(query, 20);
+      } else {
+        throw new Error('No semantic search implementation available');
+      }
       
       // Get the actual entries for the returned IDs
-      const entryMap = new Map(entries.map(entry => [entry.id, entry]));
+      const entryMap = new Map(entries.map(entry => [String(entry.id), entry]));
       const results = searchResult.results
         .map(({ id, score }) => {
-          const entry = entryMap.get(id);
-          if (!entry) return null;
+          const entry = entryMap.get(String(id));
+          if (!entry) {
+            console.warn(`Search: Entry not found for ID: ${id} (type: ${typeof id})`);
+            return null;
+          }
           
           return {
             ...entry,
@@ -395,13 +368,11 @@ const Search = {
       // Apply filters
       const filteredResults = this.applyFilters(results, query);
       
-      console.log(`Search: Semantic search returned ${filteredResults.length} results (${searchResult.isFallback ? 'fallback' : 'HNSW'})`);
       this.showLoading(false);
       return filteredResults;
       
     } catch (error) {
-      console.error('Search: Semantic search failed, falling back to keyword search:', error);
-      console.error('Search: Error stack:', error.stack);
+      console.error('Search: Semantic search failed:', error);
       Utils.showNotification('AI search failed, using keyword search instead', 'warning');
       
       // Fallback to keyword search
@@ -413,7 +384,6 @@ const Search = {
         return filteredResults;
       } catch (fallbackError) {
         console.error('Search: Fallback search also failed:', fallbackError);
-        console.error('Search: Fallback error stack:', fallbackError.stack);
         this.showLoading(false);
         return [];
       }
@@ -422,9 +392,6 @@ const Search = {
   
   applyFilters(results, query) {
     let filtered = [...results];
-    
-    // Debug: Log before filtering
-    console.log('Search: Before filtering - first result similarity:', filtered[0]?.similarity);
     
     // Apply time filter
     if (AppState.searchFilterState.timeFilter !== 'any') {
@@ -440,10 +407,6 @@ const Search = {
     if (AppState.searchFilterState.advancedFilter === 'on') {
       filtered = this.applyAdvancedFilter(filtered);
     }
-    
-    // Debug: Log after filtering
-    console.log('Search: After filtering - first result similarity:', filtered[0]?.similarity);
-    console.log('Search: Filtered results count:', filtered.length);
     
     return filtered;
   },
@@ -513,12 +476,7 @@ const Search = {
 
   
   displayResults(results, query) {
-    console.log('Search: displayResults called with', results.length, 'results');
-    console.log('Search: Elements.entriesContainer exists:', !!Elements.entriesContainer);
-    console.log('Search: Results array:', results);
-    
     if (!results || results.length === 0) {
-      console.log('Search: No results to display');
       Utils.showElement(Elements.noResults);
       // Show regular entries when no search results
       if (Elements.entriesContainer) {
@@ -529,26 +487,11 @@ const Search = {
     
     Utils.hideElement(Elements.noResults);
     
-    // Debug: Log the first result to see if similarity scores are present
-    console.log('Search: First result for display:', results[0]);
-    console.log('Search: Similarity score:', results[0]?.similarity);
-    console.log('Search: Search type:', results[0]?.searchType);
-    console.log('Search: Title:', results[0]?.title);
-    console.log('Search: URL:', results[0]?.url);
-    
     // Generate entries HTML for the main entries container
-    console.log('Search: About to generate entries HTML for', results.length, 'results');
     const entriesHTML = results.map(result => this.createEntryHTML(result, query)).join('');
-    console.log('Search: Generated entries HTML length:', entriesHTML.length);
-    console.log('Search: First 500 characters of HTML:', entriesHTML.substring(0, 500));
     
     if (Elements.entriesContainer) {
-      console.log('Search: Setting innerHTML on entriesContainer');
-      console.log('Search: entriesContainer before:', Elements.entriesContainer.innerHTML.substring(0, 100));
       Elements.entriesContainer.innerHTML = entriesHTML;
-      console.log('Search: Updated entries container with search results');
-      console.log('Search: entriesContainer after:', Elements.entriesContainer.innerHTML.substring(0, 100));
-      console.log('Search: entriesContainer children count:', Elements.entriesContainer.children.length);
       Utils.showElement(Elements.entriesContainer);
     } else {
       console.error('Search: entriesContainer not found!');
@@ -556,20 +499,9 @@ const Search = {
     
     // Set up event listeners for the new entries
     Data.setupEntryEventListeners();
-    
-    console.log('Search: Search results displayed in main entries area');
   },
   
   createEntryHTML(result, query) {
-    console.log('Search: Creating entry HTML for:', {
-      id: result.id,
-      title: result.title,
-      similarity: result.similarity,
-      searchType: result.searchType,
-      url: result.url,
-      timestamp: result.timestamp
-    });
-    
     // Check if required fields exist
     if (!result.title) {
       console.error('Search: Missing title for result:', result);
@@ -610,18 +542,15 @@ const Search = {
               </a>
             </h3>
             <div class="entry-meta">
-              <span class="author">${author}</span>
-              <span class="timestamp">${timestamp}</span>
-              ${similarityBadge}
-            </div>
-          </div>
+            <span class="author">${author}</span>
+          <span class="timestamp">${timestamp}</span>
+            ${similarityBadge}
+        </div>
+        </div>
         </div>
       </div>
     `;
     
-    console.log('Search: Generated HTML for entry:', result.title);
-    console.log('Search: HTML length:', html.length);
-    console.log('Search: HTML preview:', html.substring(0, 200));
     return html;
   },
   
@@ -839,7 +768,7 @@ const UI = {
         
         // Re-run search if active
         if (AppState.currentSearch) {
-          await Search.performSearch(AppState.currentSearch);
+            await Search.performSearch(AppState.currentSearch);
         }
       });
     });
@@ -1318,6 +1247,8 @@ const Data = {
       const response = await Utils.sendMessage({ action: 'get_entries' });
       AppState.allEntries = response?.entries || [];
       this.displayEntries(AppState.allEntries);
+      // Update checkboxes after displaying entries
+      setTimeout(() => this.updateCheckboxStates(), 100);
     } catch (error) {
       console.error('Failed to load entries:', error);
       AppState.allEntries = [];
@@ -1399,6 +1330,7 @@ const Data = {
       AppState.homeSelectedArticles.delete(stringId);
     }
     this.updateSelectionUI();
+    this.saveSelectedArticles();
   },
   
   updateSelectionUI() {
@@ -1453,6 +1385,7 @@ const Data = {
     });
     
     this.updateSelectionUI();
+    this.saveSelectedArticles();
   },
   
   expandEntry(button) {
@@ -1472,6 +1405,45 @@ const Data = {
       const isAllSelected = AppState.homeSelectedArticles.size === AppState.allEntries.length && AppState.allEntries.length > 0;
       Elements.selectToggleBtn.textContent = isAllSelected ? 'Select None' : 'Select All';
     }
+  },
+  
+  async saveSelectedArticles() {
+    try {
+      const selectedIds = Array.from(AppState.homeSelectedArticles);
+      await Utils.sendMessage({ 
+        action: 'save_selected_articles', 
+        selectedIds: selectedIds 
+      });
+      console.log('Saved selected articles:', selectedIds);
+    } catch (error) {
+      console.error('Failed to save selected articles:', error);
+    }
+  },
+  
+  async loadSelectedArticles() {
+    try {
+      const response = await Utils.sendMessage({ action: 'get_selected_articles' });
+      const selectedIds = response?.selectedIds || [];
+      AppState.homeSelectedArticles.clear();
+      selectedIds.forEach(id => AppState.homeSelectedArticles.add(String(id)));
+      console.log('Loaded selected articles:', selectedIds);
+      this.updateSelectionUI();
+      this.updateToggleButtonText();
+      this.updateCheckboxStates();
+    } catch (error) {
+      console.error('Failed to load selected articles:', error);
+    }
+  },
+  
+  updateCheckboxStates() {
+    const checkboxes = Utils.$$('.entry-checkbox');
+    checkboxes.forEach(checkbox => {
+      const entryId = checkbox.closest('.entry')?.dataset.entryId;
+      if (entryId) {
+        const shouldBeChecked = AppState.homeSelectedArticles.has(String(entryId));
+        checkbox.checked = shouldBeChecked;
+      }
+    });
   },
   
   async copyEntry(entryId) {
@@ -1554,10 +1526,7 @@ const Data = {
     }
   },
   
-  async loadApiKeyStatus() {
-    // This function is now deprecated since we use local AI search
-    // Keeping for compatibility but not using API keys anymore
-  },
+
 
   async updateAIModelStatus() {
     try {
@@ -1836,15 +1805,21 @@ const NotebookLM = {
   async getCurrentNotebook() {
     try {
       const tabs = await chrome.tabs.query({ url: 'https://notebooklm.google.com/*' });
+      console.log('NotebookLM: Found NotebookLM tabs:', tabs.length);
       if (tabs.length > 0) {
-        const url = tabs[0].url;
-        const match = url.match(/\/notebook\/([a-f0-9-]+)/);
-        if (match) {
-          const notebookId = match[1];
-          console.log('NotebookLM: Detected current notebook ID:', notebookId);
-          return notebookId;
+        // Check all NotebookLM tabs to find one with a specific notebook
+        for (const tab of tabs) {
+          console.log('NotebookLM: Checking tab URL:', tab.url);
+          // More flexible regex to match different URL patterns
+          const match = tab.url.match(/\/notebook\/([a-zA-Z0-9_-]+)/);
+          if (match) {
+            const notebookId = match[1];
+            console.log('NotebookLM: Detected current notebook ID:', notebookId, 'in tab:', tab.id);
+            return notebookId;
+          }
         }
       }
+      console.log('NotebookLM: No specific notebook found in any tab');
       return null;
     } catch (error) {
       console.error('NotebookLM: Error getting current notebook:', error);
@@ -1856,110 +1831,63 @@ const NotebookLM = {
   async showNotebookSelector() {
     console.log('NotebookLM: showNotebookSelector called');
     
-    const currentNotebookId = await this.getCurrentNotebook();
-    console.log('NotebookLM: Current notebook ID:', currentNotebookId);
+    // Check if NotebookLM is already open, if not open it
+    console.log('NotebookLM: Querying for existing NotebookLM tabs...');
+    const existingTabs = await chrome.tabs.query({ url: 'https://notebooklm.google.com/*' });
+    console.log('NotebookLM: Found existing tabs:', existingTabs.length, existingTabs.map(t => t.url));
     
-    if (currentNotebookId) {
-      // Auto-detect current notebook - proceed directly
-      console.log('NotebookLM: Auto-detected notebook, proceeding with export');
-      
-      // Show a brief notification about auto-detection
-      Utils.showNotification('🎯 Auto-detected NotebookLM notebook! Starting export...', 'success');
-      
-      await this.performExportWithNotebook(currentNotebookId);
-      return;
+    if (existingTabs.length === 0) {
+      // No NotebookLM tab - open new one
+      console.log('NotebookLM: No NotebookLM tab found, opening new tab...');
+      try {
+        const notebooklmTab = await chrome.tabs.create({ url: 'https://notebooklm.google.com' });
+        console.log('NotebookLM: Successfully opened NotebookLM tab:', notebooklmTab.id, notebooklmTab.url);
+        await chrome.tabs.update(notebooklmTab.id, { active: true });
+        console.log('NotebookLM: Successfully switched to new tab');
+      } catch (error) {
+        console.error('NotebookLM: Failed to open NotebookLM tab:', error);
+        Utils.showNotification('Failed to open NotebookLM: ' + error.message, 'error');
+        return;
+      }
+    } else {
+      // NotebookLM already open - switch to existing tab
+      console.log('NotebookLM: NotebookLM already open, switching to existing tab:', existingTabs[0].id);
+      try {
+        await chrome.tabs.update(existingTabs[0].id, { active: true });
+        console.log('NotebookLM: Successfully switched to existing tab');
+      } catch (error) {
+        console.error('NotebookLM: Failed to switch to existing tab:', error);
+      }
     }
     
-    // No notebook detected - show instructions with improved messaging
     const dialog = document.createElement('div');
     dialog.className = 'notebook-selector-modal';
     dialog.innerHTML = `
       <div class="notebook-selector-content">
-        <h3>📖 Open Your NotebookLM Notebook</h3>
+        <h3>📖 Navigate to Your Notebook</h3>
         <p style="margin: 0 0 20px 0; color: #666; font-size: 14px;">
-          To export articles to NotebookLM, please:
+          NotebookLM is ready. Please:
         </p>
         <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; margin-bottom: 20px;">
           <ol style="margin: 0; padding-left: 20px; line-height: 1.6;">
-            <li><strong>Open NotebookLM</strong> in a new tab</li>
+            <li><strong>Switch to the NotebookLM tab</strong></li>
             <li><strong>Navigate to your notebook</strong> (or create a new one)</li>
-            <li><strong>Come back here</strong> and click "Export to NotebookLM" again</li>
+            <li><strong>Wait for auto-export</strong> - it will start automatically!</li>
           </ol>
-          <div style="margin-top: 12px; padding: 8px; background: #e3f2fd; border-radius: 4px; font-size: 12px; color: #1976d2;">
-            💡 <strong>Auto-Export Tip:</strong> Once you open a specific notebook, the extension will automatically detect it and start exporting!
+          <div style="margin-top: 12px; padding: 8px; background: #e8f5e8; border-radius: 4px; font-size: 12px; color: #2e7d32;">
+            ✅ <strong>Auto-Export Active:</strong> Once you open a specific notebook, the extension will automatically detect it and start exporting your selected articles!
           </div>
         </div>
-        <div style="text-align: center;">
-          <button class="btn-primary" data-action="open-notebooklm" style="margin-right: 8px;">
-            🚀 Open NotebookLM
-          </button>
-          <button class="btn-secondary" data-action="close">
-            Close
-          </button>
+        <div style="text-align: center; color: #666; font-size: 12px; font-style: italic;">
+          This dialog will close automatically when you open a notebook
         </div>
       </div>
     `;
     
     console.log('NotebookLM: Dialog HTML created');
     
-    // Add event listeners to buttons
-    const openNotebookLMBtn = dialog.querySelector('[data-action="open-notebooklm"]');
-    const closeBtn = dialog.querySelector('[data-action="close"]');
-    
-    console.log('NotebookLM: Open NotebookLM button found:', !!openNotebookLMBtn);
-    console.log('NotebookLM: Close button found:', !!closeBtn);
-    
-    openNotebookLMBtn.addEventListener('click', () => {
-      console.log('NotebookLM: Open NotebookLM button clicked');
-      window.open('https://notebooklm.google.com/', '_blank');
-      
-      // Show helpful notification but don't close dialog yet
-      Utils.showNotification('📖 NotebookLM opened! Navigate to your specific notebook, then return here. The dialog will close automatically when a notebook is detected.', 'info');
-      
-      // Update the dialog content to show waiting state
-      const content = dialog.querySelector('.notebook-selector-content');
-      content.innerHTML = `
-        <h3>⏳ Waiting for Notebook Detection</h3>
-        <p style="margin: 0 0 20px 0; color: #666; font-size: 14px;">
-          NotebookLM is open. Please:
-        </p>
-        <div style="background: #fff3cd; padding: 16px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ffeaa7;">
-          <ol style="margin: 0; padding-left: 20px; line-height: 1.6;">
-            <li><strong>Navigate to your specific notebook</strong> in the NotebookLM tab</li>
-            <li><strong>Wait for auto-detection</strong> - this dialog will close automatically</li>
-            <li><strong>Or click "Export to NotebookLM" again</strong> once you're in your notebook</li>
-          </ol>
-          <div style="margin-top: 12px; padding: 8px; background: #e8f5e8; border-radius: 4px; font-size: 12px; color: #2e7d32;">
-            🔄 <strong>Auto-detection active:</strong> The extension is monitoring for notebook detection...
-          </div>
-        </div>
-        <div style="text-align: center;">
-          <button class="btn-secondary" data-action="close">
-            Close Dialog
-          </button>
-        </div>
-      `;
-      
-      // Re-attach close button listener
-      const newCloseBtn = dialog.querySelector('[data-action="close"]');
-      newCloseBtn.addEventListener('click', () => {
-        console.log('NotebookLM: Close button clicked');
-        dialog.remove();
-      });
-    });
-    
-    closeBtn.addEventListener('click', () => {
-      console.log('NotebookLM: Close button clicked');
-      dialog.remove();
-    });
-    
-    // Close on outside click
-    dialog.addEventListener('click', (e) => {
-      if (e.target === dialog) {
-        console.log('NotebookLM: Outside click detected');
-        dialog.remove();
-      }
-    });
+    // No manual close options - dialog only closes when notebook is detected
+    console.log('NotebookLM: Dialog configured to only close on notebook detection');
     
     // Set up auto-close when notebook is detected
     const autoCloseListener = (message, sender, sendResponse) => {
@@ -2072,15 +2000,54 @@ const NotebookLM = {
     this.isButtonActionRunning = true;
     
     try {
-      // Always show notebook selector (auto-detects or shows instructions)
-      console.log('NotebookLM: Showing notebook selector');
-      await this.showNotebookSelector();
+      // Check if NotebookLM is already open with a notebook
+      console.log('NotebookLM: Checking for existing notebook...');
+      const currentNotebookId = await this.getCurrentNotebook();
+      console.log('NotebookLM: getCurrentNotebook result:', currentNotebookId);
+      
+      // Check if notebook already open - if yes, auto-inject immediately
+      if (currentNotebookId) {
+        console.log('NotebookLM: Notebook already open, auto-injecting immediately');
+        await this.performExportWithNotebook(currentNotebookId);
+      } else {
+        console.log('NotebookLM: No notebook open, opening NotebookLM and showing dialog');
+        await this.showNotebookSelector();
+      }
     } catch (error) {
       console.error('NotebookLM: Export error:', error);
       Utils.showNotification('Export failed: ' + error.message, 'error');
     } finally {
       this.isButtonActionRunning = false;
     }
+  },
+  
+  async openNotebookLMAndShowInstructions() {
+    // Close any existing NotebookLM tabs that don't have a specific notebook
+    try {
+      const existingTabs = await chrome.tabs.query({ url: 'https://notebooklm.google.com/*' });
+      for (const tab of existingTabs) {
+        // Only close tabs that are on the home page, not specific notebooks
+        if (!tab.url.includes('/notebook/')) {
+          console.log('NotebookLM: Closing existing NotebookLM home tab:', tab.id);
+          await chrome.tabs.remove(tab.id);
+        }
+      }
+    } catch (error) {
+      console.error('NotebookLM: Error closing existing tabs:', error);
+    }
+    
+    // Open NotebookLM automatically
+    try {
+      const notebooklmTab = await chrome.tabs.create({ url: 'https://notebooklm.google.com' });
+      console.log('NotebookLM: Opened NotebookLM tab:', notebooklmTab.id);
+      // Switch to the new tab so user sees it
+      await chrome.tabs.update(notebooklmTab.id, { active: true });
+    } catch (error) {
+      console.error('NotebookLM: Failed to open NotebookLM tab:', error);
+    }
+    
+    // Show simple instructions
+    Utils.showNotification('📖 NotebookLM opened! Please navigate to your notebook, then the extension will auto-export your articles.', 'info', 8000);
   },
 
   // Manual trigger for notebook selector (for debugging)
@@ -2369,6 +2336,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await Promise.all([
       Data.loadEntries(),
       Data.loadStats(),
+      Data.loadSelectedArticles(),
       Search.restoreState(),
       Sorting.restoreSortState()
     ]);
