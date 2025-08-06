@@ -1,37 +1,37 @@
 {
   "manifest_version": 3,
-  "name": "SmartGrab AI Search",
-  "version": "1.0",
-  "description": "Capture, organize, and export articles to NotebookLM",
-  
-  "permissions": ["storage", "tabs", "scripting", "sidePanel", "notifications"],
-  
+  "name": "Knowledge Capture & AI Search",
+  "version": "1.0.0",
+  "description": "Capture articles as you browse and search them with AI-powered semantic understanding. Export to NotebookLM for deeper analysis.",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "tabs",
+    "sidePanel"
+  ],
   "host_permissions": [
     "https://notebooklm.google.com/*",
-    "https://*/*",
-    "http://*/*"
+    "https://*.googleapis.com/*"
   ],
-  
   "background": {
     "service_worker": "background.js"
   },
-  
   "content_scripts": [
     {
-      "matches": ["https://notebooklm.google.com/*"],
-      "js": ["notebooklm_automation.js"],
-      "all_frames": true,
-      "run_at": "document_start"
-    },
-    {
       "matches": ["<all_urls>"],
-      "exclude_matches": ["https://notebooklm.google.com/*"],
       "js": ["content.js"],
-      "all_frames": false,
       "run_at": "document_end"
     }
   ],
-  
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Knowledge Capture & AI Search"
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
   "commands": {
     "trigger_action": {
       "suggested_key": {
@@ -41,30 +41,7 @@
       "description": "Capture current page content"
     }
   },
-  
-  "icons": {
-    "16": "icon16.png",
-    "48": "icon48.png",
-    "128": "icon128.png"
-  },
-  
-  "action": {
-    "default_title": "SmartGrab - NotebookLM Connector",
-    "default_icon": {
-      "16": "icon16.png",
-      "48": "icon48.png",
-      "128": "icon128.png"
-    }
-  },
-  
   "side_panel": {
     "default_path": "popup.html"
-  },
-  
-  "web_accessible_resources": [
-    {
-      "resources": ["vertex_ai_search.js", "vertex_config.js", "lib/*"],
-      "matches": ["<all_urls>"]
-    }
-  ]
+  }
 } 

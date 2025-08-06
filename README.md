@@ -1,32 +1,34 @@
-# 🧠 SmartGrab - NotebookLM Knowledge Connector
+# Knowledge Capture & AI Search
 
-**Transform your browsing into an AI-powered knowledge base with seamless NotebookLM integration.**
+**Transform your browsing into an AI-powered knowledge base with local semantic search and NotebookLM integration.**
 
-SmartGrab captures articles as you browse, organizes them locally for instant search, and provides one-click bulk export to NotebookLM via Google Drive. Build your personal knowledge repository and leverage AI insights effortlessly.
+Knowledge Capture & AI Search captures articles as you browse, organizes them locally for instant search, and provides seamless export to NotebookLM. Build your personal knowledge repository with AI-powered insights and semantic understanding.
 
 ## ✨ Key Features
 
 ### 📚 Intelligent Article Capture
-- **One-click capture** of any webpage content
-- **Smart text extraction** with automatic cleaning
-- **Metadata preservation** (title, URL, timestamp, word count)
-- **Local storage** for instant access and search
+- **One-click capture** with keyboard shortcut (`Cmd+Shift+S` on Mac, `Ctrl+Shift+S` on Windows/Linux)
+- **Smart text extraction** with automatic cleaning and formatting
+- **Metadata preservation** (title, URL, timestamp, word count, author)
+- **Local storage** for instant access and privacy
+- **Duplicate detection** with smart replacement options
 
 ### 🔍 Dual Search Engine
-- **Keyword Search**: Fast, precise text matching with filters
-- **Semantic Search**: AI-powered understanding of meaning and context
-- **Advanced Filters**: Time-based, exact phrase, and custom date ranges
-- **Real-time results** with highlighted matches
+- **Keyword Search**: Fast, precise text matching with advanced filters
+  - Exact phrase matching with verbatim filter
+  - Time-based filtering (last week, month, year, custom range)
+  - Advanced search with boolean operators (AND, OR, NOT)
+- **Semantic Search**: AI-powered understanding using Vertex AI
+  - Meaning-based search, not just keyword matching
+  - Bi-directional citation linking between AI response and source articles
+  - Nonsensical query detection with helpful suggestions
+- **Real-time results** with highlighted matches and full sentence context
 
 ### 🧠 NotebookLM Integration
 - **Bulk Export**: Select multiple articles for batch NotebookLM import
-- **Google Drive Integration**: Automatic upload to organized folders
-- **Multiple Export Formats**:
-  - Individual files (best for < 20 articles)
-  - Single bulk file (best for > 20 articles) 
-  - Themed collections (auto-grouped by topic)
-- **Smart Selection Tools**: Bulk select by date, similarity, or topic
-- **Export History**: Track all exports with direct Drive links
+- **Smart Selection Tools**: Select All, Select None, Select Recent
+- **Export to NotebookLM**: Direct integration with Google's AI notebook
+- **Export History**: Track all exports with direct links
 
 ## 🚀 Quick Start
 
@@ -38,9 +40,34 @@ SmartGrab captures articles as you browse, organizes them locally for instant se
 5. Pin the extension to your toolbar
 
 ### First Use
-1. **Capture Articles**: Use `Ctrl+Shift+S` or click the extension icon while browsing
+1. **Capture Articles**: Use `Cmd+Shift+S` (Mac) or `Ctrl+Shift+S` (Windows/Linux) while browsing
 2. **Search Your Knowledge**: Switch to Search tab to find saved content
-3. **Export to NotebookLM**: Go to NotebookLM tab, connect Google Drive, select articles, and export
+3. **Export to NotebookLM**: Select articles and export to NotebookLM for AI analysis
+
+## 🔍 Search Features
+
+### Keyword Search
+- **Instant Results**: Fast text-based search with exact matching
+- **Advanced Filters**:
+  - **Time Filter**: Last week, month, year, or custom date range
+  - **Verbatim Filter**: Exact phrase matching (On/Off)
+  - **Advanced Search**: Boolean operators for complex queries
+- **Full Context**: Shows entire sentences containing matches
+- **Smart Highlighting**: Highlights exact keyword matches
+
+### Semantic Search
+- **AI-Powered**: Uses Vertex AI for understanding meaning and context
+- **Conversational**: Ask natural questions, not just keywords
+- **Citation System**: 
+  - Click `[1]`, `[2]`, etc. in AI response to jump to source articles
+  - Click circle numbers in Sources to jump back to citations
+- **Smart Detection**: Identifies nonsensical queries and suggests better alternatives
+- **No API Key Required**: Works locally with built-in AI capabilities
+
+### Search Modes
+- **Switch Between Modes**: Toggle between Keyword and Semantic search
+- **Filter Visibility**: Filters automatically show/hide based on search mode
+- **Results Display**: Different result formats optimized for each mode
 
 ## 🧠 NotebookLM Workflow
 
@@ -57,87 +84,69 @@ Browse Articles → Capture Content → Local Storage → Smart Search
 Review Articles → Multi-Select → Preview Export → Choose Format
 ```
 - Browse all saved articles with checkboxes
-- Bulk selection tools (All, Recent Week, High Similarity)
-- Real-time export preview with file count estimates
+- Bulk selection tools (All, None, Recent)
+- Real-time selection count and export preview
 
 ### 3. Export & Analyze
 ```
-Google Drive Upload → NotebookLM Import → AI Analysis → Insights
+NotebookLM Export → AI Analysis → Insights & Connections
 ```
-- One-click export to organized Google Drive folder
-- Multiple format options optimized for NotebookLM
-- Direct links to import into NotebookLM notebooks
-
-## 🛠 Export Format Guide
-
-### Individual Files
-- **Best for**: < 20 articles, detailed analysis
-- **Format**: One `.md` file per article with metadata
-- **Use case**: Deep dive research on specific topics
-
-### Single Bulk File
-- **Best for**: > 20 articles, overview analysis
-- **Format**: All articles in one large `.md` file with table of contents
-- **Use case**: Comprehensive knowledge review
-
-### Themed Collections
-- **Best for**: Mixed content, topic exploration
-- **Format**: Auto-grouped by topic (AI, productivity, health, etc.)
-- **Use case**: Discovering patterns across different subjects
+- One-click export to NotebookLM
+- AI-powered analysis and insights
+- Direct integration with Google's AI notebook
 
 ## ⚙️ Setup & Configuration
 
-### Google Drive Connection
-1. Go to **NotebookLM tab** in the extension
-2. Click **"Connect Google Drive"**
-3. Authorize the extension in the popup window
-4. Files will be uploaded to `SmartGrab-NotebookLM-Export` folder
-
 ### Search Preferences
-- **Keyword Mode**: Instant results, exact matching
-- **Semantic Mode**: AI-powered, meaning-based search
-- **Filters**: Time-based, verbatim, advanced search operators
+- **Keyword Mode**: Instant results, exact matching, advanced filters
+- **Semantic Mode**: AI-powered, meaning-based search, citation linking
+- **Filter Management**: Time-based, verbatim, advanced search operators
+
+### Keyboard Shortcuts
+- **Capture Page**: `Cmd+Shift+S` (Mac) / `Ctrl+Shift+S` (Windows/Linux)
+- **Open Extension**: Click extension icon in toolbar
+- **Search**: Press Enter in search bar
+- **Clear Search**: Click X button or press Escape
 
 ## 📊 Smart Selection Features
 
 ### Bulk Selection Tools
 - **Select All**: Choose all available articles
 - **Select None**: Clear all selections
-- **Recent Week**: Auto-select articles from past 7 days
-- **High Similarity**: Pick top semantically related content
+- **Individual Selection**: Check/uncheck specific articles
+- **Selection Count**: Real-time display of selected articles
 
-### Export Limits
-- **Free NotebookLM**: Up to 50 sources per notebook
-- **NotebookLM Plus**: Up to 300 sources per notebook
-- **Smart Warnings**: Extension prevents over-limit exports
+### Export to NotebookLM
+- **Selected Articles**: Export only chosen articles
+- **Direct Integration**: Seamless connection with NotebookLM
+- **Export History**: Track previous exports
 
-## 🔄 Automated Workflows
+## 🔄 Workflow Examples
 
 ### Daily Research Workflow
 1. **Morning**: Capture interesting articles during browsing
-2. **Evening**: Review and select relevant content
-3. **Weekly**: Bulk export themed collections to NotebookLM
-4. **Analysis**: Use NotebookLM for insights and connections
+2. **Afternoon**: Use semantic search to explore connections
+3. **Evening**: Select relevant content for NotebookLM export
+4. **Analysis**: Use NotebookLM for AI-powered insights
 
 ### Project-Based Workflow
 1. **Research Phase**: Capture all related articles
-2. **Curation**: Select high-quality, relevant sources
-3. **Export**: Create themed collection for specific project
-4. **AI Analysis**: Generate insights, summaries, and audio overviews
+2. **Exploration**: Use semantic search to discover connections
+3. **Curation**: Select high-quality, relevant sources
+4. **Export**: Send to NotebookLM for comprehensive analysis
 
 ## 🎯 Pro Tips
 
-### Maximizing NotebookLM Value
-- **Quality over Quantity**: Select your best 20-30 articles rather than everything
-- **Theme Consistency**: Group related articles for better AI analysis
-- **Metadata Rich**: Ensure articles have good titles and sources
-- **Regular Exports**: Create weekly knowledge snapshots
+### Maximizing Search Value
+- **Keyword Mode**: Use specific terms, exact phrases in quotes, leverage filters
+- **Semantic Mode**: Ask natural questions, explore concepts, use citation links
+- **Combined Approach**: Start with semantic search, then use keyword search for specific details
+- **Filter Usage**: Combine time filters with search for precise results
 
-### Search Best Practices
-- **Keyword Mode**: Use specific terms, exact phrases in quotes
-- **Semantic Mode**: Ask natural questions, explore concepts
-- **Filters**: Combine time filters with search for precise results
-- **Export Planning**: Review similarity scores before bulk selection
+### NotebookLM Best Practices
+- **Quality over Quantity**: Select your best articles rather than everything
+- **Related Content**: Group related articles for better AI analysis
+- **Regular Exports**: Create knowledge snapshots for ongoing projects
 
 ## 🔧 Technical Details
 
@@ -151,69 +160,73 @@ Google Drive Upload → NotebookLM Import → AI Analysis → Insights
       "url": "https://example.com",
       "text": "Cleaned article content...",
       "timestamp": "2024-12-25T10:30:00.000Z",
-      "wordCount": 1250
+      "wordCount": 1250,
+      "author": "Author Name"
     }
   ],
-  "exportHistory": [
-    {
-      "timestamp": "2024-12-25T15:30:00.000Z",
-      "articleCount": 15,
-      "exportConfig": {"format": "themed"},
-      "result": {"driveUrl": "https://drive.google.com/..."}
+  "searchState": {
+    "currentSearchMode": "keyword|semantic",
+    "searchFilterState": {
+      "timeFilter": "all|week|month|year|custom",
+      "resultsFilter": "all|verbatim",
+      "advancedFilter": {...}
+    }
   }
-  ]
 }
 ```
 
-### Google Drive Integration
-- **API**: Uses Google Drive v3 REST API
-- **Authentication**: OAuth2 with drive.file scope
-- **File Format**: Markdown (.md) optimized for NotebookLM
-- **Organization**: Auto-created folders with timestamps
+### AI Integration
+- **Vertex AI**: Google's enterprise AI platform for semantic search
+- **Local Processing**: No data sent to external servers for search
+- **Embedding Storage**: Local vector database for fast semantic search
+- **Citation System**: Bi-directional linking between AI responses and sources
 
-### Export Optimization
-- **File Size**: Automatically splits large exports
-- **Metadata**: Rich frontmatter for better AI processing
-- **Cross-References**: Internal linking between related articles
-- **Format**: Clean Markdown with proper headings and structure
+### Search Optimization
+- **Hybrid Approach**: Combines keyword and semantic search
+- **Smart Filtering**: Time-based, verbatim, and advanced filters
+- **Real-time Results**: Instant search with highlighted matches
+- **Context Preservation**: Full sentence display with proper punctuation
 
 ## 🚦 Troubleshooting
 
 ### Common Issues
 
-**Google Drive Connection Fails**
-- Check popup blockers
-- Ensure Google account permissions
-- Try incognito mode for initial setup
-
-**Export Doesn't Appear in Drive**
-- Verify folder permissions
-- Check the `SmartGrab-NotebookLM-Export` folder
-- Look in "Shared with me" if folder was created by different account
-
 **Articles Not Capturing**
-- Disable other text capture extensions
-- Check page permissions (works on most sites except system pages)
+- Check keyboard shortcut settings in Chrome
+- Ensure page is fully loaded before capturing
 - Try refreshing the page and capturing again
+- Check for popup blockers or permission issues
 
 **Search Returns No Results**
-- Verify articles are saved (check Settings tab stats)
-- Try keyword search instead of semantic
-- Clear and reload extension if needed
+- Verify articles are saved (check main page for entries)
+- Try switching between Keyword and Semantic search modes
+- Use different search terms or try semantic search for broader results
+- Check if filters are limiting results
+
+**Semantic Search Not Working**
+- Ensure you have internet connection (required for AI processing)
+- Try refreshing the extension
+- Check if Vertex AI service is available
+- Try keyword search as alternative
+
+**NotebookLM Export Issues**
+- Ensure you have NotebookLM access
+- Check if articles are selected before export
+- Verify NotebookLM tab is open and accessible
 
 ## 🔮 Future Enhancements
 
 ### Planned Features
-- **AI Categorization**: Smarter auto-grouping of articles
-- **Direct NotebookLM API**: Skip Google Drive when API available
-- **Smart Recommendations**: Suggest related articles for export
-- **Collaboration**: Share curated collections with teams
-- **Advanced Analytics**: Export insights and usage patterns
+- **Enhanced AI**: Improved semantic search capabilities
+- **Better Organization**: Smart categorization and tagging
+- **Advanced Filters**: More sophisticated search and filter options
+- **Export Formats**: Additional export destinations and formats
+- **Collaboration**: Share knowledge bases with teams
 
 ### Integration Roadmap
-- **Notion Integration**: Alternative export destination
-- **Obsidian Support**: Local knowledge graph export
-- **Research Citations**: Academic-style reference formatting
+- **Direct API**: Enhanced NotebookLM integration
+- **Alternative Exports**: Notion, Obsidian, and other platforms
+- **Research Tools**: Citation formatting and academic features
 - **Multi-language**: Support for non-English content
 
 ## 📄 License
@@ -224,4 +237,4 @@ Open source project. Feel free to modify and distribute.
 
 **Ready to supercharge your knowledge workflow? 🚀**
 
-**Capture → Curate → Connect → Comprehend with AI** 
+**Capture → Search → Understand → Export with AI** 

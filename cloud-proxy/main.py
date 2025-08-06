@@ -20,6 +20,7 @@ CORS(app, origins=["chrome-extension://*"])  # Allow Chrome extensions
 PROJECT_ID = os.environ.get('PROJECT_ID', 'chrome-ext-knowledge-base')
 LOCATION = os.environ.get('LOCATION', 'us-central1')
 MODEL_NAME = os.environ.get('MODEL_NAME', 'text-embedding-004')
+GEMINI_MODEL = os.environ.get('GEMINI_MODEL', 'gemini-2.0-flash-exp')
 REDIS_URL = os.environ.get('REDIS_URL')  # Optional for rate limiting
 
 # Initialize Google Cloud credentials
@@ -189,28 +190,41 @@ def generate_embeddings_batch():
                 # Truncate text
                 text = text[:3000]
                 
-                # Prepare the request
-                endpoint = aiplatform.Endpoint(
-                    f"projects/{PROJECT_ID}/locations/{LOCATION}/publishers/google/models/{MODEL_NAME}"
-                )
+                # Refresh credentials if needed
+                if not credentials.valid:
+                    credentials.refresh(Request())
                 
-                instances = [{
-                    "content": text,
-                    "task_type": task_type
-                }]
+                # Prepare the REST API request (same as single embedding)
+                url = f"https://{LOCATION}-aiplatform.googleapis.com/v1/projects/{PROJECT_ID}/locations/{LOCATION}/publishers/google/models/{MODEL_NAME}:predict"
                 
-                # Call Vertex AI
-                response = endpoint.predict(instances=instances)
+                headers = {
+                    'Authorization': f'Bearer {credentials.token}',
+                    'Content-Type': 'application/json'
+                }
                 
-                if response.predictions and response.predictions[0].get('embeddings'):
-                    embedding = response.predictions[0]['embeddings']['values']
-                    results.append({
-                        'embedding': embedding,
-                        'dimensions': len(embedding),
-                        'index': i
-                    })
+                payload = {
+                    "instances": [{
+                        "content": text,
+                        "task_type": task_type
+                    }]
+                }
+                
+                # Call Vertex AI REST API
+                response = requests.post(url, headers=headers, json=payload, timeout=30)
+                
+                if response.ok:
+                    result = response.json()
+                    if result.get('predictions') and result['predictions'][0].get('embeddings'):
+                        embedding = result['predictions'][0]['embeddings']['values']
+                        results.append({
+                            'embedding': embedding,
+                            'dimensions': len(embedding),
+                            'index': i
+                        })
+                    else:
+                        results.append({'error': 'Invalid response from Vertex AI', 'index': i})
                 else:
-                    results.append({'error': 'Invalid response from Vertex AI', 'index': i})
+                    results.append({'error': f'API error: {response.status_code}', 'index': i})
                 
                 # Small delay between requests in batch
                 time.sleep(0.1)
@@ -227,6 +241,99 @@ def generate_embeddings_batch():
         
     except Exception as e:
         print(f"Error in batch embedding: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/generate', methods=['POST'])
+@rate_limit(max_requests=50, window_minutes=1)  # Increased limit for generative API
+def generate_response():
+    """Generate conversational response using Vertex AI Gemini"""
+    try:
+        data = request.get_json()
+        
+        if not data or 'prompt' not in data:
+            return jsonify({'error': 'Missing prompt field'}), 400
+        
+        prompt = data['prompt']
+        model = data.get('model', GEMINI_MODEL)
+        max_tokens = data.get('max_tokens', 2000)
+        temperature = data.get('temperature', 0.3)
+        
+        if not prompt.strip():
+            return jsonify({'error': 'Prompt cannot be empty'}), 400
+        
+        # Refresh credentials if needed
+        if not credentials.valid:
+            credentials.refresh(Request())
+        
+        # Prepare the REST API request for Gemini
+        url = f"https://{LOCATION}-aiplatform.googleapis.com/v1/projects/{PROJECT_ID}/locations/{LOCATION}/publishers/google/models/{model}:generateContent"
+        
+        headers = {
+            'Authorization': f'Bearer {credentials.token}',
+            'Content-Type': 'application/json'
+        }
+        
+        payload = {
+            "contents": [{
+                "role": "user",
+                "parts": [{"text": prompt}]
+            }],
+            "generationConfig": {
+                "maxOutputTokens": max_tokens,
+                "temperature": temperature,
+                "topP": 0.8,
+                "topK": 40
+            },
+            "safetySettings": [
+                {
+                    "category": "HARM_CATEGORY_HARASSMENT",
+                    "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+                },
+                {
+                    "category": "HARM_CATEGORY_HATE_SPEECH",
+                    "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+                },
+                {
+                    "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                    "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+                },
+                {
+                    "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                    "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+                }
+            ]
+        }
+        
+        # Call Vertex AI Gemini API
+        start_time = time.time()
+        response = requests.post(url, headers=headers, json=payload, timeout=60)
+        end_time = time.time()
+        
+        if not response.ok:
+            print(f"Gemini API error: {response.status_code} - {response.text}")
+            return jsonify({'error': f'Gemini API error: {response.status_code}'}), 500
+        
+        result = response.json()
+        
+        # Extract response text
+        if not result.get('candidates') or not result['candidates'][0].get('content'):
+            print(f"Invalid Gemini response: {result}")
+            # Check for safety blocks
+            if result.get('candidates') and result['candidates'][0].get('finishReason') == 'SAFETY':
+                return jsonify({'error': 'Response blocked by safety filters'}), 400
+            return jsonify({'error': 'Invalid response from Gemini'}), 500
+        
+        response_text = result['candidates'][0]['content']['parts'][0]['text']
+        
+        return jsonify({
+            'response': response_text,
+            'model': model,
+            'processing_time_ms': round((end_time - start_time) * 1000, 2),
+            'finish_reason': result['candidates'][0].get('finishReason', 'STOP')
+        })
+        
+    except Exception as e:
+        print(f"Error generating response: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/similarity', methods=['POST'])

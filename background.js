@@ -1,4 +1,4 @@
-// SmartGrab AI Search Extension - Background Script
+// Knowledge Capture & AI Search Extension - Background Script
 'use strict';
 
 // === CONFIGURATION ===
@@ -101,14 +101,23 @@ const Utils = {
   // Notification utilities
   async showNotification(message, type = 'basic') {
     try {
-      await chrome.notifications.create({
-        type: type,
+      console.log('Attempting to show notification:', message, 'type:', type);
+      
+      // Chrome notifications API only accepts: 'basic', 'image', 'list', 'progress'
+      // Map our custom types to 'basic' since we're just showing simple messages
+      const chromeType = 'basic';
+      
+      const notificationId = await chrome.notifications.create({
+        type: chromeType,
         iconUrl: 'icon48.png',
-        title: 'SmartGrab AI Search',
+        title: 'Knowledge Capture & AI Search',
         message: message
       });
+      
+      console.log('Notification created successfully with ID:', notificationId);
     } catch (error) {
       console.error('Failed to show notification:', error);
+      console.error('Error details:', error.message);
     }
   }
 };
@@ -150,7 +159,7 @@ const Storage = {
   
   async deleteEntry(entryId) {
     const entries = await this.getEntries();
-    const filtered = entries.filter(e => e.id !== entryId);
+    const filtered = entries.filter(e => String(e.id) !== String(entryId));
     await this.setEntries(filtered);
   },
   
@@ -257,20 +266,12 @@ const ContentScript = {
 
 // === AI PROCESSING ===
 const AI = {
-  async getApiKey() {
-    const apiKey = await Storage.getApiKey();
-    if (!apiKey) {
-      throw new Error('OpenAI API key not configured');
-    }
-    return apiKey;
-  },
-  
   async cleanText(rawText) {
     if (!rawText || rawText.trim().length === 0) {
       return '';
     }
     
-    // Basic cleaning first
+    // Use basic text cleaning (no OpenAI dependency)
     let cleaned = Utils.cleanText(rawText);
     
     // If text is too long, truncate
@@ -278,91 +279,9 @@ const AI = {
       cleaned = Utils.truncateText(cleaned, CONFIG.MAX_TEXT_LENGTH);
     }
     
-    // Try AI cleaning if API key is available
-    try {
-      const apiKey = await this.getApiKey();
-      return await this.aiCleanText(cleaned, apiKey);
-    } catch (error) {
-      console.warn('AI cleaning failed, using basic cleaning:', error.message);
-      return cleaned;
-    }
+    return cleaned;
   },
-  
-  async aiCleanText(text, apiKey) {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: 'gpt-3.5-turbo',
-        messages: [{
-          role: 'system',
-          content: 'Clean and format this text for better readability. Remove navigation elements, ads, and irrelevant content. Keep only the main content.'
-        }, {
-          role: 'user',
-          content: text
-        }],
-        max_tokens: 2000,
-        temperature: 0.1
-      })
-    });
-    
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    return data.choices[0]?.message?.content || text;
-  },
-  
-  async generateEmbedding(text) {
-    try {
-      const apiKey = await this.getApiKey();
-      
-      const response = await fetch('https://api.openai.com/v1/embeddings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: 'text-embedding-ada-002',
-          input: text
-        })
-      });
-      
-      if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      return data.data[0]?.embedding;
-    } catch (error) {
-      console.log('Embedding generation skipped:', error.message);
-      return null; // Return null instead of throwing error
-    }
-  },
-  
-  async generateEmbeddingForEntry(entry) {
-    try {
-      const textForEmbedding = `${entry.title} ${entry.text}`.slice(0, 8000);
-      const embedding = await this.generateEmbedding(textForEmbedding);
-      
-      if (embedding) {
-        await Storage.updateEntry(entry.id, { embedding });
-        console.log(`Generated embedding for entry: ${entry.title}`);
-      } else {
-        console.log(`Skipped embedding generation for entry: ${entry.title}`);
-      }
-      
-      return embedding;
-    } catch (error) {
-      console.log('Embedding generation skipped:', error.message);
-      return null;
-    }
-  }
+
 };
 
 // === SEARCH ENGINE ===
@@ -389,8 +308,7 @@ const Search = {
         };
       })
       .filter(Boolean)
-      .sort((a, b) => b.relevanceScore - a.relevanceScore)
-      .slice(0, CONFIG.SEARCH_RESULTS_LIMIT);
+      .sort((a, b) => b.relevanceScore - a.relevanceScore);
     
     return results;
   },
@@ -528,24 +446,47 @@ const TextExtractor = {
     const existing = entries.find(e => e.url === entry.url);
     
     if (existing) {
+      
+      
       const shouldReplace = await this.askUserForReplacement(entry, existing);
-      if (!shouldReplace) {
-        return false;
-      }
+              if (!shouldReplace) {
+          return false;
+        }
       await Storage.deleteEntry(existing.id);
     }
     
     await Storage.addEntry(entry);
     
-    // Generate embedding in background
-    AI.generateEmbeddingForEntry(entry).catch(console.error);
-    
     return true;
   },
   
   async askUserForReplacement(newEntry, existingEntry) {
-    // For now, always replace (in a real implementation, you'd show a dialog)
-    return true;
+    try {
+      console.log('Asking user for replacement decision...');
+      
+      // Try to communicate with the popup using runtime message
+      try {
+        const response = await chrome.runtime.sendMessage({
+          action: 'showDuplicateModal',
+          originalEntry: existingEntry,
+          newEntry: newEntry
+        });
+        
+        if (response && response.success) {
+          return response.shouldReplace;
+        }
+      } catch (runtimeError) {
+        console.log('Runtime message failed:', runtimeError.message);
+      }
+      
+      // Fallback: show notification and replace
+      await Utils.showNotification(`⚠️ Article "${existingEntry.title}" already exists. Replacing with updated version.`);
+      return true;
+      
+    } catch (error) {
+      console.error('Failed to handle duplicate:', error);
+      return true; // Default to replace on error
+    }
   }
 };
 
@@ -619,15 +560,17 @@ const MessageHandler = {
         }
         
         const entry = await TextExtractor.extractFromTab(tab);
-        const saved = await TextExtractor.saveEntry(entry);
+        const saveResult = await TextExtractor.saveEntry(entry);
         
-        if (saved) {
-          return { success: true, entry: entry };
+        if (saveResult === true) {
+          return { success: true, entry: entry, action: 'saved' };
+        } else if (saveResult === false) {
+          return { success: true, entry: entry, action: 'kept_original' };
         } else {
-          return { success: false, error: 'Text capture cancelled' };
+          return { success: false, error: 'Unexpected save result' };
         }
       } catch (error) {
-        console.error('Page capture failed:', error);
+        console.error('Capture button: Page capture failed:', error);
         return { success: false, error: error.message };
       }
     }
@@ -654,7 +597,6 @@ const ExtensionManager = {
   init() {
     this.setupEventListeners();
     this.scheduleCleanup();
-    console.log('SmartGrab AI Search Extension - Background script initialized');
   },
   
   setupEventListeners() {
@@ -664,7 +606,20 @@ const ExtensionManager = {
     
     // User interactions
     chrome.action?.onClicked.addListener(this.onActionClicked.bind(this));
-    chrome.commands?.onCommand.addListener(this.onCommand.bind(this));
+    
+    // Command shortcuts
+    if (chrome.commands) {
+      chrome.commands.onCommand.addListener(this.onCommand.bind(this));
+      
+      // Log available commands for debugging
+      chrome.commands.getAll().then(commands => {
+    
+      }).catch(error => {
+        console.error('Failed to get commands:', error);
+      });
+    } else {
+      console.error('Chrome commands API not available');
+    }
     
     // Tab monitoring for NotebookLM auto-detection
     chrome.tabs.onUpdated.addListener(this.onTabUpdated.bind(this));
@@ -673,7 +628,6 @@ const ExtensionManager = {
     if (chrome.sidePanel && chrome.sidePanel.setPanelBehavior) {
       try {
         chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
-        console.log('Side panel behavior set successfully');
       } catch (error) {
         console.error('Failed to set side panel behavior:', error);
       }
@@ -693,6 +647,11 @@ const ExtensionManager = {
       } else if (message.action === 'testSidePanel') {
         // Test side panel functionality
         MessageHandler.testSidePanel();
+        sendResponse({ success: true });
+        return true;
+      } else if (message.action === 'testTextExtraction') {
+        // Test text extraction functionality
+        MessageHandler.testTextExtraction();
         sendResponse({ success: true });
         return true;
       } else if (message.action === 'save_selected_articles') {
@@ -720,18 +679,16 @@ const ExtensionManager = {
   },
   
   onStartup() {
-    console.log('Extension startup');
+    // Extension startup
   },
   
   onInstalled(details) {
-    console.log('Extension installed/updated:', details.reason);
     Storage.clearErrorStates();
     
     // Set up side panel
     if (chrome.sidePanel && chrome.sidePanel.setPanelBehavior) {
       try {
         chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
-        console.log('Side panel behavior set on install');
       } catch (error) {
         console.error('Failed to set side panel behavior on install:', error);
       }
@@ -739,10 +696,24 @@ const ExtensionManager = {
       console.log('Side panel API not available on install');
     }
     
-    // Log available commands
-    chrome.commands?.getAll().then(commands => {
-      console.log('Available commands:', commands);
-    });
+    // Log available commands and test command registration
+    if (chrome.commands) {
+      chrome.commands.getAll().then(commands => {
+        
+        
+        // Test if our command is properly registered
+        const triggerAction = commands.find(cmd => cmd.name === 'trigger_action');
+        if (triggerAction) {
+      
+        } else {
+          console.error('❌ trigger_action command NOT found in available commands');
+        }
+      }).catch(error => {
+        console.error('Failed to get commands:', error);
+      });
+    } else {
+      console.error('❌ Chrome commands API not available');
+    }
   },
   
   async onActionClicked(tab) {
@@ -855,29 +826,84 @@ const ExtensionManager = {
     if (command === 'trigger_action') {
       try {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        
         if (tab) {
           await this.extractTextFromTab(tab);
+        } else {
+          console.error('No active tab found');
+          Utils.showNotification('No active tab found', 'error');
         }
       } catch (error) {
         console.error('Command execution failed:', error);
-        Utils.showNotification('Failed to capture page text');
+        Utils.showNotification('Failed to capture page text', 'error');
       }
+    } else {
+      console.log('Unknown command:', command);
     }
   },
   
   async extractTextFromTab(tab) {
     try {
-      const entry = await TextExtractor.extractFromTab(tab);
-      const saved = await TextExtractor.saveEntry(entry);
+      // Send loading notification to popup
+      console.log('Shortcut capture: Sending loading notification to popup...');
+      await this.notifyPopupNotification('📄 Capturing...', 'info');
       
-      if (saved) {
-        Utils.showNotification(`Captured: ${entry.title}`);
+      const entry = await TextExtractor.extractFromTab(tab);
+      const saveResult = await TextExtractor.saveEntry(entry);
+      
+      if (saveResult === true) {
+        try {
+          console.log('Shortcut capture: Sending success notification for:', entry.title);
+          await this.notifyPopupNotification(`✅ Captured: ${entry.title}`, 'success');
+        } catch (error) {
+          console.error('Failed to send success notification:', error);
+        }
+      } else if (saveResult === false) {
+        try {
+          console.log('Shortcut capture: Sending kept original notification for:', entry.title);
+          await this.notifyPopupNotification(`📄 Kept original: ${entry.title}`, 'info');
+        } catch (error) {
+          console.error('Failed to send kept original notification:', error);
+        }
       } else {
-        Utils.showNotification('Text capture cancelled');
+        console.log('Shortcut capture: Sending error notification');
+        await this.notifyPopupNotification('❌ Unexpected error during capture', 'error');
+      }
+      
+      // Notify popup to refresh display after successful capture
+      try {
+        await this.notifyPopupRefresh();
+        // Also set a timestamp for when popup opens
+        await chrome.storage.local.set({ 'lastCaptureCheck': Date.now() });
+      } catch (error) {
+        console.error('Failed to notify popup refresh:', error);
       }
     } catch (error) {
       console.error('Text extraction failed:', error);
-      Utils.showNotification(`Failed to capture text: ${error.message}`);
+      await this.notifyPopupNotification(`❌ Failed to capture text: ${error.message}`, 'error');
+    }
+  },
+  
+  async notifyPopupNotification(message, type = 'info') {
+    try {
+      await chrome.runtime.sendMessage({ 
+        action: 'showNotification', 
+        message: message, 
+        type: type 
+      });
+    } catch (error) {
+      // Popup might not be open, which is fine
+      console.log('Popup not open for notification:', error.message);
+    }
+  },
+  
+  async notifyPopupRefresh() {
+    try {
+      // Try to send message to popup to refresh display
+      await chrome.runtime.sendMessage({ action: 'refreshDisplay' });
+    } catch (error) {
+      // Popup might not be open, which is fine
+      console.log('Popup not open or failed to send refresh message:', error.message);
     }
   },
   
@@ -921,6 +947,23 @@ const ExtensionManager = {
       }
     } else {
       console.log('Side panel API not available');
+    }
+  },
+  
+  // Debug function to test text extraction manually
+  async testTextExtraction() {
+    console.log('🧪🧪🧪 MANUAL TEST BUTTON CLICKED - NOT KEYBOARD SHORTCUT 🧪🧪🧪');
+    console.log('=== TESTING TEXT EXTRACTION ===');
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab) {
+        console.log('Testing extraction on tab:', tab.url);
+        await this.extractTextFromTab(tab);
+      } else {
+        console.error('No active tab found for testing');
+      }
+    } catch (error) {
+      console.error('Text extraction test failed:', error);
     }
   }
 };
@@ -1011,7 +1054,7 @@ async function addArticlesToNotebookLM(notebookId, articles) {
     progressNotificationId = await chrome.notifications.create({
       type: 'basic',
       iconUrl: 'icon48.png',
-      title: '🧠 SmartGrab - Auto-Injecting',
+              title: '🧠 Knowledge Capture & AI Search - Auto-Injecting',
       message: notificationMessage,
       priority: 2,
       requireInteraction: true
@@ -1031,7 +1074,7 @@ async function addArticlesToNotebookLM(notebookId, articles) {
           };
           
           // Store original function for cleanup
-          window.smartgrabOriginalBeforeUnload = originalBeforeUnload;
+          window.knowledgeCaptureOriginalBeforeUnload = originalBeforeUnload;
         }
       });
     };
@@ -1249,7 +1292,7 @@ async function addArticlesToNotebookLM(notebookId, articles) {
     chrome.notifications.create({
       type: 'basic',
       iconUrl: 'icon48.png',
-      title: '✅ SmartGrab - Injection Complete',
+              title: '✅ Knowledge Capture & AI Search - Injection Complete',
       message: `Successfully added ${articles.length} articles to NotebookLM!`,
       priority: 1
     });
@@ -1260,8 +1303,8 @@ async function addArticlesToNotebookLM(notebookId, articles) {
         target: { tabId: tabId },
         func: () => {
           // Restore original beforeunload
-          if (window.smartgrabOriginalBeforeUnload) {
-            window.onbeforeunload = window.smartgrabOriginalBeforeUnload;
+          if (window.knowledgeCaptureOriginalBeforeUnload) {
+            window.onbeforeunload = window.knowledgeCaptureOriginalBeforeUnload;
           }
         }
       });
@@ -1283,7 +1326,7 @@ async function addArticlesToNotebookLM(notebookId, articles) {
     chrome.notifications.create({
       type: 'basic',
       iconUrl: 'icon48.png',
-      title: '❌ SmartGrab - Injection Failed',
+              title: '❌ Knowledge Capture & AI Search - Injection Failed',
       message: `Failed to add articles: ${errorMessage}`,
       priority: 2
     });
@@ -1294,8 +1337,8 @@ async function addArticlesToNotebookLM(notebookId, articles) {
         target: { tabId: tabId },
         func: () => {
           // Restore original beforeunload
-          if (window.smartgrabOriginalBeforeUnload) {
-            window.onbeforeunload = window.smartgrabOriginalBeforeUnload;
+          if (window.knowledgeCaptureOriginalBeforeUnload) {
+            window.onbeforeunload = window.knowledgeCaptureOriginalBeforeUnload;
           }
         }
       });

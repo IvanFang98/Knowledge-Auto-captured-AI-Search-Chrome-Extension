@@ -83,7 +83,7 @@ if (window.notebooklmAutomationLoaded) {
 
   // Add progress indicator for injection
   function addProgressIndicator() {
-    if (!document.getElementById('smartgrab-progress-indicator')) {
+    if (!document.getElementById('knowledge-capture-progress-indicator')) {
       // If body doesn't exist yet, wait for it
       if (!document.body) {
         // Wait for document.body
@@ -91,7 +91,7 @@ if (window.notebooklmAutomationLoaded) {
         return;
       }
       const progressIndicator = document.createElement('div');
-      progressIndicator.id = 'smartgrab-progress-indicator';
+      progressIndicator.id = 'knowledge-capture-progress-indicator';
       progressIndicator.style.cssText = `
         position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 10001;
         background: rgba(0, 0, 0, 0.9); color: white; padding: 20px; border-radius: 10px;
@@ -100,10 +100,10 @@ if (window.notebooklmAutomationLoaded) {
       `;
       progressIndicator.innerHTML = `
         <div style="margin-bottom: 15px; font-size: 24px;">🧠</div>
-        <div style="font-weight: 600; margin-bottom: 10px;">SmartGrab Auto-Injection</div>
+        <div style="font-weight: 600; margin-bottom: 10px;">Knowledge Capture & AI Search Auto-Injection</div>
         <div style="margin-bottom: 15px;">Adding articles to NotebookLM...</div>
         <div style="background: #333; height: 4px; border-radius: 2px; overflow: hidden;">
-          <div id="smartgrab-progress-bar" style="background: #4CAF50; height: 100%; width: 0%; transition: width 0.3s;"></div>
+          <div id="knowledge-capture-progress-bar" style="background: #4CAF50; height: 100%; width: 0%; transition: width 0.3s;"></div>
         </div>
         <div style="margin-top: 10px; font-size: 12px; opacity: 0.8;">Please wait, do not close this tab</div>
       `;
@@ -113,7 +113,7 @@ if (window.notebooklmAutomationLoaded) {
 
   // Update progress bar
   function updateProgress(percentage) {
-    const progressBar = document.getElementById('smartgrab-progress-bar');
+    const progressBar = document.getElementById('knowledge-capture-progress-bar');
     if (progressBar) {
       progressBar.style.width = percentage + '%';
     }
@@ -121,7 +121,7 @@ if (window.notebooklmAutomationLoaded) {
 
   // Remove progress indicator
   function removeProgressIndicator() {
-    const progressIndicator = document.getElementById('smartgrab-progress-indicator');
+    const progressIndicator = document.getElementById('knowledge-capture-progress-indicator');
     if (progressIndicator) {
       progressIndicator.remove();
     }
