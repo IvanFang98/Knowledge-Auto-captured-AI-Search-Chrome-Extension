@@ -2550,6 +2550,23 @@
         .scrollable-content-area::-webkit-scrollbar-thumb:hover {
           background: var(--clr-gray-400) !important;
         }
+
+        /* Toggle Switch Styles */
+        .toggle-switch input:checked + .toggle-slider {
+          background-color: var(--clr-primary-10);
+        }
+
+        .toggle-switch input:checked + .toggle-slider .toggle-knob {
+          transform: translateX(20px);
+        }
+
+        .toggle-switch:hover .toggle-slider {
+          box-shadow: 0 0 0 2px rgba(71, 111, 214, 0.1);
+        }
+
+        .toggle-switch input:checked + .toggle-slider:hover {
+          background-color: var(--clr-primary-20);
+        }
   </style>
 </head>
 <body>
@@ -2562,7 +2579,7 @@
       <button id="settingsIconBtn" title="Settings" style="position: absolute; top: 16px; right: 20px; background: none; border: none; color: var(--clr-primary-10); font-size: 18px; cursor: pointer; z-index: 10; opacity: 0.8; transition: opacity 0.2s;">
         <span role="img" aria-label="Settings">⚙️</span>
       </button>
-      <div class="shortcut-info" style="font-size: 12px; opacity: 0.85; background: var(--clr-gray-100); color: var(--clr-body); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--clr-gray-200); display: inline-block; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);">
+      <div class="shortcut-info" id="manualCaptureInfo" style="font-size: 12px; opacity: 0.85; background: var(--clr-gray-100); color: var(--clr-body); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--clr-gray-200); display: none; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);">
         Press <button id="capturePageBtn" class="shortcut" style="font-family: 'Courier New', monospace; font-weight: bold; color: var(--clr-heading); background: var(--clr-btn-bg); border: 1.5px solid var(--clr-btn-border); border-radius: 6px; padding: 3px 6px; cursor: pointer; font-size: 11px; transition: all 0.2s; margin: 0 2px;">Capture</button> or <a href="#" id="shortcutLink" class="shortcut" style="font-family: 'Courier New', monospace; font-weight: bold; color: var(--clr-primary-10); text-decoration: underline; cursor: pointer;">Loading...</a> to capture text
       </div>
     </div>
@@ -2695,16 +2712,123 @@
         <!-- Entries will be populated here -->
       </div>
     </div>
-
-
-
-    <div class="tab-content" id="settingsTab" style="display: none;">
+  </div>
+  
+  <!-- Settings Tab - Full Screen -->
+  <div class="tab-content" id="settingsTab" style="display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: var(--clr-primary-bg); z-index: 1000; overflow-y: auto; padding: 20px;">
       <div style="position: relative;">
         <button id="closeSettingsBtn" style="position: absolute; top: 0; right: 0; background: none; border: none; font-size: 18px; color: var(--clr-gray-500); cursor: pointer; padding: 4px; border-radius: 4px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px;">×</button>
       </div>
       
-      <div class="export-section" style="background: var(--clr-card-bg); border: 1px solid var(--clr-gray-200); padding: 20px; border-radius: 12px; margin-bottom: 20px;">
-        <h3 style="margin: 0 0 16px 0; color: var(--clr-heading); font-size: 16px; font-weight: 600;">📤 Export Data</h3>
+      <!-- Capture Settings Section -->
+      <div class="capture-settings-section" style="background: var(--clr-card-bg); border: 1px solid var(--clr-gray-200); padding: 20px; border-radius: 12px; margin-bottom: 20px;">
+        <h3 style="margin: 0 0 16px 0; color: var(--clr-heading); font-size: 16px; font-weight: 600;">⚡ Capture Settings</h3>
+        
+        <div class="setting-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--clr-gray-200);">
+          <div style="flex: 1;">
+            <div style="font-weight: 500; color: var(--clr-heading); margin-bottom: 4px;">Auto-Capture Articles</div>
+            <div style="font-size: 13px; color: var(--clr-gray-600); line-height: 1.4;">Automatically save articles as you browse. Turn off for manual capture only.</div>
+          </div>
+          <div style="margin-left: 16px;">
+            <label class="toggle-switch" style="position: relative; display: inline-block; width: 44px; height: 24px;">
+              <input type="checkbox" id="autoCaptureToggle" style="opacity: 0; width: 0; height: 0;">
+              <span class="toggle-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--clr-gray-300); transition: 0.3s; border-radius: 24px;">
+                <span class="toggle-knob" style="position: absolute; content: ''; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: 0.3s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></span>
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--clr-gray-200);">
+          <div style="flex: 1;">
+            <div style="font-weight: 500; color: var(--clr-heading); margin-bottom: 4px;">On‑page Auto‑Capture Reminder</div>
+            <div style="font-size: 13px; color: var(--clr-gray-600); line-height: 1.4;">Show a brief reminder on the webpage when auto-capture succeeds. The reminder in the extension stays on.</div>
+          </div>
+          <div style="margin-left: 16px;">
+            <label class="toggle-switch" style="position: relative; display: inline-block; width: 44px; height: 24px;">
+              <input type="checkbox" id="webReminderToggle" style="opacity: 0; width: 0; height: 0;">
+              <span class="toggle-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--clr-gray-300); transition: 0.3s; border-radius: 24px;">
+                <span class="toggle-knob" style="position: absolute; content: ''; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: 0.3s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></span>
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--clr-gray-200);">
+          <div style="flex: 1;">
+            <div style="font-weight: 500; color: var(--clr-heading); margin-bottom: 4px;">Auto‑Capture Delay</div>
+            <div style="font-size: 13px; color: var(--clr-gray-600); line-height: 1.4;">Only auto-capture after you linger on a page for the selected time.</div>
+          </div>
+          <div style="margin-left: 16px;">
+            <select id="autoCaptureDelaySelect" class="filter-select" style="max-width: 160px;">
+              <option value="default">Default (3s)</option>
+              <option value="10000">10 seconds</option>
+              <option value="20000">20 seconds</option>
+              <option value="30000">30 seconds</option>
+              <option value="60000">1 minute</option>
+              <option value="120000">2 minutes</option>
+              <option value="300000">5 minutes</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="setting-item" style="padding: 12px 0; border-bottom: 1px solid var(--clr-gray-200);">
+          <div style="font-weight: 500; color: var(--clr-heading);">Custom Vertex Proxy URL</div>
+          <div style="font-size: 13px; color: var(--clr-gray-600); line-height: 1.4; margin-top: 4px;">
+            Heavy usage? Deploy your own Cloud Run proxy and paste the URL here to use your own Google Cloud Platform billing.
+            <a href="https://cloud.google.com/run/docs/quickstarts/deploy-container" target="_blank" rel="noopener noreferrer" style="margin-left: 6px; color: var(--clr-primary-10); text-decoration: underline; font-weight: 500;">Deploy guide</a>
+          </div>
+          <div style="margin-top: 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <input id="customProxyUrlInput" type="text" placeholder="https://your-proxy-xxxxx.run.app" style="flex: 1; min-width: 260px; background: var(--clr-gray-200); border: 1px solid var(--clr-gray-300); border-radius: 6px; padding: 8px 10px; color: var(--clr-body); font-size: 12px;">
+            <button id="applyProxyBtn" class="button" style="padding: 8px 12px;">Apply</button>
+            <button id="testProxyBtn" class="button" style="padding: 8px 12px;">Test</button>
+          </div>
+        </div>
+        
+        <div class="setting-note" style="margin-top: 12px; padding: 12px; background: var(--clr-gray-50); border-radius: 8px; font-size: 12px; color: var(--clr-gray-600);">
+          💡 Manual capture with <kbd>Cmd+Shift+S</kbd> (Mac) or <kbd>Ctrl+Shift+S</kbd> (Windows/Linux) always works.
+          <br><br>
+          <a href="#" id="customizeShortcutLink" style="color: var(--clr-primary-10); text-decoration: underline; cursor: pointer; font-weight: 500;">⚙️ Customize keyboard shortcut</a>
+        </div>
+      </div>
+      
+              <div class="storage-section" style="background: var(--clr-card-bg); border: 1px solid var(--clr-gray-200); padding: 20px; border-radius: 12px; margin-bottom: 20px;">
+          <h3 style="margin: 0 0 16px 0; color: var(--clr-heading); font-size: 16px; font-weight: 600;">💾 Storage Usage</h3>
+          
+          <div class="storage-stats" id="storageStats" style="font-size: 13px; color: var(--clr-gray-600); line-height: 1.6;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <span>Recent articles:</span>
+              <span id="recentCount">Loading...</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <span>Archived articles:</span>
+              <span id="archivedCount">Loading...</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <span>Total articles:</span>
+              <span id="totalCount">Loading...</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <span>Storage usage:</span>
+              <span id="storageUsage">Loading...</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <span>Articles embedded:</span>
+              <span id="embeddedCount">Loading...</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0;">
+              <span>Semantic searches used:</span>
+              <span id="searchesUsed">Loading...</span>
+            </div>
+          </div>
+          
+          <div style="margin-top: 12px; padding: 12px; background: var(--clr-gray-50); border-radius: 8px; font-size: 12px; color: var(--clr-gray-600);">
+            💡 Recent articles load instantly. Older articles are archived for unlimited storage.
+          </div>
+        </div>
+        
+        <div class="export-section" style="background: var(--clr-card-bg); border: 1px solid var(--clr-gray-200); padding: 20px; border-radius: 12px; margin-bottom: 20px;">
+        <h3 style="margin: 0 0 16px 0; color: var(--clr-heading); font-size: 16px; font-weight: 600;">📤 Export All Data</h3>
         
         
         <div class="export-options" style="display: flex; flex-direction: column; gap: 12px;">
@@ -2727,9 +2851,6 @@
           </button>
         </div>
       </div>
-    </div>
-
-
     </div>
   </div>
   

@@ -7,7 +7,9 @@
     "activeTab",
     "storage",
     "tabs",
-    "sidePanel"
+    "sidePanel",
+    "scripting",
+    "notifications"
   ],
   "host_permissions": [
     "https://notebooklm.google.com/*",
@@ -33,7 +35,7 @@
     "128": "icon128.png"
   },
   "commands": {
-    "trigger_action": {
+    "capture_page": {
       "suggested_key": {
         "default": "Ctrl+Shift+S",
         "mac": "Command+Shift+S"

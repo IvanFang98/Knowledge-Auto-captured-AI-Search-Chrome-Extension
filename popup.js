@@ -23,7 +23,13 @@ const AppState = {
     dateFrom: '',
     dateTo: '',
     isActive: false
-  }
+  },
+  // Auto-capture setting (default to true for new users)
+  autoCaptureEnabled: true,
+  // On-page reminder for auto-capture (webpage toast); extension notification always on
+  webReminderEnabled: true,
+  // Auto-capture dwell delay in ms; 'default' means built-in 3000 ms
+  autoCaptureDelayMs: 'default'
 };
 
 // === UTILITIES ===
@@ -225,6 +231,12 @@ const Elements = {
     
     // Settings elements
     this.settingsIconBtn = Utils.$('#settingsIconBtn');
+    this.autoCaptureToggle = Utils.$('#autoCaptureToggle');
+    this.webReminderToggle = Utils.$('#webReminderToggle');
+    this.autoCaptureDelaySelect = Utils.$('#autoCaptureDelaySelect');
+    this.customProxyUrlInput = Utils.$('#customProxyUrlInput');
+    this.applyProxyBtn = Utils.$('#applyProxyBtn');
+    this.testProxyBtn = Utils.$('#testProxyBtn');
     
     // Export elements
     this.exportJsonBtn = Utils.$('#exportJsonBtn');
@@ -357,8 +369,8 @@ const Search = {
       
       // Initialize Vertex AI Search if not already done
       if (!window.vertexAISearch) {
-        window.vertexAISearch = new window.VertexAISearch();
-        await window.vertexAISearch.init();
+          window.vertexAISearch = new window.VertexAISearch();
+          await window.vertexAISearch.init();
         Utils.showNotification('Vertex AI Search is ready!', 'Success');
       }
       
@@ -394,7 +406,7 @@ const Search = {
         const checkCancellation = () => {
           if (AppState.searchCancelled) {
             resolve(null);
-          } else {
+      } else {
             setTimeout(checkCancellation, 100); // Check every 100ms
           }
         };
@@ -770,13 +782,13 @@ const Search = {
               </a>
             </h3>
             <div class="entry-meta">
-              <span class="author">${author}</span>
-              <span class="timestamp">${timestamp}</span>
+            <span class="author">${author}</span>
+          <span class="timestamp">${timestamp}</span>
               ${searchTypeBadge}
-            </div>
+        </div>
             ${keywordSearchContent}
             ${enhancedContent}
-          </div>
+        </div>
         </div>
 
       </div>
@@ -812,12 +824,12 @@ const Search = {
       
       // Sort terms by length (longest first) to avoid partial matches
       terms.sort((a, b) => b.length - a.length);
-      
-      terms.forEach(term => {
+    
+    terms.forEach(term => {
         // Create case-insensitive regex that matches whole words or parts of words
-        const regex = new RegExp(`(${Utils.escapeRegExp(term)})`, 'gi');
-        highlighted = highlighted.replace(regex, '<mark>$1</mark>');
-      });
+      const regex = new RegExp(`(${Utils.escapeRegExp(term)})`, 'gi');
+      highlighted = highlighted.replace(regex, '<mark>$1</mark>');
+    });
     }
     
     return highlighted;
@@ -1235,7 +1247,7 @@ const Search = {
     UI.showFullTextModal(entry, AppState.currentSearch);
   },
   
-
+    
   
   clearResults() {
     // Cancel any ongoing search
@@ -1526,6 +1538,107 @@ const UI = {
     }
   },
   
+  showSettingsTab() {
+    this.switchTab('settings');
+    // Load storage stats when settings tab is shown
+    this.loadStorageStats();
+    // Load usage stats (embeds/searches caps)
+    this.loadUsageStats?.();
+  },
+
+  async loadUsageStats() {
+    try {
+      const searchesUsedEl = document.getElementById('searchesUsed');
+      if (searchesUsedEl) searchesUsedEl.textContent = 'Loading...';
+
+      const status = await Utils.sendMessage({ action: 'usage_status' });
+      const searches = status?.searches ?? 0;
+      const maxSearches = status?.maxSearches ?? 200;
+
+      if (searchesUsedEl) searchesUsedEl.textContent = `${searches}/${maxSearches}`;
+    } catch (e) {
+      const searchesUsedEl = document.getElementById('searchesUsed');
+      if (searchesUsedEl) searchesUsedEl.textContent = '0/200';
+    }
+  },
+  
+  async loadStorageStats() {
+    try {
+      // Set loading state
+      const recentCount = document.getElementById('recentCount');
+      const archivedCount = document.getElementById('archivedCount');
+      const totalCount = document.getElementById('totalCount');
+      const storageUsage = document.getElementById('storageUsage');
+      const embeddedCount = document.getElementById('embeddedCount');
+      const searchesUsedEl = document.getElementById('searchesUsed');
+      
+      if (recentCount) recentCount.textContent = 'Loading...';
+      if (archivedCount) archivedCount.textContent = 'Loading...';
+      if (totalCount) totalCount.textContent = 'Loading...';
+      if (storageUsage) storageUsage.textContent = 'Loading...';
+      if (embeddedCount) embeddedCount.textContent = 'Loading...';
+      if (searchesUsedEl) searchesUsedEl.textContent = 'Loading...';
+      
+      // Try to get storage stats with timeout
+      const response = await Utils.withTimeout(
+        Utils.sendMessage({ action: 'get_storage_stats' }),
+        5000 // 5 second timeout
+      );
+      
+      if (response && response.stats) {
+        const stats = response.stats;
+        // Also fetch usage status for searches used
+        let usageStatus = null;
+        try { usageStatus = await Utils.sendMessage({ action: 'usage_status' }); } catch (_) {}
+        
+        // Update storage stats display
+        if (recentCount) recentCount.textContent = stats.recentCount || 0;
+        if (archivedCount) archivedCount.textContent = stats.archivedCount || 0;
+        if (totalCount) totalCount.textContent = stats.totalCount || 0;
+        if (storageUsage) storageUsage.textContent = `${stats.chromeStorageUsageMB || '0.00'} MB`;
+        if (embeddedCount) {
+          // Show embedded vectors across existing entries, denominator is total articles
+          const embedded = stats.embeddedCount || 0;
+          const denominator = stats.totalCount || 0;
+          embeddedCount.textContent = `${embedded}/${denominator}`;
+        }
+        if (searchesUsedEl) {
+          const searches = usageStatus?.searches ?? 0;
+          const maxSearches = usageStatus?.maxSearches ?? 200;
+          searchesUsedEl.textContent = `${searches}/${maxSearches}`;
+        }
+      } else {
+        // Fallback to basic stats from chrome.storage.local only
+        const recentEntries = await Utils.get('entries') || [];
+        const usage = await chrome.storage.local.getBytesInUse();
+        
+        if (recentCount) recentCount.textContent = recentEntries.length;
+        if (archivedCount) archivedCount.textContent = '0';
+        if (totalCount) totalCount.textContent = recentEntries.length;
+        if (storageUsage) storageUsage.textContent = `${(usage / 1024 / 1024).toFixed(2)} MB`;
+        if (embeddedCount) embeddedCount.textContent = `0/${recentEntries.length}`;
+        if (searchesUsedEl) searchesUsedEl.textContent = '0/200';
+      }
+    } catch (error) {
+      console.error('Failed to load storage stats:', error);
+      
+      // Set fallback values on error
+      const recentCount = document.getElementById('recentCount');
+      const archivedCount = document.getElementById('archivedCount');
+      const totalCount = document.getElementById('totalCount');
+      const storageUsage = document.getElementById('storageUsage');
+      const embeddedCount = document.getElementById('embeddedCount');
+      const searchesUsedEl = document.getElementById('searchesUsed');
+      
+      if (recentCount) recentCount.textContent = '0';
+      if (archivedCount) archivedCount.textContent = '0';
+      if (totalCount) totalCount.textContent = '0';
+      if (storageUsage) storageUsage.textContent = '0.00 MB';
+      if (embeddedCount) embeddedCount.textContent = '0/0';
+      if (searchesUsedEl) searchesUsedEl.textContent = '0/200';
+    }
+  },
+  
   setupSearchOptions() {
     Elements.searchOptions.forEach(option => {
       option.addEventListener('click', async () => {
@@ -1596,7 +1709,7 @@ const UI = {
         Utils.hideElement(Elements.searchFilters);
         Elements.searchFilters.style.display = 'none';
         Elements.searchFilters.setAttribute('data-hidden', 'true');
-      } else {
+    } else {
         Utils.hideElement(Elements.searchFilters);
         // Force hide with inline style and data attribute to override any CSS
         Elements.searchFilters.style.display = 'none';
@@ -1744,6 +1857,24 @@ const UI = {
     
     // Settings
     Elements.saveApiKeyBtn?.addEventListener('click', Data.saveApiKey.bind(Data));
+    if (Elements.autoCaptureDelaySelect) {
+      Elements.autoCaptureDelaySelect.addEventListener('change', (e) => {
+        const val = e.target.value;
+        Data.changeAutoCaptureDelay(val);
+      });
+    }
+    if (Elements.applyProxyBtn) {
+      Elements.applyProxyBtn.addEventListener('click', async () => {
+        const url = Elements.customProxyUrlInput?.value?.trim() || '';
+        await Data.applyCustomProxy(url);
+      });
+    }
+    if (Elements.testProxyBtn) {
+      Elements.testProxyBtn.addEventListener('click', async () => {
+        const url = Elements.customProxyUrlInput?.value?.trim() || '';
+        await Data.testCustomProxy(url);
+      });
+    }
     
     // Test button
     const testTextExtractionBtn = document.getElementById('testTextExtractionBtn');
@@ -1999,6 +2130,16 @@ const UI = {
     if (closeSettingsBtn) {
       closeSettingsBtn.addEventListener('click', () => UI.switchTab('search'));
     }
+
+    // Auto-capture toggle
+    if (Elements.autoCaptureToggle) {
+      Elements.autoCaptureToggle.addEventListener('change', () => Data.toggleAutoCapture());
+    }
+
+    // On-page reminder toggle
+    if (Elements.webReminderToggle) {
+      Elements.webReminderToggle.addEventListener('change', () => Data.toggleWebReminder());
+    }
   },
   
   showFullTextModal(entry, searchQuery = '') {
@@ -2147,7 +2288,7 @@ const UI = {
     try {
       // Get the current shortcut key from Chrome commands API
       const commands = await chrome.commands.getAll();
-      const triggerAction = commands.find(cmd => cmd.name === 'trigger_action');
+      const triggerAction = commands.find(cmd => cmd.name === 'capture_page');
       
       if (triggerAction && triggerAction.shortcut) {
         // Format and update the shortcut link text
@@ -2458,6 +2599,13 @@ const Data = {
     try {
       const response = await Utils.sendMessage({ action: 'get_entries' });
       AppState.allEntries = response?.entries || [];
+      
+      // Get recent entries to track which ones are recent vs archived
+      const recentResponse = await Utils.sendMessage({ action: 'get_recent_entries' });
+      if (recentResponse?.entries) {
+        AppState.recentEntryIds = new Set(recentResponse.entries.map(entry => String(entry.id)));
+      }
+      
       this.displayEntries(AppState.allEntries);
       // Update checkboxes after displaying entries
       setTimeout(() => this.updateCheckboxStates(), 100);
@@ -2497,8 +2645,8 @@ const Data = {
     
     // Ensure event listeners are set up after DOM is ready
     setTimeout(() => {
-      this.setupEntryEventListeners();
-      this.setupScrollExpansion();
+    this.setupEntryEventListeners();
+    this.setupScrollExpansion();
       // Update checkbox states and selection UI after setup
       this.updateCheckboxStates();
       this.updateSelectionUI();
@@ -2518,6 +2666,13 @@ const Data = {
                    url.includes('samaltman.com') ? 'Sam Altman' : 
                    'Unknown Author';
     
+    // Check if this entry is in recent storage or archived
+    // We'll determine this by checking if it's in the recent entries list
+    const isRecent = AppState.recentEntryIds ? AppState.recentEntryIds.has(String(entry.id)) : true;
+    const storageBadge = isRecent ? 
+      '<span style="background: #e3f2fd; color: #1976d2; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 500; margin-left: 8px;">Recent</span>' :
+      '<span style="background: #f3e5f5; color: #7b1fa2; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 500; margin-left: 8px;">Archived</span>';
+    
     return `
       <div class="entry" data-entry-id="${entry.id}">
         <div class="entry-header">
@@ -2532,6 +2687,7 @@ const Data = {
               <a href="${entry.url || '#'}" target="_blank" class="entry-title-link" style="color: inherit; text-decoration: none; cursor: pointer;">
                 ${Utils.escapeHtml(entry.title)}
               </a>
+              ${storageBadge}
             </h3>
             <div class="entry-meta">
               <span class="author">${author}</span>
@@ -2539,7 +2695,6 @@ const Data = {
         </div>
           </div>
         </div>
-
       </div>
     `;
   },
@@ -2930,7 +3085,7 @@ const Data = {
           });
         } else {
           // Select all articles in the database (home page behavior)
-          AppState.allEntries.forEach(entry => AppState.homeSelectedArticles.add(String(entry.id)));
+        AppState.allEntries.forEach(entry => AppState.homeSelectedArticles.add(String(entry.id)));
         }
         break;
       case 'none':
@@ -2946,7 +3101,7 @@ const Data = {
           });
         } else {
           // Clear all selections (home page behavior)
-          AppState.homeSelectedArticles.clear();
+        AppState.homeSelectedArticles.clear();
         }
         break;
       case 'recent':
@@ -2966,9 +3121,9 @@ const Data = {
             .forEach(result => AppState.homeSelectedArticles.add(String(result.id)));
         } else {
           // Select recent articles from all entries (home page behavior)
-          AppState.allEntries
-            .filter(entry => entry.timestamp > oneWeekAgo)
-            .forEach(entry => AppState.homeSelectedArticles.add(String(entry.id)));
+        AppState.allEntries
+          .filter(entry => entry.timestamp > oneWeekAgo)
+          .forEach(entry => AppState.homeSelectedArticles.add(String(entry.id)));
         }
         break;
     }
@@ -3164,7 +3319,7 @@ const Data = {
       Utils.showNotification('Delete failed', 'error');
     }
   },
-
+  
   async clearAllEntries() {
     if (!confirm('Are you sure you want to clear all entries? This cannot be undone.')) return;
     
@@ -3331,13 +3486,13 @@ const Data = {
 
       switch (format) {
         case 'json':
-          const exportData = {
-            timestamp: Date.now(),
-            version: '2.0.0',
-            entries: AppState.allEntries,
-            stats: stats,
-            searchFilterState: AppState.searchFilterState
-          };
+      const exportData = {
+        timestamp: Date.now(),
+        version: '2.0.0',
+        entries: AppState.allEntries,
+        stats: stats,
+        searchFilterState: AppState.searchFilterState
+      };
           content = JSON.stringify(exportData, null, 2);
           filename = `knowledge-capture-export-${timestamp}.json`;
           mimeType = 'application/json';
@@ -3424,7 +3579,7 @@ const Data = {
       console.error('Failed to clear error states:', error);
       // Only show error notification if it's a manual action
       if (error.message !== 'Extension context invalidated') {
-        Utils.showNotification('Failed to clear error states', 'error');
+      Utils.showNotification('Failed to clear error states', 'error');
       }
     }
   },
@@ -3440,7 +3595,7 @@ const Data = {
       
       if (response.success) {
         if (response.action === 'saved') {
-          Utils.showNotification(`✅ Captured: ${response.entry.title}`, 'success');
+        Utils.showNotification(`✅ Captured: ${response.entry.title}`, 'success');
         } else if (response.action === 'kept_original') {
           Utils.showNotification(`📄 Kept original: ${response.entry.title}`, 'info');
         } else {
@@ -3453,11 +3608,11 @@ const Data = {
         
             // Update embedding status since we have a new article
     await this.updateEmbeddingStatus();
-    
-    // Switch to home view if in search mode
-    if (AppState.currentSearch) {
-      Search.clearResults();
-    }
+        
+        // Switch to home view if in search mode
+        if (AppState.currentSearch) {
+          Search.clearResults();
+        }
       } else {
         throw new Error(response.error || 'Capture failed');
       }
@@ -3605,6 +3760,117 @@ const Data = {
     };
     
     container.addEventListener('scroll', handleScroll);
+  },
+
+  // === SETTINGS MANAGEMENT ===
+  async loadSettings() {
+    try {
+      const settings = await Utils.get('extensionSettings') || {};
+      AppState.autoCaptureEnabled = settings.autoCaptureEnabled !== undefined ? settings.autoCaptureEnabled : true;
+      AppState.webReminderEnabled = settings.webReminderEnabled !== undefined ? settings.webReminderEnabled : true;
+      AppState.autoCaptureDelayMs = settings.autoCaptureDelayMs !== undefined ? settings.autoCaptureDelayMs : 'default';
+      AppState.customProxyUrl = settings.customProxyUrl || '';
+      
+      // Update UI to reflect current setting
+      if (Elements.autoCaptureToggle) {
+        Elements.autoCaptureToggle.checked = AppState.autoCaptureEnabled;
+      }
+      if (Elements.webReminderToggle) {
+        Elements.webReminderToggle.checked = AppState.webReminderEnabled;
+      }
+      if (Elements.autoCaptureDelaySelect) {
+        Elements.autoCaptureDelaySelect.value = String(AppState.autoCaptureDelayMs);
+      }
+      if (Elements.customProxyUrlInput) {
+        Elements.customProxyUrlInput.value = AppState.customProxyUrl || '';
+      }
+
+      // If no custom proxy and caps are exhausted, force keyword mode and disable semantic UI affordances
+      try {
+        const status = await Utils.sendMessage({ action: 'usage_status' });
+        const embedsLeft = Math.max(0, (status.maxEmbeds || 100) - (status.embeds || 0));
+        const searchesLeft = Math.max(0, (status.maxSearches || 200) - (status.searches || 0));
+        const outOfProxy = !AppState.customProxyUrl || AppState.customProxyUrl.trim() === '';
+        if (outOfProxy && searchesLeft === 0) {
+          AppState.currentSearchMode = 'keyword';
+        }
+      } catch (_) {}
+    } catch (error) {
+      console.error('Failed to load settings:', error);
+      AppState.autoCaptureEnabled = true;
+      AppState.webReminderEnabled = true;
+      AppState.autoCaptureDelayMs = 'default';
+      AppState.customProxyUrl = '';
+    }
+  },
+
+  async saveSettings() {
+    try {
+      const settings = {
+        autoCaptureEnabled: AppState.autoCaptureEnabled,
+        webReminderEnabled: AppState.webReminderEnabled,
+        autoCaptureDelayMs: AppState.autoCaptureDelayMs,
+        customProxyUrl: AppState.customProxyUrl || ''
+      };
+      await Utils.set('extensionSettings', settings);
+      
+      // Notify content scripts about the setting change
+      await Utils.sendMessage({ 
+        action: 'update_auto_capture_setting', 
+        enabled: AppState.autoCaptureEnabled,
+        webReminderEnabled: AppState.webReminderEnabled,
+        autoCaptureDelayMs: AppState.autoCaptureDelayMs
+      });
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+    }
+  },
+
+  async toggleAutoCapture() {
+    AppState.autoCaptureEnabled = !AppState.autoCaptureEnabled;
+    await this.saveSettings();
+    
+    // Update UI
+    if (Elements.autoCaptureToggle) {
+      Elements.autoCaptureToggle.checked = AppState.autoCaptureEnabled;
+    }
+    
+    // Show notification
+    const status = AppState.autoCaptureEnabled ? 'enabled' : 'disabled';
+    Utils.showNotification(`Auto-capture ${status}`, 'success');
+  },
+
+  async toggleWebReminder() {
+    AppState.webReminderEnabled = !AppState.webReminderEnabled;
+    await this.saveSettings();
+    if (Elements.webReminderToggle) {
+      Elements.webReminderToggle.checked = AppState.webReminderEnabled;
+    }
+    const status = AppState.webReminderEnabled ? 'enabled' : 'disabled';
+    Utils.showNotification(`On-page reminder ${status}`, 'success');
+  },
+
+  async changeAutoCaptureDelay(value) {
+    AppState.autoCaptureDelayMs = value;
+    await this.saveSettings();
+    Utils.showNotification('Auto-capture delay updated', 'success');
+  },
+
+  async applyCustomProxy(url) {
+    AppState.customProxyUrl = url || '';
+    await this.saveSettings();
+    Utils.showNotification(url ? 'Custom proxy applied' : 'Custom proxy cleared', 'success');
+  },
+
+  async testCustomProxy(url) {
+    try {
+      if (!url) throw new Error('Enter a proxy URL first');
+      const resp = await fetch(`${url}/health`, { headers: { 'X-Extension-ID': chrome.runtime.id } });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      Utils.showNotification('Proxy health OK', 'success');
+    } catch (e) {
+      Utils.showNotification(`Proxy test failed: ${e.message}`, 'error');
+    }
   }
 };
 
@@ -4224,6 +4490,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       Data.loadEntries(),
       Data.loadStats(),
       Data.loadSelectedArticles(),
+      Data.loadSettings(),
       Search.restoreState(),
       Sorting.restoreSortState()
     ]);
@@ -4253,17 +4520,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Listen for refresh display messages from background script
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-      if (message.action === 'refreshDisplay') {
+      if (message.action === 'refreshDisplay' || message.action === 'refresh_display') {
         Data.handleRefreshDisplay();
         sendResponse({ success: true });
       } else if (message.action === 'showNotification') {
         Utils.showNotification(message.message, message.type);
+        sendResponse({ success: true });
+      } else if (message.action === 'usage_cap_reached') {
+        // Surface guidance to set a custom proxy URL
+        Utils.showNotification('Free limit reached. Set a Custom Vertex Proxy URL in Settings to continue.', 'warning');
         sendResponse({ success: true });
       }
     });
     
     // Check for recent captures when popup opens (in case shortcut was used)
     await Data.checkForRecentCaptures();
+
+    // If a cap warning was persisted while popup was closed, surface it now
+    try {
+      const { pendingUsageCapWarning } = await chrome.storage.local.get('pendingUsageCapWarning');
+      if (pendingUsageCapWarning && pendingUsageCapWarning.type === 'embed') {
+        Utils.showNotification('Free embedding limit reached. Set a Custom Vertex Proxy URL in Settings to continue.', 'warning');
+        await chrome.storage.local.remove('pendingUsageCapWarning');
+      }
+    } catch (_) {}
     
 
     
@@ -4279,6 +4559,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Initialize clear button visibility
     Search.updateClearButtonVisibility();
+    
+    // Setup settings icon click handler
+    if (Elements.settingsIconBtn) {
+      Elements.settingsIconBtn.addEventListener('click', () => {
+        UI.showSettingsTab();
+      });
+    }
+
+    // Allow background/content to request opening the Settings tab explicitly
+    chrome.runtime.onMessage.addListener((message) => {
+      if (message && message.action === 'open_settings_tab') {
+        UI.showSettingsTab();
+      }
+    });
+    
+    // Setup customize shortcut link click handler
+    const customizeShortcutLink = document.getElementById('customizeShortcutLink');
+    if (customizeShortcutLink) {
+      customizeShortcutLink.addEventListener('click', (event) => {
+        event.preventDefault();
+        UI.openShortcutsPage(event);
+      });
+    }
     
 
   } catch (error) {

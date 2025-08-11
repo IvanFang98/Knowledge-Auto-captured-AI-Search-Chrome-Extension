@@ -1,48 +1,48 @@
 # Knowledge Capture & AI Search
 
-**Transform your browsing into an AI-powered knowledge base with local semantic search and NotebookLM integration.**
-
-Knowledge Capture & AI Search captures articles as you browse, organizes them locally for instant search, and provides seamless export to NotebookLM. Build your personal knowledge repository with AI-powered insights and semantic understanding.
+Knowledge Capture & AI Search captures articles as you browse and read, organizes them locally for instant search, and provides seamless export to NotebookLM. Build your personal knowledge repository with AI-powered insights and semantic understanding.
 
 ## ✨ Key Features
 
 ### 📚 Intelligent Article Capture
-- **One-click capture** with keyboard shortcut (`Cmd+Shift+S` on Mac, `Ctrl+Shift+S` on Windows/Linux)
+- **Auto-capture** automatically saves supported articles as you browse (configurable)
+- **Manual capture** with keyboard shortcut (`Cmd+Shift+S` on Mac, `Ctrl+Shift+S` on Windows/Linux)
 - **Smart text extraction** with automatic cleaning and formatting
 - **Metadata preservation** (title, URL, timestamp, word count, author)
 - **Local storage** for instant access and privacy
 - **Duplicate detection** with smart replacement options
+- **Dwell-time control**: Optional delay before auto-capture (Default 3s, 10s, 20s, 30s, 1m, 2m, 5m)
 
 ### 🔍 Dual Search Engine
+- **Semantic Search**: Vertex AI powered 
+  - Meaning-based search helps you find what you need without typing the exact keywords
+  - Exact citation linking AI response and source articles
 - **Keyword Search**: Fast, precise text matching with advanced filters
-  - Exact phrase matching with verbatim filter
-  - Time-based filtering (last week, month, year, custom range)
-  - Advanced search with boolean operators (AND, OR, NOT)
-- **Semantic Search**: AI-powered understanding using Vertex AI
-  - Meaning-based search, not just keyword matching
-  - Bi-directional citation linking between AI response and source articles
-  - Nonsensical query detection with helpful suggestions
-- **Real-time results** with highlighted matches and full sentence context
+  
+### 🔁 Resilient Embedding Sync
+- **Auto-embed on save**: New articles are embedded automatically in the background
+- **Persistent backfill queue**: Any missed embeddings are queued and retried with exponential backoff
+
+### 🆓 Vertex AI limits 
+- **Free limits** (one-time): 100 embeddings + 200 semantic searches
+- **Over the limit**: Auto-capture and semantic search are paused
+- **Resume unlimited usage**: Paste your own Cloud Run Vertex proxy URL in Settings; limits are bypassed and all functionalities resumes automatically
 
 ### 🧠 NotebookLM Integration
 - **Bulk Export**: Select multiple articles for batch NotebookLM import
-- **Smart Selection Tools**: Select All, Select None, Select Recent
-- **Export to NotebookLM**: Direct integration with Google's AI notebook
-- **Export History**: Track all exports with direct links
+- **Automatic NotebookLM Export**: Export to NotebookLM for in-depth semantic search and learning 
+
+**Why NotebookLM?**
+NotebookLM has the best Retrieval-augmented generation (RAG) pipeline currently that indexes your sources, retrieves the most relevant chunks, and grounds answers with citations. You get high‑quality, citeable results that stay faithful to your content and scale well across multi‑document queries. 
 
 ## 🚀 Quick Start
 
-### Installation
-1. Clone or download this repository
-2. Open Chrome and go to `chrome://extensions/`
-3. Enable "Developer mode"
-4. Click "Load unpacked" and select the extension folder
-5. Pin the extension to your toolbar
-
 ### First Use
-1. **Capture Articles**: Use `Cmd+Shift+S` (Mac) or `Ctrl+Shift+S` (Windows/Linux) while browsing
-2. **Search Your Knowledge**: Switch to Search tab to find saved content
-3. **Export to NotebookLM**: Select articles and export to NotebookLM for AI analysis
+1. **Auto-Capture Enabled**: Articles are automatically saved as you browse (enabled by default)
+2. **Manual Capture**: Use `Cmd+Shift+S` (Mac) or `Ctrl+Shift+S` (Windows/Linux) for manual capture
+3. **Search Your Knowledge**: Switch to Search tab to find saved content
+4. **Export to NotebookLM**: Select articles and export to NotebookLM for AI analysis
+5. **Customize Settings**: Turn off auto-capture for manual-only mode if preferred; adjust dwell-time; paste a Custom Vertex Proxy URL to remove free-tier limits
 
 ## 🔍 Search Features
 
@@ -61,180 +61,40 @@ Knowledge Capture & AI Search captures articles as you browse, organizes them lo
 - **Citation System**: 
   - Click `[1]`, `[2]`, etc. in AI response to jump to source articles
   - Click circle numbers in Sources to jump back to citations
-- **Smart Detection**: Identifies nonsensical queries and suggests better alternatives
+
 - **No API Key Required**: Works locally with built-in AI capabilities
-
-### Search Modes
-- **Switch Between Modes**: Toggle between Keyword and Semantic search
-- **Filter Visibility**: Filters automatically show/hide based on search mode
-- **Results Display**: Different result formats optimized for each mode
-
-## 🧠 NotebookLM Workflow
-
-### 1. Capture & Organize
-```
-Browse Articles → Capture Content → Local Storage → Smart Search
-```
-- Save articles instantly with keyboard shortcut
-- Content automatically cleaned and organized
-- Local search for immediate access
-
-### 2. Curate & Select
-```
-Review Articles → Multi-Select → Preview Export → Choose Format
-```
-- Browse all saved articles with checkboxes
-- Bulk selection tools (All, None, Recent)
-- Real-time selection count and export preview
-
-### 3. Export & Analyze
-```
-NotebookLM Export → AI Analysis → Insights & Connections
-```
-- One-click export to NotebookLM
-- AI-powered analysis and insights
-- Direct integration with Google's AI notebook
 
 ## ⚙️ Setup & Configuration
 
-### Search Preferences
-- **Keyword Mode**: Instant results, exact matching, advanced filters
-- **Semantic Mode**: AI-powered, meaning-based search, citation linking
-- **Filter Management**: Time-based, verbatim, advanced search operators
+### Vertex Proxy Settings
+- **Default mode**: Uses the built-in proxy billed to the author’s project with free-tier caps (100 embeds / 200 semantic searches)
+- **Heavy usage**: Deploy your own Cloud Run proxy and paste its URL in Settings → Custom Vertex Proxy URL
+  - Guide: [Cloud Run quickstart](https://cloud.google.com/run/docs/quickstarts/deploy-container)
+  - Requirements: Allow unauthenticated invocations; copy the service URL and paste it into the extension
+  - After applying: The extension automatically resumes auto-capture and embeddings using your proxy
 
-### Keyboard Shortcuts
-- **Capture Page**: `Cmd+Shift+S` (Mac) / `Ctrl+Shift+S` (Windows/Linux)
-- **Open Extension**: Click extension icon in toolbar
-- **Search**: Press Enter in search bar
-- **Clear Search**: Click X button or press Escape
+### Data security
+- All data stays local by default:
+  - Recent items: `chrome.storage.local`
+  - Archived items: IndexedDB
+  - Embeddings: IndexedDB (`vertex-embeddings → vectors`)
+- If you supply a Custom Vertex Proxy URL, only the text required to create embeddings or generate responses is sent to your proxy/Vertex AI. No remote storage of your library is performed by the extension.
 
-## 📊 Smart Selection Features
+### Storage limits
+- Chrome’s `chrome.storage.local` has a ~5 MB quota. The extension keeps recent items there and automatically archives older items to IndexedDB to avoid quota issues.
+- A background backfill queue ensures embeddings eventually get created without blocking or exceeding quotas.
 
-### Bulk Selection Tools
-- **Select All**: Choose all available articles
-- **Select None**: Clear all selections
-- **Individual Selection**: Check/uncheck specific articles
-- **Selection Count**: Real-time display of selected articles
-
-### Export to NotebookLM
-- **Selected Articles**: Export only chosen articles
-- **Direct Integration**: Seamless connection with NotebookLM
-- **Export History**: Track previous exports
-
-## 🔄 Workflow Examples
-
-### Daily Research Workflow
-1. **Morning**: Capture interesting articles during browsing
-2. **Afternoon**: Use semantic search to explore connections
-3. **Evening**: Select relevant content for NotebookLM export
-4. **Analysis**: Use NotebookLM for AI-powered insights
-
-### Project-Based Workflow
-1. **Research Phase**: Capture all related articles
-2. **Exploration**: Use semantic search to discover connections
-3. **Curation**: Select high-quality, relevant sources
-4. **Export**: Send to NotebookLM for comprehensive analysis
-
-## 🎯 Pro Tips
-
-### Maximizing Search Value
-- **Keyword Mode**: Use specific terms, exact phrases in quotes, leverage filters
-- **Semantic Mode**: Ask natural questions, explore concepts, use citation links
-- **Combined Approach**: Start with semantic search, then use keyword search for specific details
-- **Filter Usage**: Combine time filters with search for precise results
-
-### NotebookLM Best Practices
-- **Quality over Quantity**: Select your best articles rather than everything
-- **Related Content**: Group related articles for better AI analysis
-- **Regular Exports**: Create knowledge snapshots for ongoing projects
-
-## 🔧 Technical Details
-
-### Storage Architecture
-```javascript
-{
-  "textEntries": [
-    {
-      "id": 1735123456789,
-      "title": "Article Title",
-      "url": "https://example.com",
-      "text": "Cleaned article content...",
-      "timestamp": "2024-12-25T10:30:00.000Z",
-      "wordCount": 1250,
-      "author": "Author Name"
-    }
-  ],
-  "searchState": {
-    "currentSearchMode": "keyword|semantic",
-    "searchFilterState": {
-      "timeFilter": "all|week|month|year|custom",
-      "resultsFilter": "all|verbatim",
-      "advancedFilter": {...}
-    }
-  }
-}
-```
-
-### AI Integration
-- **Vertex AI**: Google's enterprise AI platform for semantic search
-- **Local Processing**: No data sent to external servers for search
-- **Embedding Storage**: Local vector database for fast semantic search
-- **Citation System**: Bi-directional linking between AI responses and sources
-
-### Search Optimization
-- **Hybrid Approach**: Combines keyword and semantic search
-- **Smart Filtering**: Time-based, verbatim, and advanced filters
-- **Real-time Results**: Instant search with highlighted matches
-- **Context Preservation**: Full sentence display with proper punctuation
-
-## 🚦 Troubleshooting
-
-### Common Issues
-
-**Articles Not Capturing**
-- Check keyboard shortcut settings in Chrome
-- Ensure page is fully loaded before capturing
-- Try refreshing the page and capturing again
-- Check for popup blockers or permission issues
-
-**Search Returns No Results**
-- Verify articles are saved (check main page for entries)
-- Try switching between Keyword and Semantic search modes
-- Use different search terms or try semantic search for broader results
-- Check if filters are limiting results
-
-**Semantic Search Not Working**
-- Ensure you have internet connection (required for AI processing)
-- Try refreshing the extension
-- Check if Vertex AI service is available
-- Try keyword search as alternative
-
-**NotebookLM Export Issues**
-- Ensure you have NotebookLM access
-- Check if articles are selected before export
-- Verify NotebookLM tab is open and accessible
-
-## 🔮 Future Enhancements
-
-### Planned Features
-- **Enhanced AI**: Improved semantic search capabilities
-- **Better Organization**: Smart categorization and tagging
-- **Advanced Filters**: More sophisticated search and filter options
-- **Export Formats**: Additional export destinations and formats
-- **Collaboration**: Share knowledge bases with teams
-
-### Integration Roadmap
-- **Direct API**: Enhanced NotebookLM integration
-- **Alternative Exports**: Notion, Obsidian, and other platforms
-- **Research Tools**: Citation formatting and academic features
-- **Multi-language**: Support for non-English content
+### Auto‑capture: where it works (and not)
+- Works on readable pages over 500 words:
+  - Articles and essays (e.g., blogs, Substack, Medium)
+  - Documentation and guides (e.g., MDN, developer.chrome.com)
+  - Reference and research (e.g., Wikipedia, arXiv abstract pages)
+- Skips non‑valuable or sensitive pages:
+  - Search results, home feeds, infinite‑scroll timelines
+  - Video/meeting platforms (e.g., YouTube watch pages, Zoom)
+  - Email, calendars, chats, dashboards (e.g., Gmail, Google Calendar, internal tools)
+  - Financial/e‑commerce account areas (e.g., bank portals, shopping carts, checkout)
 
 ## 📄 License
-
 Open source project. Feel free to modify and distribute.
 
----
-
-**Ready to supercharge your knowledge workflow? 🚀**
-
-**Capture → Search → Understand → Export with AI** 

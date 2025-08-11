@@ -99,6 +99,30 @@ class VertexAISearch {
   }
 
   async embed(text, taskType = 'RETRIEVAL_DOCUMENT') {
+    // Enforce freemium embed cap via background manager (skip if custom proxy set)
+    try {
+      const status = await chrome.runtime.sendMessage({ action: 'usage_status' });
+      const hasCustomProxy = !!status?.hasCustomProxy;
+      if (!hasCustomProxy) {
+        const gate = await chrome.runtime.sendMessage({ action: 'usage_consume', usageType: 'embed' });
+        if (!gate || gate.allowed === false) {
+          try { await chrome.runtime.sendMessage({ action: 'usage_cap_reached', type: 'embed' }); } catch (_) {}
+          throw new Error('Free embedding limit reached. Add a custom Vertex proxy URL in Settings to continue.');
+        }
+      }
+    } catch (capErr) {
+      // If background messaging fails, proceed silently to avoid blocking basic use
+      if (capErr && capErr.message && capErr.message.includes('limit')) throw capErr;
+    }
+
+    // Optional: respect user custom proxy from extension settings if available
+    try {
+      const settingsResp = await chrome.storage.local.get('extensionSettings');
+      const settings = settingsResp?.extensionSettings || {};
+      if (settings.customProxyUrl) {
+        this.proxyUrl = settings.customProxyUrl;
+      }
+    } catch (_) {}
     if (!text || text.trim().length === 0) {
       throw new Error('Text cannot be empty');
     }
@@ -211,10 +235,34 @@ class VertexAISearch {
     try {
       console.log('VertexAISearch: Performing semantic search for:', query);
       
-      // Get all entries and ensure they have embeddings
-      const entries = AppState.allEntries || [];
+      // Get all entries directly from storage and ensure they have embeddings
+      const entriesResponse = await chrome.runtime.sendMessage({ action: 'get_entries' });
+      const entries = entriesResponse?.entries || [];
       if (entries.length === 0) {
         return { results: [], isFallback: false, queryTime: 0 };
+      }
+
+      // Freemium cap gating for search counts
+      // Always increment the search counter so the meter reflects actual usage,
+      // but only block when the user is on the default proxy (no custom proxy).
+      try {
+        const status = await chrome.runtime.sendMessage({ action: 'usage_status' });
+        const hasCustomProxy = !!status?.hasCustomProxy;
+        const gate = await chrome.runtime.sendMessage({ action: 'usage_consume', usageType: 'search' });
+        if (!hasCustomProxy) {
+          if (!gate || gate.allowed === false) {
+            try {
+              await chrome.runtime.sendMessage({ action: 'usage_cap_reached', type: 'search' });
+              // Also request page banner for current tab
+              await chrome.runtime.sendMessage({ action: 'broadcast_usage_cap_embed' });
+            } catch (_) {}
+            throw new Error('Free semantic search limit reached. Set a Custom Vertex Proxy URL in Settings to continue.');
+          }
+        }
+        // If hasCustomProxy, proceed regardless of cap; the counter still increments.
+      } catch (err) {
+        // Surface error back to caller
+        throw err;
       }
 
       await this.ensureDocumentEmbeddings(entries);
@@ -222,20 +270,32 @@ class VertexAISearch {
       // Generate query embedding
       const queryVector = await this.embed(query, 'RETRIEVAL_QUERY');
       
-      // Calculate similarities
+      // Calculate similarities with optimizations
       const results = [];
+      let processedCount = 0;
+      
       for (const entry of entries) {
         const docVector = this.documentVectors.get(String(entry.id));
         if (docVector) {
           const similarity = this.cosineSimilarity(queryVector, docVector);
-          if (similarity > 0.1) { // Filter very low similarities
+          // Use dynamic threshold based on dataset size
+          const threshold = entries.length > 50 ? 0.15 : 0.1;
+          
+          if (similarity > threshold) {
             results.push({
               id: String(entry.id),
               score: similarity,
               searchType: 'semantic'
             });
+            
+            // Early termination if we have enough high-quality results
+            if (results.length >= k * 3 && similarity > 0.8) {
+              console.log(`VertexAISearch: Early termination after ${processedCount} entries`);
+              break;
+            }
           }
         }
+        processedCount++;
       }
 
       // Sort by similarity and take top k
@@ -284,23 +344,7 @@ class VertexAISearch {
 
     console.log('VertexAISearch: Starting conversational search for:', query);
 
-    // Check if query is nonsensical first
-    if (this.isNonsensicalQuery(query)) {
-      const helpfulMessage = `I notice your search query "${query}" might not be clear or meaningful. To help you find relevant information in your saved articles, please try asking a more specific question. For example:
-• What are the main principles of productivity?
-• How does Sam Altman approach decision making?
-• What insights are there about startup success?
-• Tell me about the key lessons from Y Combinator
 
-The more specific and clear your question, the better I can search through your saved articles and provide relevant insights!`;
-      
-      return {
-        response: helpfulMessage,
-        citations: [],
-        summary: null,
-        isNonsensical: true
-      };
-    }
 
     let searchResults = null;
     try {
@@ -316,7 +360,8 @@ The more specific and clear your question, the better I can search through your 
       }
 
       // Get the actual documents
-      const entries = AppState.allEntries || [];
+      const entriesResponse = await chrome.runtime.sendMessage({ action: 'get_entries' });
+      const entries = entriesResponse?.entries || [];
       const relevantDocs = searchResults.results.map(result => {
         const entry = entries.find(e => String(e.id) === result.id);
         return entry ? {
@@ -343,7 +388,8 @@ The more specific and clear your question, the better I can search through your 
       
       // Provide a helpful fallback with the search results
       if (searchResults && searchResults.results.length > 0) {
-        const entries = AppState.allEntries || [];
+        const entriesResponse = await chrome.runtime.sendMessage({ action: 'get_entries' });
+        const entries = entriesResponse?.entries || [];
         const relevantDocs = searchResults.results.slice(0, 3).map(result => {
           const entry = entries.find(e => String(e.id) === result.id);
           return entry ? {
@@ -394,34 +440,7 @@ The more specific and clear your question, the better I can search through your 
         conversationHistory.map(turn => `${turn.role.toUpperCase()}: ${turn.content}`).join('\n') + '\n';
     }
 
-    // Check if query is nonsensical
-    const isNonsensical = this.isNonsensicalQuery(query);
-    
-    let prompt;
-    if (isNonsensical) {
-      prompt = `
-CURRENT QUESTION: ${query}
-
-INSTRUCTIONS:
-The search query appears to be nonsensical or contains random characters. Please respond with a helpful message asking the user to provide a more sensible query.
-
-RESPONSE FORMAT:
-Please provide a friendly, helpful response that:
-1. Acknowledges that the query might be unclear or nonsensical
-2. Suggests the user try a more specific, meaningful question
-3. Provides examples of good search queries they could try
-4. Maintains a helpful and encouraging tone
-
-Example response format:
-"I notice your search query "${query}" might not be clear or meaningful. To help you find relevant information in your saved articles, please try asking a more specific question. For example:
-• What are the main principles of productivity?
-• How does Sam Altman approach decision making?
-• What insights are there about startup success?
-• Tell me about the key lessons from Y Combinator
-
-The more specific and clear your question, the better I can search through your saved articles and provide relevant insights!"`;
-    } else {
-      prompt = `
+    const prompt = `
 
 DOCUMENTS:
 ${context}${historyContext}
@@ -455,7 +474,6 @@ CRITICAL: Use this exact format with each bullet point on its own line. Do NOT a
 • Final relevant point from tenth ranked article [10]
 
 Do NOT use asterisks (*) or dashes (-). Use the bullet symbol (•) and put each point on a separate line. Do NOT add any introductory text like "Here's a summary" or "Based on the documents". Start directly with the first bullet point.`;
-    }
 
     try {
       const response = await this.callGemini(prompt);
@@ -474,30 +492,18 @@ Do NOT use asterisks (*) or dashes (-). Use the bullet symbol (•) and put each
     }
   }
 
-  // Check if a query is nonsensical or contains random characters
-  isNonsensicalQuery(query) {
-    if (!query || typeof query !== 'string') return true;
-    
-    const trimmedQuery = query.trim();
-    if (trimmedQuery.length < 2) return true;
-    
-    // Check for random character patterns (repeated characters, no vowels, etc.)
-    const hasRepeatedChars = /(.)\1{2,}/.test(trimmedQuery); // 3+ repeated characters
-    const hasNoVowels = !/[aeiouAEIOU]/.test(trimmedQuery); // No vowels
-    const hasRandomPattern = /^[a-zA-Z]*$/.test(trimmedQuery) && trimmedQuery.length > 5 && hasNoVowels; // Random letters
-    const hasTypingErrors = /[qwertyuiop]{4,}|[asdfghjkl]{4,}|[zxcvbnm]{4,}/.test(trimmedQuery.toLowerCase()); // Keyboard patterns
-    
-    // Check for very short queries that are likely random
-    const isVeryShort = trimmedQuery.length <= 3 && !/^(what|how|why|who|when|where|the|and|but|for|are|is|can|will|do|go|to|in|on|at|by|up|if|as|or|an|my|me|we|he|she|it|they|them|this|that|here|there|now|then|yes|no|ok|hi|by|of)$/i.test(trimmedQuery);
-    
-    // Check for queries that are just random characters
-    const isRandomChars = /^[a-zA-Z]{1,8}$/.test(trimmedQuery) && trimmedQuery.length >= 4 && hasNoVowels;
-    
-    return hasRepeatedChars || hasRandomPattern || hasTypingErrors || isVeryShort || isRandomChars;
-  }
+
 
   // Call Vertex AI Gemini through the proxy
   async callGemini(prompt, model = 'gemini-2.0-flash-exp') {
+    // Respect custom proxy
+    try {
+      const settingsResp = await chrome.storage.local.get('extensionSettings');
+      const settings = settingsResp?.extensionSettings || {};
+      if (settings.customProxyUrl) {
+        this.proxyUrl = settings.customProxyUrl;
+      }
+    } catch (_) {}
     try {
       const response = await fetch(`${this.proxyUrl}/generate`, {
         method: 'POST',
@@ -553,7 +559,8 @@ Do NOT use asterisks (*) or dashes (-). Use the bullet symbol (•) and put each
 
   // Summarize a specific article
   async summarizeArticle(articleId) {
-    const entries = AppState.allEntries || [];
+    const entriesResponse = await chrome.runtime.sendMessage({ action: 'get_entries' });
+    const entries = entriesResponse?.entries || [];
     const article = entries.find(e => String(e.id) === String(articleId));
     
     if (!article) {
