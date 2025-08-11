@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Knowledge Capture & AI Search",
-  "version": "1.0.0",
-  "description": "Capture articles as you browse and search them with AI-powered semantic understanding. Export to NotebookLM for deeper analysis.",
+  "name": "Knowledge Auto-captured & AI Search",
+  "version": "0.0.0.1",
+  "description": "Auto-capture articles as you browse and search them with AI-powered semantic understanding. Export to NotebookLM for deeper analysis.",
   "permissions": [
     "activeTab",
     "storage",
@@ -12,8 +12,7 @@
     "notifications"
   ],
   "host_permissions": [
-    "https://notebooklm.google.com/*",
-    "https://*.googleapis.com/*"
+    "https://notebooklm.google.com/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -27,7 +26,7 @@
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Knowledge Capture & AI Search"
+    "default_title": "Knowledge Auto-captured & AI Search"
   },
   "icons": {
     "16": "icon16.png",

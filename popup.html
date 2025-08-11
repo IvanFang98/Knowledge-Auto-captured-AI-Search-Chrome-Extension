@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Knowledge Capture & AI Search</title>
+  <title>Knowledge Auto-captured & AI Search</title>
   <style>
     /* === NEW COLOR PALETTE === */
     :root {
@@ -2695,6 +2695,23 @@
       </div>
     </div>
     
+    <!-- Onboarding note just below the toolbar -->
+    <div id="onboardingNote" style="display: none; margin: 10px 0 0 0; background: var(--clr-card-bg); border: 1px solid var(--clr-gray-200); border-radius: 12px; padding: 16px 18px; font-size: 14px; color: var(--clr-body); box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+        <div style="font-size: 18px;">✨</div>
+        <div style="font-weight: 700; color: var(--clr-heading); font-size: 16px;">Quick start</div>
+      </div>
+      <ol style="margin: 0 0 0 18px; padding: 0; line-height: 1.7;">
+        <li>Open any article to auto-capture, or use <span style="font-family:'Courier New',monospace; font-weight:700; font-size: 14px;">Cmd+Shift+S</span> (Mac) / <span style="font-family:'Courier New',monospace; font-weight:700; font-size: 14px;">Ctrl+Shift+S</span> (Win).</li>
+        <li>Search your saved text with
+          <span style="display:inline-block; background: var(--clr-btn-bg); border: 1.5px solid var(--clr-btn-border); border-radius: 10px; padding: 3px 10px; margin: 0 6px; font-size: 13px;">Semantic Search</span>
+          or
+          <span style="display:inline-block; background: var(--clr-btn-bg); border: 1.5px solid var(--clr-btn-border); border-radius: 10px; padding: 3px 10px; margin-left: 4px; font-size: 13px;">Keyword Search</span>.
+        </li>
+        <li>Optional: export selected items to <em>NotebookLM</em> for in-depth learning.</li>
+      </ol>
+    </div>
+    
     <div id="noResults" class="no-results" style="display: none; margin-top: 16px; text-align: center; padding: 20px; background: var(--clr-gray-50); border-radius: 8px; border: 1px solid var(--clr-gray-200);">
       <p style="margin: 0 0 8px 0; color: var(--clr-heading); font-size: 14px; font-weight: 600;">🔍 No results found</p>
       <p style="margin: 0; color: var(--clr-gray-600); font-size: 12px;">Try different keywords or check your spelling</p>
@@ -2855,14 +2872,16 @@
   </div>
   
   <!-- Non-scrollable content moved outside flex container -->
-  <div class="setup-note" id="setupNote" style="position: relative; z-index: 2; margin: 0 0 15px 0; padding: 12px; display: none;">
-    <div class="setup-content">
-      <p>⌨️ Go to <a href="#" id="shortcutsLink" style="color: var(--clr-primary-10); text-decoration: underline; cursor: pointer;">chrome://extensions/shortcuts</a> to configure the keyboard shortcut for quick capture.</p>
-      <p>🤖 AI Semantic Search is now available locally - no API key required! It finds results by meaning, not just keywords.</p>
-      <p>🔒 Your API key is stored locally in your Chrome browser storage only.</p>
-      <p>💡 For first-time use, you may need to reload the Chrome browser to activate the extension.</p>
-  </div>
-    <button class="dismiss-btn" id="dismissSetupNote" title="Don't show again">✕</button>
+  <div class="setup-note" id="setupNote" style="position: relative; z-index: 2; margin: 0 0 12px 0; padding: 12px; display: none; background: var(--clr-gray-100); border: 1px solid var(--clr-gray-200); border-radius: 10px;">
+    <button class="dismiss-btn" id="dismissSetupNote" title="Got it" style="position:absolute; top:8px; right:8px; background:none; border:none; font-size:16px; cursor:pointer; color: var(--clr-gray-600);">✕</button>
+    <div style="font-size: 12px; line-height: 1.5; color: var(--clr-body);">
+      <strong>Quick start</strong>
+      <ol style="margin: 6px 0 0 16px; padding: 0;">
+        <li>Open any article to enable auto-capture (or use Cmd+Shift+S on Mac / Ctrl+Shift+S on Windows).</li>
+        <li>Search your saved text: choose <em>Semantic</em> for meaning-based results or <em>Keyword</em> for exact matches.</li>
+        <li>Optional: export selected items to <em>NotebookLM</em> from the toolbar.</li>
+      </ol>
+    </div>
   </div>
 
   <div class="tab-content active" id="searchTab">
@@ -2891,17 +2910,7 @@
       </div>
     </div>
     
-    <div id="emptyState" class="empty-state">
-      <p>📄 No text saved yet</p>
-      <p>Visit any webpage and click <strong>📄 Capture Page</strong> or press <strong><a href="#" id="emptyStateShortcutLink" class="shortcut" style="font-family: 'Courier New', monospace; font-weight: bold; color: var(--clr-primary-10); text-decoration: underline; cursor: pointer;">Loading...</a></strong> to start grabbing text!</p>
-      <button id="testSidePanelBtn" class="button" style="margin-top: 10px; background: var(--clr-warning); border-color: var(--clr-success);">
-        🧪 Test Side Panel
-      </button>
-      <button id="inspectNotebookLMBtn" class="button" style="margin-top: 10px; background: var(--clr-info); border-color: var(--clr-primary-10);">
-        🔍 Inspect NotebookLM
-      </button>
-
-    </div>
+    <div id="emptyState" class="empty-state"></div>
     
 
   </div>

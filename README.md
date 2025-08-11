@@ -1,6 +1,6 @@
-# Knowledge Capture & AI Search
+# Knowledge Auto-captured & AI Search
 
-Knowledge Capture & AI Search captures articles as you browse and read, organizes them locally for instant search, and provides seamless export to NotebookLM. Build your personal knowledge repository with AI-powered insights and semantic understanding.
+Knowledge Auto-captured & AI Search captures articles as you browse and read, organizes them locally for instant search, and provides seamless export to NotebookLM. Build your personal knowledge repository with AI-powered insights and semantic understanding.
 
 ## ✨ Key Features
 

@@ -1,5 +1,36 @@
-// Knowledge Capture & AI Search Extension - Background Script
+// Knowledge Auto-captured & AI Search Extension - Background Script
 'use strict';
+
+// Disable non-critical console output in production
+(function() {
+  const c = globalThis.console;
+  if (!c) return;
+  const noop = function() {};
+  try {
+    c.log = noop;
+    c.info = noop;
+    c.debug = noop;
+    c.trace = noop;
+  } catch (_) {}
+})();
+
+// Official Web Store build gating for default proxy usage
+const OFFICIAL_EXTENSION_ID = 'ncjpgepmkgekadjmigeajanfgfcjhebm';
+function getDefaultProxyUrl() {
+  try {
+    const runtimeId = (chrome && chrome.runtime && chrome.runtime.id) || '';
+    const allowedFromConfig = (globalThis.window && window.VERTEX_CONFIG && Array.isArray(window.VERTEX_CONFIG.allowedExtensionIds))
+      ? window.VERTEX_CONFIG.allowedExtensionIds
+      : null;
+    const allowList = allowedFromConfig && allowedFromConfig.length > 0
+      ? allowedFromConfig
+      : [OFFICIAL_EXTENSION_ID];
+    const isAllowed = allowList.includes(runtimeId);
+    return isAllowed ? 'https://vertex-ai-proxy-603340132885.us-central1.run.app' : '';
+  } catch (_) {
+    return '';
+  }
+}
 
 // === CONFIGURATION ===
 const CONFIG = {
@@ -113,7 +144,7 @@ const Utils = {
       await chrome.notifications.create({
         type: chromeType,
         iconUrl: 'icon48.png',
-        title: 'Knowledge Capture & AI Search',
+        title: 'Knowledge Auto-captured & AI Search',
         message: message
       });
     } catch (error) {
@@ -602,7 +633,7 @@ const EmbeddingBackfill = {
 
 // === EMBEDDING MANAGER (auto-embed on save) ===
 const EmbeddingManager = {
-  proxyUrl: (globalThis.window && window.VERTEX_CONFIG && window.VERTEX_CONFIG.proxyUrl) || 'https://vertex-ai-proxy-603340132885.us-central1.run.app',
+  proxyUrl: (globalThis.window && window.VERTEX_CONFIG && window.VERTEX_CONFIG.proxyUrl) || getDefaultProxyUrl(),
   model: (globalThis.window && window.VERTEX_CONFIG && window.VERTEX_CONFIG.model) || 'text-embedding-004',
 
   async hasVector(id) {
@@ -631,6 +662,9 @@ const EmbeddingManager = {
   },
 
   async embed(text) {
+    if (!this.proxyUrl || !this.proxyUrl.trim()) {
+      throw new Error('Proxy URL not configured');
+    }
     // Allow custom proxy override from settings if present
     try {
       const settings = await Utils.get('extensionSettings');
@@ -1701,16 +1735,7 @@ const ExtensionManager = {
         addArticlesToNotebookLM(message.notebookId, message.articles);
         sendResponse({ success: true });
         return true; // Keep sendResponse alive for async operations
-      } else if (message.action === 'testSidePanel') {
-        // Test side panel functionality
-        MessageHandler.testSidePanel();
-        sendResponse({ success: true });
-        return true;
-      } else if (message.action === 'testTextExtraction') {
-        // Test text extraction functionality
-        MessageHandler.testTextExtraction();
-        sendResponse({ success: true });
-        return true;
+      
       } else if (message.action === 'save_selected_articles') {
         // Save selected articles
         Storage.setSelectedArticleIds(message.selectedIds);
@@ -1897,7 +1922,7 @@ const ExtensionManager = {
       // Get auto-capture setting and paused state
       const { extensionSettings, autoCapturePaused } = await chrome.storage.local.get(['extensionSettings','autoCapturePaused']);
       const settings = extensionSettings || {};
-      const autoCaptureEnabled = settings.autoCaptureEnabled || false;
+      const autoCaptureEnabled = (settings.autoCaptureEnabled !== undefined) ? settings.autoCaptureEnabled : true;
       const hasCustomProxy = !!(settings.customProxyUrl && String(settings.customProxyUrl).trim());
       if (autoCapturePaused && !hasCustomProxy) {
         // Pause auto-capture globally until user provides a custom proxy URL, but show banner on page
@@ -2021,47 +2046,7 @@ const ExtensionManager = {
     }, CONFIG.CLEANUP_INTERVAL);
   },
 
-  // Debug function to test side panel functionality
-  async testSidePanel() {
-    console.log('=== TESTING SIDE PANEL ===');
-    console.log('Chrome version:', navigator.userAgent);
-    console.log('Chrome APIs:');
-    console.log('- chrome.sidePanel:', !!chrome.sidePanel);
-    console.log('- chrome.sidePanel.open:', !!(chrome.sidePanel && chrome.sidePanel.open));
-    console.log('- chrome.sidePanel.setPanelBehavior:', !!(chrome.sidePanel && chrome.sidePanel.setPanelBehavior));
-    
-    if (chrome.sidePanel) {
-      try {
-        console.log('Testing side panel open...');
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        if (tab) {
-          await chrome.sidePanel.open({ windowId: tab.windowId });
-          console.log('Side panel test successful!');
-        }
-      } catch (error) {
-        console.error('Side panel test failed:', error);
-      }
-    } else {
-      console.log('Side panel API not available');
-    }
-  },
-  
-  // Debug function to test text extraction manually
-  async testTextExtraction() {
-    console.log('🧪🧪🧪 MANUAL TEST BUTTON CLICKED - NOT KEYBOARD SHORTCUT 🧪🧪🧪');
-    console.log('=== TESTING TEXT EXTRACTION ===');
-    try {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (tab) {
-        console.log('Testing extraction on tab:', tab.url);
-        await this.extractTextFromTab(tab);
-      } else {
-        console.error('No active tab found for testing');
-      }
-    } catch (error) {
-      console.error('Text extraction test failed:', error);
-    }
-  }
+  // Debug helpers fully removed
 };
 
 /**
@@ -2150,7 +2135,7 @@ async function addArticlesToNotebookLM(notebookId, articles) {
     progressNotificationId = await chrome.notifications.create({
       type: 'basic',
       iconUrl: 'icon48.png',
-              title: '🧠 Knowledge Capture & AI Search - Auto-Injecting',
+              title: '🧠 Knowledge Auto-captured & AI Search - Auto-Injecting',
       message: notificationMessage,
       priority: 2,
       requireInteraction: true
@@ -2168,9 +2153,31 @@ async function addArticlesToNotebookLM(notebookId, articles) {
             e.returnValue = '⚠️ Auto-injection in progress! Closing this tab will interrupt the process. Are you sure you want to leave?';
             return e.returnValue;
           };
-          
+
+          // Also add bfcache-safe cleanup hooks
+          const cleanupProtection = () => {
+            try {
+              if (window.knowledgeCaptureOriginalBeforeUnload) {
+                window.onbeforeunload = window.knowledgeCaptureOriginalBeforeUnload;
+              } else {
+                window.onbeforeunload = null;
+              }
+            } catch (_) {}
+          };
+          window.addEventListener('pagehide', cleanupProtection, { once: true });
+          document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+              cleanupProtection();
+            }
+          }, { once: true });
+
           // Store original function for cleanup
           window.knowledgeCaptureOriginalBeforeUnload = originalBeforeUnload;
+
+          // Safety timeout to ensure it never lingers
+          try {
+            window.setTimeout(cleanupProtection, 3 * 60 * 1000); // 3 minutes
+          } catch (_) {}
         }
       });
     };
@@ -2199,16 +2206,27 @@ async function addArticlesToNotebookLM(notebookId, articles) {
           // Add tab protection
           tabProtection();
           
-          // First, ensure the content script is injected
-              chrome.scripting.executeScript({
-                target: { tabId: tabId },
-            files: ['notebooklm_automation.js']
-          }).then(() => {
-            // Content script injected
-            startInjectionProcess();
+          // Ensure we only inject into NotebookLM
+          chrome.tabs.get(tabId).then((tabInfo) => {
+            const isNotebookLm = !!(tabInfo && typeof tabInfo.url === 'string' && tabInfo.url.startsWith('https://notebooklm.google.com/'));
+            if (!isNotebookLm) {
+              cleanupAndShowError('Target tab is not a NotebookLM page.');
+              return;
+            }
+            // First, ensure the content script is injected
+            chrome.scripting.executeScript({
+              target: { tabId: tabId },
+              files: ['notebooklm_automation.js']
+            }).then(() => {
+              // Content script injected
+              startInjectionProcess();
+            }).catch((error) => {
+              console.error('NotebookLM: Failed to inject content script:', error);
+              cleanupAndShowError('Failed to inject content script');
+            });
           }).catch((error) => {
-            console.error('NotebookLM: Failed to inject content script:', error);
-            cleanupAndShowError('Failed to inject content script');
+            console.error('NotebookLM: Failed to get tab info before injection:', error);
+            cleanupAndShowError('Failed to verify target tab');
           });
         }
       });
@@ -2216,9 +2234,14 @@ async function addArticlesToNotebookLM(notebookId, articles) {
     
     // Helper function to start the injection process
     function startInjectionProcess() {
-      // First, validate that the tab still exists
+      // First, validate that the tab still exists and is NotebookLM
       chrome.tabs.get(tabId).then((tab) => {
         console.log('NotebookLM: Tab validation successful, tab exists:', tab.id);
+        const isNotebookLm = !!(tab && typeof tab.url === 'string' && tab.url.startsWith('https://notebooklm.google.com/'));
+        if (!isNotebookLm) {
+          cleanupAndShowError('Target tab is not a NotebookLM page.');
+          return;
+        }
         
         // First, ensure the content script is injected
         chrome.scripting.executeScript({
@@ -2388,7 +2411,7 @@ async function addArticlesToNotebookLM(notebookId, articles) {
     chrome.notifications.create({
       type: 'basic',
       iconUrl: 'icon48.png',
-              title: '✅ Knowledge Capture & AI Search - Injection Complete',
+              title: '✅ Knowledge Auto-captured & AI Search - Injection Complete',
       message: `Successfully added ${articles.length} articles to NotebookLM!`,
       priority: 1
     });
@@ -2422,7 +2445,7 @@ async function addArticlesToNotebookLM(notebookId, articles) {
     chrome.notifications.create({
       type: 'basic',
       iconUrl: 'icon48.png',
-              title: '❌ Knowledge Capture & AI Search - Injection Failed',
+              title: '❌ Knowledge Auto-captured & AI Search - Injection Failed',
       message: `Failed to add articles: ${errorMessage}`,
       priority: 2
     });

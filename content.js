@@ -1,5 +1,18 @@
-// Knowledge Capture & AI Search Extension - Content Script
+// Knowledge Auto-captured & AI Search Extension - Content Script
 'use strict';
+
+// Disable non-critical console output in production
+(function() {
+  const c = globalThis.console;
+  if (!c) return;
+  const noop = function() {};
+  try {
+    c.log = noop;
+    c.info = noop;
+    c.debug = noop;
+    c.trace = noop;
+  } catch (_) {}
+})();
 
 // === CONFIGURATION ===
 const CONFIG = {
@@ -1193,12 +1206,15 @@ const MessageHandler = {
   },
   
   async handle(message, sender, sendResponse) {
-    console.log('Content script received message:', message.action);
+    if (!message || typeof message.action === 'undefined') {
+      // Ignore messages intended for other scripts (e.g., automation messages with `type` only)
+      return false;
+    }
     
     try {
       const handler = this.handlers[message.action];
       if (!handler) {
-        console.warn('Unknown message action:', message.action);
+        // Silently ignore unknown actions to avoid console noise on pages with other scripts
         sendResponse({ error: 'Unknown action' });
         return false;
       }
@@ -1217,7 +1233,7 @@ const MessageHandler = {
 // === INITIALIZATION ===
 const ContentScript = {
   init() {
-    console.log('Knowledge Capture & AI Search - Content script loaded');
+    console.log('Knowledge Auto-captured & AI Search - Content script loaded');
     this.setupMessageListener();
     this.injectStyles();
   },
@@ -1662,10 +1678,23 @@ const AutoCapture = {
       }
       
       // Send to background script for saving (let it handle duplicates properly)
-      const response = await chrome.runtime.sendMessage({
-        action: 'save_entry',
-        entry: entry
-      });
+      let response = null;
+      try {
+        if (!chrome || !chrome.runtime || !chrome.runtime.id) {
+          return; // Extension context not available (e.g., reload/navigation)
+        }
+        response = await chrome.runtime.sendMessage({
+          action: 'save_entry',
+          entry: entry
+        });
+      } catch (sendErr) {
+        // Ignore expected transient errors during navigation/reload
+        const msg = sendErr && (sendErr.message || String(sendErr));
+        if (msg && msg.includes('Extension context invalidated')) {
+          return;
+        }
+        throw sendErr;
+      }
       
       if (response && response.success && response.action === 'saved') {
         // Show on-page reminder only if enabled by user
@@ -2232,12 +2261,7 @@ function detectNotebookLM() {
         console.log('NotebookLM: Stored notebook ID:', notebookId);
       });
       
-      // Send message to background script
-      chrome.runtime.sendMessage({
-        action: 'notebookDetected',
-        notebookId: notebookId,
-        url: url
-      });
+      // Note: background detects NotebookLM via tab URL; no message needed
     }
   }
 }

@@ -1,3 +1,34 @@
+// Disable non-critical console output in production
+(function() {
+  const c = globalThis.console;
+  if (!c) return;
+  const noop = function() {};
+  try {
+    c.log = noop;
+    c.info = noop;
+    c.debug = noop;
+    c.trace = noop;
+  } catch (_) {}
+})();
+
+// Official Web Store build gating for default proxy usage
+const OFFICIAL_EXTENSION_ID = 'ncjpgepmkgekadjmigeajanfgfcjhebm';
+function getDefaultProxyUrl() {
+  try {
+    const runtimeId = (chrome && chrome.runtime && chrome.runtime.id) || '';
+    const allowedFromConfig = (globalThis.window && window.VERTEX_CONFIG && Array.isArray(window.VERTEX_CONFIG.allowedExtensionIds))
+      ? window.VERTEX_CONFIG.allowedExtensionIds
+      : null;
+    const allowList = allowedFromConfig && allowedFromConfig.length > 0
+      ? allowedFromConfig
+      : [OFFICIAL_EXTENSION_ID];
+    const isAllowed = allowList.includes(runtimeId);
+    return isAllowed ? 'https://vertex-ai-proxy-603340132885.us-central1.run.app' : '';
+  } catch (_) {
+    return '';
+  }
+}
+
 // Vertex AI NotebookLM-like Implementation
 // Uses Cloud Run proxy to access Vertex AI Gemini API for conversational search
 
@@ -5,7 +36,7 @@ class VertexAISearch {
   constructor(config = {}) {
     // Use provided config or fall back to global config
     const globalConfig = window.VERTEX_CONFIG || {};
-    this.proxyUrl = config.proxyUrl || globalConfig.proxyUrl || 'YOUR_CLOUD_RUN_URL';
+    this.proxyUrl = config.proxyUrl || globalConfig.proxyUrl || getDefaultProxyUrl();
     this.projectId = config.projectId || globalConfig.projectId || 'chrome-ext-knowledge-base';
     this.model = config.model || globalConfig.model || 'text-embedding-004';
     this.db = null;
@@ -68,6 +99,9 @@ class VertexAISearch {
   }
 
   async testProxyConnection() {
+    if (!this.proxyUrl || !this.proxyUrl.trim()) {
+      throw new Error('Proxy URL not configured');
+    }
     console.log('VertexAISearch: Testing proxy connection...');
     
     try {
@@ -99,6 +133,9 @@ class VertexAISearch {
   }
 
   async embed(text, taskType = 'RETRIEVAL_DOCUMENT') {
+    if (!this.proxyUrl || !this.proxyUrl.trim()) {
+      throw new Error('Proxy URL not configured');
+    }
     // Enforce freemium embed cap via background manager (skip if custom proxy set)
     try {
       const status = await chrome.runtime.sendMessage({ action: 'usage_status' });
@@ -176,6 +213,9 @@ class VertexAISearch {
   }
 
   async ensureDocumentEmbeddings(entries) {
+    if (!this.proxyUrl || !this.proxyUrl.trim()) {
+      throw new Error('Proxy URL not configured');
+    }
     const entriesNeedingEmbeddings = entries.filter(entry => 
       !this.documentVectors.has(String(entry.id))
     );
@@ -575,17 +615,15 @@ Content: ${content}
 
 Format your response as:
 
-OVERVIEW: 
+Overview: 
 1-2 sentences maximum explaining what this article is about.
 
-KEY POINTS:
+Key Points:
 • First main point from the article
 • Second important insight  
 • Third key takeaway
-• Fourth significant point (if applicable)
-• Fifth notable insight (if applicable)
 
-MAIN TAKEAWAY: 
+Main Takeaway: 
 One sentence conclusion about the article's central message.
 
 Keep it concise and easy to scan. Make the header of each section bold. Focus on the most important insights only. Keep the format clean and human readable.`;

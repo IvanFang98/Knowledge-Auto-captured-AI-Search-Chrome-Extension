@@ -1,5 +1,18 @@
-// Knowledge Capture & AI Search Extension - Popup Script
+// Knowledge Auto-captured & AI Search Extension - Popup Script
 'use strict';
+
+// Disable non-critical console output in production
+(function() {
+  const c = globalThis.console;
+  if (!c) return;
+  const noop = function() {};
+  try {
+    c.log = noop;
+    c.info = noop;
+    c.debug = noop;
+    c.trace = noop;
+  } catch (_) {}
+})();
 
 // === BROWSER COMPATIBILITY ===
 const browser = globalThis.chrome || globalThis.browser;
@@ -3596,6 +3609,11 @@ const Data = {
       if (response.success) {
         if (response.action === 'saved') {
         Utils.showNotification(`✅ Captured: ${response.entry.title}`, 'success');
+        // Hide onboarding note after first successful capture
+        try {
+          const onboardingEl = document.getElementById('onboardingNote');
+          if (onboardingEl) onboardingEl.style.display = 'none';
+        } catch (_) {}
         } else if (response.action === 'kept_original') {
           Utils.showNotification(`📄 Kept original: ${response.entry.title}`, 'info');
         } else {
@@ -3633,6 +3651,13 @@ const Data = {
       await this.loadEntries();
       await this.loadStats();
       await this.updateEmbeddingStatus();
+      // Also hide onboarding if entries now exist
+      try {
+        const { entries } = await chrome.runtime.sendMessage({ action: 'get_entries' });
+        const hasEntries = Array.isArray(entries) && entries.length > 0;
+        const onboardingEl = document.getElementById('onboardingNote');
+        if (onboardingEl) onboardingEl.style.display = hasEntries ? 'none' : 'block';
+      } catch (_) {}
     } catch (error) {
       console.error('Failed to refresh display:', error);
     }
@@ -4547,15 +4572,37 @@ document.addEventListener('DOMContentLoaded', async () => {
     
 
     
-    // Load setup note visibility
-    const setupDismissed = await Utils.get('setupNoteDismissed');
-    Utils.showElement(Elements.setupNote, !setupDismissed);
+    // Onboarding visibility: hide legacy setup card, show new note when no entries
+    Utils.showElement(Elements.setupNote, false);
+    try {
+      const { entries } = await chrome.runtime.sendMessage({ action: 'get_entries' });
+      const hasEntries = Array.isArray(entries) && entries.length > 0;
+      const onboardingEl = document.getElementById('onboardingNote');
+      if (onboardingEl) onboardingEl.style.display = hasEntries ? 'none' : 'block';
+    } catch (_) {}
     
     // Clear any lingering error states
     await Data.clearErrorStates();
     
     // Refresh button states after loading data
     await UI.refreshButtonStates();
+    // Hide onboarding note as soon as the first entry is present
+    try {
+      const onboardingEl = document.getElementById('onboardingNote');
+      if (onboardingEl) {
+        const hideIfHasEntries = async () => {
+          try {
+            const { entries } = await chrome.runtime.sendMessage({ action: 'get_entries' });
+            const hasEntries = Array.isArray(entries) && entries.length > 0;
+            onboardingEl.style.display = hasEntries ? 'none' : 'block';
+          } catch (_) {}
+        };
+        // Check once now and again shortly after in case save completes asynchronously
+        await hideIfHasEntries();
+        setTimeout(hideIfHasEntries, 500);
+        setTimeout(hideIfHasEntries, 1500);
+      }
+    } catch (_) {}
     
     // Initialize clear button visibility
     Search.updateClearButtonVisibility();
