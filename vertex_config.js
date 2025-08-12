@@ -17,11 +17,8 @@ const VERTEX_CONFIG = {
   requestDelay: 1000,  // Milliseconds between API requests
   
   // Optional: allowlist of extension IDs that may use the built-in default proxy
-  // Manage IDs here to avoid code edits. Include Web Store and dev IDs as needed.
-  allowedExtensionIds: [
-    'ncjpgepmkgekadjmigeajanfgfcjhebm', // Web Store build (official)
-    'bdejnceffielomjpkbapcdpahbmjgjfl'  // Your current build ID
-  ]
+  // Public repo safety: keep this empty so the default proxy is disabled by default.
+  allowedExtensionIds: []
 };
 
 // Make config available in both window (DOM) and service worker (globalThis)

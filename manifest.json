@@ -34,7 +34,6 @@
     "48": "icon48.png",
     "128": "icon128.png"
   },
-  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvxDuvSlB6+i5lNQ7ABaPRo2pJhZ2lkrKT/8do/Scs75PWxxG7N7Y+/UTyXsDTghG1IreriTJflqkPIM7zZ5EBoYlfphbM08FHkgTCRVg2+aw2W4B9esuB9AmqODOQLsCr0On45Xn8WN8swl46tsrLtBuHL5AdzlUrWYjUPkV5PL6aHWuxwkXwJ+t2S0u6DcHJ72EbNkFsQVPsfkYeT0LybS27XPg7nMru2Er4ZjUykzix6+aBIaI9rMzCksCch869nzGquis94SR/K/jAEbQmlbdEdfDSgkfbNKEME+bBmYZgmYeDs/6tths2NVY2NfCiSoWrMUXr3jWswgJyR7b9QIDAQAB",
   "commands": {
     "capture_page": {
       "suggested_key": {

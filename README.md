@@ -98,3 +98,29 @@ NotebookLM has the best Retrieval-augmented generation (RAG) pipeline currently 
 ## 📄 License
 Open source project. Feel free to modify and distribute.
 
+## Development
+
+### Setup for developers who clone this repo
+
+To use semantic search and embeddings, configure your own Vertex AI proxy and IDs:
+
+1) Chrome Extension ID
+- You do not set this manually. Unpacked builds get a temporary ID; Web Store builds get a stable ID.
+- If you run your own default proxy and need to restrict access to your build, add your runtime ID to `window.VERTEX_CONFIG.allowedExtensionIds` in `vertex_config.js`.
+
+2) Vertex AI project (your Google Cloud project)
+- Deploy the Cloud Run proxy in `cloud-proxy/` to your GCP project.
+- Set env vars: `PROJECT_ID` (required), `LOCATION` (default: us‑central1), `MODEL_NAME` (default: text-embedding-004), `GEMINI_MODEL` (default: gemini-2.0-flash-exp).
+- After deploy, copy the Cloud Run service URL.
+
+3) Proxy URL in the extension
+- Open extension Settings → paste your Cloud Run URL in “Custom Vertex Proxy URL”.
+- From then on, embeddings and generative calls bill to your GCP project.
+
+4) Allowlist (optional, if you operate a default proxy)
+- If you operate a default proxy for your build, set `allowedExtensionIds` in `vertex_config.js` to your extension’s ID.
+- On the server, validate the `X-Extension-ID` header against your allowlist and set CORS to allow `chrome-extension://<your_id>`.
+
+5) Notes
+- This repo intentionally does not include a manifest `key`; Web Store will assign the final ID on publish. For local dev, a key is not required.
+
