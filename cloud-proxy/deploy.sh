@@ -18,9 +18,9 @@ gcloud run deploy $SERVICE_NAME \
     --region $REGION \
     --project $PROJECT_ID \
     --service-account $SERVICE_ACCOUNT_EMAIL \
-    --set-env-vars "PROJECT_ID=${PROJECT_ID},LOCATION=global,MODEL_NAME=text-embedding-004" \
+    --set-env-vars "PROJECT_ID=${PROJECT_ID},LOCATION=${REGION},MODEL_NAME=text-embedding-004,GEMINI_MODEL=gemini-2.0-flash-exp" \
     --allow-unauthenticated \
-    --memory 1Gi \
+    --memory 2Gi \
     --cpu 1 \
     --concurrency 100 \
     --max-instances 10 \

@@ -1,0 +1,31 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Builds
+node_modules/
+dist/
+build/
+
+# Secrets / env
+.env
+.env.*
+*.env
+*.secret
+*.secrets
+*.pem
+*.p12
+*.pfx
+*.crt
+*.key
+credentials*.json
+service_account*.json
+
+# Logs
+*.log
+npm-debug.log*
+yarn-error.log*

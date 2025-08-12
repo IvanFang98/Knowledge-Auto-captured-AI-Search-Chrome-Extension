@@ -3,7 +3,7 @@
 
 const VERTEX_CONFIG = {
   // Your Cloud Run proxy URL (will be provided after deployment)
-  proxyUrl: 'https://vertex-ai-proxy-603340132885.us-central1.run.app',
+  proxyUrl: '',
   
   // Your Google Cloud Project ID
   projectId: 'chrome-ext-knowledge-base',
@@ -15,7 +15,12 @@ const VERTEX_CONFIG = {
   // Rate limiting settings (applied on proxy side)
   batchSize: 5,        // Number of documents to process at once
   requestDelay: 1000,  // Milliseconds between API requests
+  
+  // Optional: allowlist of extension IDs that may use the built-in default proxy
+  // Public repo safety: keep this empty so the default proxy is disabled by default.
+  allowedExtensionIds: []
 };
 
-// Make config available globally
-window.VERTEX_CONFIG = VERTEX_CONFIG;
+// Make config available in both window (DOM) and service worker (globalThis)
+try { if (typeof window !== 'undefined') { window.VERTEX_CONFIG = VERTEX_CONFIG; } } catch (_) {}
+try { if (typeof globalThis !== 'undefined') { globalThis.VERTEX_CONFIG = VERTEX_CONFIG; } } catch (_) {}

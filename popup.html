@@ -1,7 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Knowledge Auto-captured & AI Search</title>
   <style>
     /* === NEW COLOR PALETTE === */
     :root {
@@ -31,6 +33,83 @@
     --clr-btn-bg: #F5F9FF;
     --clr-btn-border: #D0E1F9;
     --clr-btn-hover-bg: #E4EEFB;
+  }
+
+  /* Clear button styles */
+  .search-clear {
+    position: absolute;
+    right: 30px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--clr-gray-500);
+    font-size: 14px;
+    cursor: pointer;
+    z-index: 2;
+    opacity: 0.6;
+    transition: all 0.2s ease;
+    display: none;
+    padding: 4px;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .search-clear:hover {
+    opacity: 1;
+    color: var(--clr-error);
+    background: rgba(239, 68, 68, 0.1);
+  }
+
+  .search-filters-icon:hover {
+    opacity: 1 !important;
+    color: var(--clr-gray-700) !important;
+    background: rgba(100, 116, 139, 0.1);
+  }
+
+  .search-clear:active {
+    transform: translateY(-50%) scale(0.95);
+  }
+
+  /* Export button styles */
+  .export-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  .export-btn:active {
+    transform: translateY(0);
+  }
+
+  /* Close button hover effect */
+  #closeSettingsBtn:hover {
+    background: var(--clr-gray-100) !important;
+    color: var(--clr-gray-700) !important;
+  }
+
+  /* Loading spinner styles */
+  .search-loading {
+    position: absolute;
+    right: 45px;
+    top: 30%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--clr-gray-200);
+    border-top: 2px solid var(--clr-primary-10);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    display: none;
+    z-index: 2;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
   }
 
   /* Animation for HNSW notification */
@@ -682,9 +761,7 @@
       color: var(--clr-primary-10);
     }
 
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
+    /* Removed duplicate spin keyframe - using the one above */
 
     @keyframes semanticPulse {
       0%, 100% { opacity: 1; }
@@ -706,6 +783,11 @@
       padding: 15px;
       margin-bottom: 15px;
       display: none;
+    }
+    
+    /* Force hide filter toolbar during semantic search */
+    .search-filters[data-hidden="true"] {
+      display: none !important;
     }
 
     .filter-group {
@@ -1795,9 +1877,7 @@
       margin-right: 8px;
     }
 
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
+    /* Removed duplicate spin keyframe - using the one above */
 
     /* Improve scrollbar for side panel */
     ::-webkit-scrollbar {
@@ -1835,6 +1915,306 @@
       input, select {
         min-height: 44px;
       }
+    }
+
+    /* Enhanced Semantic Search Result Styles */
+    .entry.enhanced-result {
+      background: linear-gradient(135deg, #FBFCFE 0%, #F8FAFC 100%);
+      border-left: 4px solid var(--clr-primary-10);
+      box-shadow: 0 2px 12px rgba(71, 111, 214, 0.08);
+    }
+
+    .entry.enhanced-result:hover {
+      background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 20px rgba(71, 111, 214, 0.15);
+    }
+
+    .similarity-badge.enhanced {
+      background: var(--clr-primary-gradient) !important;
+      color: var(--clr-white) !important;
+      border: 1px solid var(--clr-primary-10) !important;
+      box-shadow: 0 2px 4px rgba(71, 111, 214, 0.2);
+    }
+
+    .enhanced-content {
+      animation: slideInUp 0.3s ease;
+    }
+
+    @keyframes slideInUp {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .search-highlight, mark.search-highlight {
+      background: #1C3F99 !important;
+      color: #FFFFFF !important;
+      padding: 2px 4px;
+      border-radius: 3px;
+      font-weight: 600;
+    }
+
+    mark {
+      background: #1C3F99 !important;
+      color: #FFFFFF !important;
+      padding: 2px 4px;
+      border-radius: 3px;
+      font-weight: 600;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+    
+
+
+    .enhanced-action-btn {
+      transition: all 0.2s ease;
+      font-weight: 500;
+    }
+
+    .enhanced-action-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .search-summary {
+      animation: slideInDown 0.4s ease;
+    }
+
+    .search-summary * {
+      color: #FFFFFF !important;
+    }
+
+    .search-summary h3 {
+      color: #FFFFFF !important;
+    }
+
+    .search-summary h4 {
+      color: #FFFFFF !important;
+    }
+
+    .search-summary p {
+      color: #F8FAFC !important;
+    }
+
+    .search-summary li {
+      color: #F8FAFC !important;
+    }
+
+    .search-summary .summary-content {
+      color: #F8FAFC !important;
+    }
+
+    .search-summary div {
+      color: #F8FAFC !important;
+    }
+
+    .search-summary div em {
+      color: #E4EEFB !important;
+      font-style: italic;
+      font-weight: 500;
+    }
+
+    @keyframes slideInDown {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .snippet-item {
+      transition: all 0.2s ease;
+    }
+
+    .snippet-item:hover {
+      transform: translateX(2px);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .highlight-item {
+      transition: all 0.2s ease;
+    }
+
+    .highlight-item:hover {
+      background: var(--clr-gray-100) !important;
+    }
+
+    /* Modal styles for enhanced views */
+    .all-passages-modal h3,
+    .enhanced-context h3 {
+      color: var(--clr-primary-90);
+      font-size: 16px;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid var(--clr-primary-10);
+    }
+
+    .passage-item {
+      transition: all 0.2s ease;
+    }
+
+    .passage-item:hover {
+      transform: translateX(4px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Enhanced search mode indicator */
+    .search-option[data-mode="semantic"].active {
+      background: var(--clr-primary-gradient) !important;
+      color: var(--clr-white) !important;
+      border-color: var(--clr-primary-10) !important;
+    }
+
+    /* Loading states for enhanced search */
+    .enhanced-loading {
+      background: var(--clr-primary-gradient);
+      color: var(--clr-white);
+      padding: 12px;
+      border-radius: 8px;
+      text-align: center;
+      margin: 12px 0;
+      font-size: 13px;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+
+    /* Reference citation styles */
+    .reference-citation {
+      color: white !important;
+      text-decoration: none;
+      font-weight: 700;
+      background: var(--clr-primary-10);
+      padding: 3px 8px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-block;
+      margin: 0 2px;
+      font-size: 12px;
+    }
+
+    .reference-citation:hover {
+      background: var(--clr-primary-90) !important;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(71, 111, 214, 0.3);
+    }
+
+    .reference-item {
+      margin: 8px 0;
+      padding: 8px;
+      background: var(--clr-gray-50);
+      border-radius: 6px;
+      border-left: 3px solid var(--clr-primary-10);
+      transition: background 0.3s ease;
+    }
+
+    .reference-item:hover {
+      background: var(--clr-gray-100);
+    }
+
+    .reference-number {
+      color: var(--clr-gray-600);
+      font-weight: 600;
+      margin-right: 8px;
+    }
+
+    .reference-link {
+      color: var(--clr-primary-10);
+      text-decoration: none;
+      font-size: 12px;
+      transition: color 0.2s;
+    }
+
+    .reference-link {
+      color: var(--clr-primary-10) !important; 
+      text-decoration: none; 
+      flex: 1; 
+      font-size: 13px;
+      transition: color 0.2s;
+    }
+
+    .reference-link:hover {
+      color: var(--clr-primary-90) !important;
+      text-decoration: underline;
+    }
+
+    /* Reference control buttons */
+    .reference-control-btn {
+      background: var(--clr-btn-bg); 
+      color: var(--clr-heading); 
+      border: 1.5px solid var(--clr-btn-border); 
+      padding: 4px 8px; 
+      border-radius: 4px; 
+      font-size: 11px; 
+      cursor: pointer; 
+      transition: all 0.2s;
+    }
+
+    .reference-control-btn:hover {
+      background: var(--clr-btn-hover-bg);
+    }
+
+    /* Export search button */
+    .export-search-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+    }
+
+    /* Enhanced search summary styling */
+    .search-summary {
+      background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%) !important;
+    }
+
+    .search-summary h3,
+    .search-summary h4 {
+      color: var(--clr-heading) !important;
+      font-weight: 600 !important;
+    }
+
+    /* Citation link styles for conversational responses */
+    .citation-link {
+      color: var(--clr-primary-10) !important;
+      text-decoration: none;
+      font-weight: 600;
+      background: var(--clr-primary-10);
+      color: white !important;
+      padding: 2px 6px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-block;
+      margin: 0 1px;
+      font-size: 12px;
+    }
+
+    .citation-link:hover {
+      background: var(--clr-primary-90) !important;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(71, 111, 214, 0.3);
+    }
+
+    /* Summarize button hover effects */
+    .summarize-btn:hover {
+      background: var(--clr-primary-90) !important;
+      transform: translateY(-1px);
+    }
+
+    .summarize-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none !important;
     }
 
     /* Search Results Modal */
@@ -2170,6 +2550,23 @@
         .scrollable-content-area::-webkit-scrollbar-thumb:hover {
           background: var(--clr-gray-400) !important;
         }
+
+        /* Toggle Switch Styles */
+        .toggle-switch input:checked + .toggle-slider {
+          background-color: var(--clr-primary-10);
+        }
+
+        .toggle-switch input:checked + .toggle-slider .toggle-knob {
+          transform: translateX(20px);
+        }
+
+        .toggle-switch:hover .toggle-slider {
+          box-shadow: 0 0 0 2px rgba(71, 111, 214, 0.1);
+        }
+
+        .toggle-switch input:checked + .toggle-slider:hover {
+          background-color: var(--clr-primary-20);
+        }
   </style>
 </head>
 <body>
@@ -2177,21 +2574,25 @@
     <!-- Fixed Top Section - Non-scrollable -->
     <div class="fixed-top-section" style="position: relative; top: 0; z-index: 100; background: transparent; margin: 0; padding: 8px 20px 0 20px; flex-shrink: 0;">
           <div class="header" style="margin-bottom: 4px; text-align: center;">
-      <h1 style="font-size: 20px; margin: 0 0 8px 0; font-weight: 600; color: var(--clr-heading);">SmartGrab AI Search</h1>
+      <h1 style="font-size: 20px; margin: 0 0 8px 0; font-weight: 600; color: var(--clr-heading);">Knowledge Auto-captured & AI Search
+      </h1>
+      <!-- Settings button -->
       <button id="settingsIconBtn" title="Settings" style="position: absolute; top: 16px; right: 20px; background: none; border: none; color: var(--clr-primary-10); font-size: 18px; cursor: pointer; z-index: 10; opacity: 0.8; transition: opacity 0.2s;">
         <span role="img" aria-label="Settings">⚙️</span>
       </button>
-      <div class="shortcut-info" style="font-size: 12px; opacity: 0.85; background: var(--clr-gray-100); color: var(--clr-body); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--clr-gray-200); display: inline-block; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);">
-        Press <button id="capturePageBtn" class="shortcut" style="font-family: 'Courier New', monospace; font-weight: bold; color: var(--clr-heading); background: var(--clr-btn-bg); border: 1.5px solid var(--clr-btn-border); border-radius: 6px; padding: 3px 6px; cursor: pointer; font-size: 11px; transition: all 0.2s; margin: 0 2px;">Capture</button> or <span class="shortcut" style="font-family: 'Courier New', monospace; font-weight: bold; color: var(--clr-primary-10);">Cmd+Shift+S</span> to capture text
+      <div class="shortcut-info" id="manualCaptureInfo" style="font-size: 12px; opacity: 0.85; background: var(--clr-gray-100); color: var(--clr-body); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--clr-gray-200); display: none; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);">
+        Press <button id="capturePageBtn" class="shortcut" style="font-family: 'Courier New', monospace; font-weight: bold; color: var(--clr-heading); background: var(--clr-btn-bg); border: 1.5px solid var(--clr-btn-border); border-radius: 6px; padding: 3px 6px; cursor: pointer; font-size: 11px; transition: all 0.2s; margin: 0 2px;">Capture</button> or <a href="#" id="shortcutLink" class="shortcut" style="font-family: 'Courier New', monospace; font-weight: bold; color: var(--clr-primary-10); text-decoration: underline; cursor: pointer;">Loading...</a> to capture text
       </div>
     </div>
 
     <div class="search-container" style="margin-bottom: 4px; position: relative;">
-      <input type="text" class="search-input" id="searchInput" placeholder="Semantic search your saved text..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="text" style="background: var(--clr-card-bg); border: 1.5px solid var(--clr-gray-200); color: var(--clr-body); border-radius: 16px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06); width: 100%; box-sizing: border-box; padding: 12px 45px 12px 16px; font-size: 13px; transition: border-color 0.2s, box-shadow 0.2s;">
-      <button class="search-filters-icon" id="toggleFilters" title="Filters" style="position: absolute; right: 14px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--clr-primary-10); font-size: 16px; cursor: pointer; z-index: 2; opacity: 0.7; transition: opacity 0.2s;">
+      <input type="text" class="search-input" id="searchInput" placeholder="Semantic search your saved text..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="text" style="background: var(--clr-card-bg); border: 1.5px solid var(--clr-gray-200); color: var(--clr-body); border-radius: 16px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06); width: 100%; box-sizing: border-box; padding: 12px 85px 12px 16px; font-size: 13px; transition: border-color 0.2s, box-shadow 0.2s;">
+      <div class="search-loading" id="searchLoading"></div>
+      <button class="search-clear" id="searchClear" style="position: absolute; right: 70px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--clr-gray-500); font-size: 14px; cursor: pointer; z-index: 2; opacity: 0.6; transition: all 0.2s ease; display: none; padding: 4px; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;">✕</button>
+      <button class="search-filters-icon" id="toggleFilters" title="Filters" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--clr-gray-500); font-size: 12px; cursor: pointer; z-index: 2; opacity: 0.7; transition: all 0.2s ease; display: flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 6px;">
         <span role="img" aria-label="Filters">🔧</span>
+        <span style="font-size: 11px; font-weight: 500;">Filter</span>
       </button>
-      <button class="search-clear" id="searchClear" style="position: absolute; right: 40px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--clr-gray-500); font-size: 14px; cursor: pointer; z-index: 2; opacity: 0.6; transition: opacity 0.2s;">✕</button>
     </div>
 
     <div class="search-options" style="margin-bottom: 4px; display: flex; justify-content: center; gap: 10px;">
@@ -2199,104 +2600,35 @@
       <button class="search-option" data-mode="keyword" style="background: var(--clr-btn-bg); border: 1.5px solid var(--clr-btn-border); color: var(--clr-heading); border-radius: 12px; padding: 6px 12px; font-size: 11px; transition: all 0.2s; font-weight: 500;">📝 Keyword Search</button>
     </div>
 
-    <div class="selection-toolbar" id="selectionToolbar" style="background: transparent; margin: 0;">
-      <div class="selection-actions" style="display: flex; gap: 8px; align-items: center; width: 100%;">
-        <span class="selection-info" style="color: var(--clr-body); font-size: 12px; opacity: 0.8; margin-right: 8px;">
-          <span id="homeSelectedCount">0</span> selected
-        </span>
-        <button id="selectToggleBtn" class="selection-btn" style="background: var(--clr-btn-bg); border: 1.5px solid var(--clr-btn-border); color: var(--clr-heading); border-radius: 10px; padding: 8px 14px; font-size: 12px; transition: all 0.2s; font-weight: 500;">Select All</button>
-        <button id="exportToNotebookLM" class="btn-primary" style="background: var(--clr-btn-bg); color: var(--clr-heading); border: 1.5px solid var(--clr-btn-border); border-radius: 10px; padding: 8px 14px; font-size: 12px; transition: all 0.2s; font-weight: 500;">
-          🧠 Export to NotebookLM
-        </button>
-        <select id="sortDropdown" class="sort-dropdown" style="background: transparent; border: none; color: var(--clr-gray-600); font-size: 11px; cursor: pointer; padding: 4px 0; text-align: right; min-width: 60px; margin-left: auto;">
-          <option value="date-desc">Newest</option>
-          <option value="date-asc">Oldest</option>
-          <option value="alpha">A-Z</option>
-        </select>
-      </div>
-    </div>
-
-  </div>
-
-
-
-
-
-    <!-- Scrollable Content Area - ONLY Text Blocks -->
-    <div class="scrollable-content-area" style="margin-top: 0; padding-top: 0; padding-left: 0; padding-right: 0; position: relative; overflow-y: auto; overflow-x: hidden; flex: 1; min-height: 0;">
-      <div class="entries" id="entries" style="position: relative; z-index: 2; margin: 0; padding: 0; gap: 0; padding-top: 0;">
-        <!-- Entries will be populated here -->
-      </div>
-    </div>
-
-
-
-    <div class="tab-content" id="settingsTab" style="display: none;">
-      <div class="ai-search-info" style="background: var(--clr-primary-10); border: 1px solid var(--clr-primary-90); padding: 12px; border-radius: 6px; margin-bottom: 15px; font-size: 12px;">
-        <div>🤖 <strong>Local AI Semantic Search</strong> </div>
-        <div style="margin: 8px 0; font-size: 10px; opacity: 0.8;">
-          AI-powered semantic search runs entirely in your browser. No API keys or internet connection required for search.
-        </div>
-        <div style="margin-top: 8px; font-size: 10px; color: var(--clr-primary-10);">
-          <span>✅ Model loaded: </span><span id="aiModelStatus">Checking...</span>
-        </div>
-      </div>
-
-
-
-      <div class="controls">
-        <button class="button" id="exportBtn">📤 Export Data</button>
-                  <button class="button" id="clearErrorStatesBtn" style="margin-top: 8px; width: 100%; background: var(--clr-warning); border-color: var(--clr-success);">🧹 Clear Error States</button>
-
-          <button class="button" id="showReloadBtn" style="margin-top: 8px; width: 100%; background: var(--clr-warning); border-color: var(--clr-success);">📋 Show Reload Instructions</button>
-      </div>
-      
-      <div style="margin-top: 20px; padding: 15px; background: var(--clr-error); border: 1px solid var(--clr-error); border-radius: 8px;">
-        <div style="font-size: 12px; font-weight: 600; color: var(--clr-white); margin-bottom: 8px;">
-          ⚠️ Danger Zone
-        </div>
-        <div style="font-size: 11px; opacity: 0.8; margin-bottom: 10px; line-height: 1.4;">
-          This action will permanently delete all your saved text entries and cannot be undone.
-        </div>
-        <button class="button danger" id="clearBtn" style="width: 100%;">🗑️ Clear All Data</button>
-      </div>
-    </div>
-
-
-    </div>
-  </div>
-  
-  <!-- Non-scrollable content moved outside flex container -->
-  <div class="setup-note" id="setupNote" style="position: relative; z-index: 2; margin: 0 0 15px 0; padding: 12px; display: none;">
-    <div class="setup-content">
-      <p>⌨️ Go to <a href="#" id="shortcutsLink" style="color: var(--clr-primary-10); text-decoration: underline; cursor: pointer;">chrome://extensions/shortcuts</a> to configure the keyboard shortcut for quick capture.</p>
-      <p>🤖 AI Semantic Search is now available locally - no API key required! It finds results by meaning, not just keywords.</p>
-      <p>🔒 Your API key is stored locally in your Chrome browser storage only.</p>
-      <p>💡 For first-time use, you may need to reload the Chrome browser to activate the extension.</p>
-  </div>
-    <button class="dismiss-btn" id="dismissSetupNote" title="Don't show again">✕</button>
-  </div>
-
-  <div class="tab-content active" id="searchTab">
-    <div class="search-filters" id="searchFilters" style="display: none;">
+    <!-- Filter bar moved here, right beneath search options -->
+    <div class="search-filters" id="searchFilters" style="display: none; margin-bottom: 8px;">
       <div class="filter-group">
         <label class="filter-label">⏰ Time:</label>
-        <select class="filter-select" id="timeFilter">
-          <option value="any">Any time</option>
-          <option value="hour">Past hour</option>
-          <option value="day">Past 24 hours</option>
-          <option value="week">Past week</option>
-          <option value="month">Past month</option>
-          <option value="year">Past year</option>
-          <option value="custom">Custom range...</option>
-        </select>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <select class="filter-select" id="timeFilter">
+            <option value="any">Any time</option>
+            <option value="hour">Past hour</option>
+            <option value="day">Past 24 hours</option>
+            <option value="week">Past week</option>
+            <option value="month">Past month</option>
+            <option value="year">Past year</option>
+            <option value="custom">Custom range...</option>
+          </select>
+          <div class="custom-date-range" id="customDateRange" style="display: none; margin-left: 8px;">
+            <div class="date-inputs" style="display: flex; align-items: center; gap: 4px;">
+              <input type="date" id="dateFrom" class="date-input" style="width: 120px; font-size: 12px; padding: 4px 6px; border: 1px solid var(--clr-gray-300); border-radius: 4px;">
+              <span class="date-separator" style="color: var(--clr-gray-600); font-size: 12px;">to</span>
+              <input type="date" id="dateTo" class="date-input" style="width: 120px; font-size: 12px; padding: 4px 6px; border: 1px solid var(--clr-gray-300); border-radius: 4px;">
+            </div>
+          </div>
+        </div>
       </div>
       
       <div class="filter-group">
-                        <label class="filter-label">🎯 Verbatim:</label>
+        <label class="filter-label">🎯 Verbatim:</label>
         <select class="filter-select" id="resultsFilter">
-          <option value="any">All results</option>
-          <option value="verbatim">Verbatim</option>
+          <option value="any">Off</option>
+          <option value="verbatim">On</option>
         </select>
       </div>
       
@@ -2306,14 +2638,6 @@
           <option value="off">Off</option>
           <option value="on">On</option>
         </select>
-      </div>
-      
-      <div class="custom-date-range" id="customDateRange" style="display: none;">
-        <div class="date-inputs">
-          <input type="date" id="dateFrom" class="date-input">
-          <span class="date-separator">to</span>
-          <input type="date" id="dateTo" class="date-input">
-        </div>
       </div>
       
       <div class="advanced-search" id="advancedSearch" style="display: none;">
@@ -2342,18 +2666,229 @@
           <input type="text" id="noneWords" class="advanced-input" placeholder='-instagram, -"social media"'>
         </div>
         
-
+        <div class="advanced-search-actions" style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--clr-gray-200); display: flex; gap: 8px; justify-content: flex-end;">
+          <button id="advancedSearchBtn" class="btn-primary" style="background: var(--clr-primary-10); color: white; border: none; border-radius: 8px; padding: 8px 16px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.2s;">
+            🔍 Search
+          </button>
+        </div>
       </div>
       
-      <div class="filter-actions">
-        <button class="filter-btn apply-btn" id="applyFilters">Apply Filters</button>
-        <button class="filter-btn reset-btn" id="resetFilters">Reset</button>
+
+    </div>
+
+    <div class="selection-toolbar" id="selectionToolbar" style="background: transparent; margin: 0;">
+      <div class="selection-actions" style="display: flex; gap: 8px; align-items: center; width: 100%;">
+        <span class="selection-info" style="color: var(--clr-body); font-size: 12px; opacity: 0.8; margin-right: 8px;">
+          <span id="homeSelectedCount">0</span> selected
+        </span>
+        <button id="selectToggleBtn" class="selection-btn" style="background: var(--clr-btn-bg); border: 1.5px solid var(--clr-btn-border); color: var(--clr-heading); border-radius: 10px; padding: 8px 14px; font-size: 12px; transition: all 0.2s; font-weight: 500;">Select All</button>
+        <button id="exportToNotebookLM" class="btn-primary" style="background: var(--clr-btn-bg); color: var(--clr-heading); border: 1.5px solid var(--clr-btn-border); border-radius: 10px; padding: 8px 14px; font-size: 12px; transition: all 0.2s; font-weight: 500;">
+          📖 Export to NotebookLM
+        </button>
+        <button id="deleteSelectedBtn" class="btn-danger" style="background: var(--clr-btn-bg); color: var(--clr-gray-600); border: 1.5px solid var(--clr-gray-300); border-radius: 10px; padding: 8px 14px; font-size: 12px; transition: all 0.2s; font-weight: 500;">
+          🗑️ Delete
+        </button>
+        <select id="sortDropdown" class="sort-dropdown" style="background: transparent; border: none; color: var(--clr-gray-600); font-size: 11px; cursor: pointer; padding: 4px 0; text-align: right; min-width: 60px; margin-left: auto;">
+          <option value="date-desc">Newest</option>
+          <option value="date-asc">Oldest</option>
+          <option value="alpha">A-Z</option>
+        </select>
       </div>
     </div>
     
-    <div class="search-tools">
-      <span class="active-filters" id="activeFilters"></span>
+    <!-- Onboarding note just below the toolbar -->
+    <div id="onboardingNote" style="display: none; margin: 10px 0 0 0; background: var(--clr-card-bg); border: 1px solid var(--clr-gray-200); border-radius: 12px; padding: 16px 18px; font-size: 14px; color: var(--clr-body); box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+        <div style="font-size: 18px;">✨</div>
+        <div style="font-weight: 700; color: var(--clr-heading); font-size: 16px;">Quick start</div>
+      </div>
+      <ol style="margin: 0 0 0 18px; padding: 0; line-height: 1.7;">
+        <li>Open any article to auto-capture, or use <span style="font-family:'Courier New',monospace; font-weight:700; font-size: 14px;">Cmd+Shift+S</span> (Mac) / <span style="font-family:'Courier New',monospace; font-weight:700; font-size: 14px;">Ctrl+Shift+S</span> (Win).</li>
+        <li>Search your saved text with
+          <span style="display:inline-block; background: var(--clr-btn-bg); border: 1.5px solid var(--clr-btn-border); border-radius: 10px; padding: 3px 10px; margin: 0 6px; font-size: 13px;">Semantic Search</span>
+          or
+          <span style="display:inline-block; background: var(--clr-btn-bg); border: 1.5px solid var(--clr-btn-border); border-radius: 10px; padding: 3px 10px; margin-left: 4px; font-size: 13px;">Keyword Search</span>.
+        </li>
+        <li>Optional: export selected items to <em>NotebookLM</em> for in-depth learning.</li>
+      </ol>
     </div>
+    
+    <div id="noResults" class="no-results" style="display: none; margin-top: 16px; text-align: center; padding: 20px; background: var(--clr-gray-50); border-radius: 8px; border: 1px solid var(--clr-gray-200);">
+      <p style="margin: 0 0 8px 0; color: var(--clr-heading); font-size: 14px; font-weight: 600;">🔍 No results found</p>
+      <p style="margin: 0; color: var(--clr-gray-600); font-size: 12px;">Try different keywords or check your spelling</p>
+    </div>
+
+  </div>
+
+
+
+
+
+    <!-- Scrollable Content Area - ONLY Text Blocks -->
+    <div class="scrollable-content-area" style="margin-top: 0; padding-top: 0; padding-left: 0; padding-right: 0; position: relative; overflow-y: auto; overflow-x: hidden; flex: 1; min-height: 0;">
+      <div class="entries" id="entries" style="position: relative; z-index: 2; margin: 0; padding: 0; gap: 0; padding-top: 0;">
+        <!-- Entries will be populated here -->
+      </div>
+    </div>
+  </div>
+  
+  <!-- Settings Tab - Full Screen -->
+  <div class="tab-content" id="settingsTab" style="display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: var(--clr-primary-bg); z-index: 1000; overflow-y: auto; padding: 20px;">
+      <div style="position: relative;">
+        <button id="closeSettingsBtn" style="position: absolute; top: 0; right: 0; background: none; border: none; font-size: 18px; color: var(--clr-gray-500); cursor: pointer; padding: 4px; border-radius: 4px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px;">×</button>
+      </div>
+      
+      <!-- Capture Settings Section -->
+      <div class="capture-settings-section" style="background: var(--clr-card-bg); border: 1px solid var(--clr-gray-200); padding: 20px; border-radius: 12px; margin-bottom: 20px;">
+        <h3 style="margin: 0 0 16px 0; color: var(--clr-heading); font-size: 16px; font-weight: 600;">⚡ Capture Settings</h3>
+        
+        <div class="setting-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--clr-gray-200);">
+          <div style="flex: 1;">
+            <div style="font-weight: 500; color: var(--clr-heading); margin-bottom: 4px;">Auto-Capture Articles</div>
+            <div style="font-size: 13px; color: var(--clr-gray-600); line-height: 1.4;">Automatically save articles as you browse. Turn off for manual capture only.</div>
+          </div>
+          <div style="margin-left: 16px;">
+            <label class="toggle-switch" style="position: relative; display: inline-block; width: 44px; height: 24px;">
+              <input type="checkbox" id="autoCaptureToggle" style="opacity: 0; width: 0; height: 0;">
+              <span class="toggle-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--clr-gray-300); transition: 0.3s; border-radius: 24px;">
+                <span class="toggle-knob" style="position: absolute; content: ''; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: 0.3s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></span>
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--clr-gray-200);">
+          <div style="flex: 1;">
+            <div style="font-weight: 500; color: var(--clr-heading); margin-bottom: 4px;">On‑page Auto‑Capture Reminder</div>
+            <div style="font-size: 13px; color: var(--clr-gray-600); line-height: 1.4;">Show a brief reminder on the webpage when auto-capture succeeds. The reminder in the extension stays on.</div>
+          </div>
+          <div style="margin-left: 16px;">
+            <label class="toggle-switch" style="position: relative; display: inline-block; width: 44px; height: 24px;">
+              <input type="checkbox" id="webReminderToggle" style="opacity: 0; width: 0; height: 0;">
+              <span class="toggle-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--clr-gray-300); transition: 0.3s; border-radius: 24px;">
+                <span class="toggle-knob" style="position: absolute; content: ''; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: 0.3s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></span>
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--clr-gray-200);">
+          <div style="flex: 1;">
+            <div style="font-weight: 500; color: var(--clr-heading); margin-bottom: 4px;">Auto‑Capture Delay</div>
+            <div style="font-size: 13px; color: var(--clr-gray-600); line-height: 1.4;">Only auto-capture after you linger on a page for the selected time.</div>
+          </div>
+          <div style="margin-left: 16px;">
+            <select id="autoCaptureDelaySelect" class="filter-select" style="max-width: 160px;">
+              <option value="default">Default (3s)</option>
+              <option value="10000">10 seconds</option>
+              <option value="20000">20 seconds</option>
+              <option value="30000">30 seconds</option>
+              <option value="60000">1 minute</option>
+              <option value="120000">2 minutes</option>
+              <option value="300000">5 minutes</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="setting-item" style="padding: 12px 0; border-bottom: 1px solid var(--clr-gray-200);">
+          <div style="font-weight: 500; color: var(--clr-heading);">Custom Vertex Proxy URL</div>
+          <div style="font-size: 13px; color: var(--clr-gray-600); line-height: 1.4; margin-top: 4px;">
+            Heavy usage? Deploy your own Cloud Run proxy and paste the URL here to use your own Google Cloud Platform billing.
+            <a href="https://cloud.google.com/run/docs/quickstarts/deploy-container" target="_blank" rel="noopener noreferrer" style="margin-left: 6px; color: var(--clr-primary-10); text-decoration: underline; font-weight: 500;">Deploy guide</a>
+          </div>
+          <div style="margin-top: 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <input id="customProxyUrlInput" type="text" placeholder="https://your-proxy-xxxxx.run.app" style="flex: 1; min-width: 260px; background: var(--clr-gray-200); border: 1px solid var(--clr-gray-300); border-radius: 6px; padding: 8px 10px; color: var(--clr-body); font-size: 12px;">
+            <button id="applyProxyBtn" class="button" style="padding: 8px 12px;">Apply</button>
+            <button id="testProxyBtn" class="button" style="padding: 8px 12px;">Test</button>
+          </div>
+        </div>
+        
+        <div class="setting-note" style="margin-top: 12px; padding: 12px; background: var(--clr-gray-50); border-radius: 8px; font-size: 12px; color: var(--clr-gray-600);">
+          💡 Manual capture with <kbd>Cmd+Shift+S</kbd> (Mac) or <kbd>Ctrl+Shift+S</kbd> (Windows/Linux) always works.
+          <br><br>
+          <a href="#" id="customizeShortcutLink" style="color: var(--clr-primary-10); text-decoration: underline; cursor: pointer; font-weight: 500;">⚙️ Customize keyboard shortcut</a>
+        </div>
+      </div>
+      
+              <div class="storage-section" style="background: var(--clr-card-bg); border: 1px solid var(--clr-gray-200); padding: 20px; border-radius: 12px; margin-bottom: 20px;">
+          <h3 style="margin: 0 0 16px 0; color: var(--clr-heading); font-size: 16px; font-weight: 600;">💾 Storage Usage</h3>
+          
+          <div class="storage-stats" id="storageStats" style="font-size: 13px; color: var(--clr-gray-600); line-height: 1.6;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <span>Recent articles:</span>
+              <span id="recentCount">Loading...</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <span>Archived articles:</span>
+              <span id="archivedCount">Loading...</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <span>Total articles:</span>
+              <span id="totalCount">Loading...</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <span>Storage usage:</span>
+              <span id="storageUsage">Loading...</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <span>Articles embedded:</span>
+              <span id="embeddedCount">Loading...</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0;">
+              <span>Semantic searches used:</span>
+              <span id="searchesUsed">Loading...</span>
+            </div>
+          </div>
+          
+          <div style="margin-top: 12px; padding: 12px; background: var(--clr-gray-50); border-radius: 8px; font-size: 12px; color: var(--clr-gray-600);">
+            💡 Recent articles load instantly. Older articles are archived for unlimited storage.
+          </div>
+        </div>
+        
+        <div class="export-section" style="background: var(--clr-card-bg); border: 1px solid var(--clr-gray-200); padding: 20px; border-radius: 12px; margin-bottom: 20px;">
+        <h3 style="margin: 0 0 16px 0; color: var(--clr-heading); font-size: 16px; font-weight: 600;">📤 Export All Data</h3>
+        
+        
+        <div class="export-options" style="display: flex; flex-direction: column; gap: 12px;">
+          <button class="export-btn" id="exportJsonBtn" style="background: var(--clr-gray-100); color: var(--clr-body); border: 1px solid var(--clr-gray-300); padding: 12px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 8px;">
+            <span>📄</span>
+            <span>Export as JSON</span>
+            <span style="font-size: 11px; opacity: 0.8;"></span>
+          </button>
+          
+          <button class="export-btn" id="exportMdBtn" style="background: var(--clr-gray-100); color: var(--clr-body); border: 1px solid var(--clr-gray-300); padding: 12px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 8px;">
+            <span>📝</span>
+            <span>Export as Markdown</span>
+            <span style="font-size: 11px; opacity: 0.8;"></span>
+          </button>
+          
+          <button class="export-btn" id="exportTxtBtn" style="background: var(--clr-gray-100); color: var(--clr-body); border: 1px solid var(--clr-gray-300); padding: 12px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 8px;">
+            <span>📄</span>
+            <span>Export as Text</span>
+            <span style="font-size: 11px; opacity: 0.8;"></span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Non-scrollable content moved outside flex container -->
+  <div class="setup-note" id="setupNote" style="position: relative; z-index: 2; margin: 0 0 12px 0; padding: 12px; display: none; background: var(--clr-gray-100); border: 1px solid var(--clr-gray-200); border-radius: 10px;">
+    <button class="dismiss-btn" id="dismissSetupNote" title="Got it" style="position:absolute; top:8px; right:8px; background:none; border:none; font-size:16px; cursor:pointer; color: var(--clr-gray-600);">✕</button>
+    <div style="font-size: 12px; line-height: 1.5; color: var(--clr-body);">
+      <strong>Quick start</strong>
+      <ol style="margin: 6px 0 0 16px; padding: 0;">
+        <li>Open any article to enable auto-capture (or use Cmd+Shift+S on Mac / Ctrl+Shift+S on Windows).</li>
+        <li>Search your saved text: choose <em>Semantic</em> for meaning-based results or <em>Keyword</em> for exact matches.</li>
+        <li>Optional: export selected items to <em>NotebookLM</em> from the toolbar.</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="tab-content active" id="searchTab">
+          <div class="search-tools">
+        
+      </div>
     
     <div class="search-results" id="searchResults" style="display: none;">
       <div class="search-results-header">
@@ -2376,58 +2911,46 @@
       </div>
     </div>
     
-    <div id="emptyState" class="empty-state">
-      <p>📄 No text saved yet</p>
-      <p>Visit any webpage and click <strong>📄 Capture Page</strong> or press <strong>Cmd+Shift+S</strong> to start grabbing text!</p>
-      <button id="testSidePanelBtn" class="button" style="margin-top: 10px; background: var(--clr-warning); border-color: var(--clr-success);">
-        🧪 Test Side Panel
-      </button>
-      <button id="inspectNotebookLMBtn" class="button" style="margin-top: 10px; background: var(--clr-info); border-color: var(--clr-primary-10);">
-        🔍 Inspect NotebookLM
-      </button>
-
-    </div>
+    <div id="emptyState" class="empty-state"></div>
     
-    <div id="noResults" class="no-results" style="display: none;">
-      <p>🔍 No results found</p>
-      <p>Try different keywords or check your spelling</p>
-    </div>
+
   </div>
 
-  <div class="tab-content" id="settingsTab" style="display: none;">
-    <div class="ai-search-info" style="background: var(--clr-primary-10); border: 1px solid var(--clr-primary-90); padding: 12px; border-radius: 6px; margin-bottom: 15px; font-size: 12px;">
-      <div>🤖 <strong>Local AI Semantic Search</strong> </div>
-      <div style="margin: 8px 0; font-size: 10px; opacity: 0.8;">
-        AI-powered semantic search runs entirely in your browser. No API keys or internet connection required for search.
-      </div>
-      <div style="margin-top: 8px; font-size: 10px; color: var(--clr-primary-10);">
-        <span>✅ Model loaded: </span><span id="aiModelStatus">Checking...</span>
-      </div>
-    </div>
 
-
-
-    <div class="controls">
-      <button class="button" id="exportBtn">📤 Export Data</button>
-                <button class="button" id="clearErrorStatesBtn" style="margin-top: 8px; width: 100%; background: var(--clr-warning); border-color: var(--clr-success);">🧹 Clear Error States</button>
-
-        <button class="button" id="showReloadBtn" style="margin-top: 8px; width: 100%; background: var(--clr-warning); border-color: var(--clr-primary-10);">📋 Show Reload Instructions</button>
-    </div>
-    
-    <div style="margin-top: 20px; padding: 15px; background: var(--clr-error); border: 1px solid var(--clr-error); border-radius: 8px;">
-      <div style="font-size: 12px; font-weight: 600; color: var(--clr-white); margin-bottom: 8px;">
-        ⚠️ Danger Zone
-      </div>
-      <div style="font-size: 11px; opacity: 0.8; margin-bottom: 10px; line-height: 1.4;">
-        This action will permanently delete all your saved text entries and cannot be undone.
-      </div>
-      <button class="button danger" id="clearBtn" style="width: 100%;">🗑️ Clear All Data</button>
-    </div>
-  </div>
 
 
   
-  <script src="semantic_search.js"></script>
+  <!-- Duplicate Article Modal -->
+  <div id="duplicateModal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 10000; align-items: center; justify-content: center;">
+    <div class="modal-content" style="background: white; border-radius: 12px; padding: 24px; max-width: 500px; width: 90%; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3); position: relative;">
+      <!-- Close button -->
+      <button id="duplicateModalCloseBtn" style="position: absolute; top: 12px; right: 12px; background: none; border: none; font-size: 20px; color: var(--clr-gray-600); cursor: pointer; padding: 4px; border-radius: 4px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px;">×</button>
+      
+      <div style="text-align: center; margin-bottom: 20px;">
+        <div style="font-size: 48px; margin-bottom: 12px;">⚠️</div>
+        <h3 style="margin: 0; color: var(--clr-heading); font-size: 18px; font-weight: 600;">Article Already Captured</h3>
+      </div>
+      
+      <div style="background: var(--clr-gray-50); border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+        <div style="margin-bottom: 12px;">
+          <strong style="color: var(--clr-heading); font-size: 14px;">Original Article:</strong>
+          <div id="originalTitle" style="color: var(--clr-body); font-size: 13px; margin-top: 4px;"></div>
+          <div id="originalDate" style="color: var(--clr-gray-600); font-size: 12px; margin-top: 2px;"></div>
+        </div>
+        <div>
+          <strong style="color: var(--clr-heading); font-size: 14px;">New Article:</strong>
+          <div id="newTitle" style="color: var(--clr-body); font-size: 13px; margin-top: 4px;"></div>
+          <div id="newDate" style="color: var(--clr-gray-600); font-size: 12px; margin-top: 2px;"></div>
+        </div>
+      </div>
+      
+      <div style="display: flex; gap: 12px; justify-content: center;">
+        <button id="replaceBtn" style="background: var(--clr-gray-500); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s;">Replace</button>
+        <button id="keepOriginalBtn" style="background: var(--clr-primary-10); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s;">Keep Original</button>
+      </div>
+    </div>
+  </div>
+
   <script src="lib/idb.min.js"></script>
   <script src="vertex_config.js"></script>
   <script src="vertex_ai_search.js"></script>
