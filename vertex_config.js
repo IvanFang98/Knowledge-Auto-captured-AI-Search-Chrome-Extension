@@ -17,9 +17,13 @@ const VERTEX_CONFIG = {
   requestDelay: 1000,  // Milliseconds between API requests
   
   // Optional: allowlist of extension IDs that may use the built-in default proxy
-  // If empty or omitted, falls back to the built-in OFFICIAL_EXTENSION_ID in code
-  allowedExtensionIds: []
+  // Manage IDs here to avoid code edits. Include Web Store and dev IDs as needed.
+  allowedExtensionIds: [
+    'ncjpgepmkgekadjmigeajanfgfcjhebm', // Web Store build (official)
+    'bdejnceffielomjpkbapcdpahbmjgjfl'  // Your current build ID
+  ]
 };
 
-// Make config available globally
-window.VERTEX_CONFIG = VERTEX_CONFIG;
+// Make config available in both window (DOM) and service worker (globalThis)
+try { if (typeof window !== 'undefined') { window.VERTEX_CONFIG = VERTEX_CONFIG; } } catch (_) {}
+try { if (typeof globalThis !== 'undefined') { globalThis.VERTEX_CONFIG = VERTEX_CONFIG; } } catch (_) {}

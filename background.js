@@ -1,5 +1,6 @@
 // Knowledge Auto-captured & AI Search Extension - Background Script
 'use strict';
+import './vertex_config.js';
 
 // Disable non-critical console output in production
 (function() {
@@ -14,17 +15,13 @@
   } catch (_) {}
 })();
 
-// Official Web Store build gating for default proxy usage
-const OFFICIAL_EXTENSION_ID = 'ncjpgepmkgekadjmigeajanfgfcjhebm';
+// Default proxy usage gated by config-based allowlist
 function getDefaultProxyUrl() {
   try {
     const runtimeId = (chrome && chrome.runtime && chrome.runtime.id) || '';
-    const allowedFromConfig = (globalThis.window && window.VERTEX_CONFIG && Array.isArray(window.VERTEX_CONFIG.allowedExtensionIds))
-      ? window.VERTEX_CONFIG.allowedExtensionIds
-      : null;
-    const allowList = allowedFromConfig && allowedFromConfig.length > 0
-      ? allowedFromConfig
-      : [OFFICIAL_EXTENSION_ID];
+    const cfg = (typeof globalThis !== 'undefined' && globalThis.VERTEX_CONFIG) ? globalThis.VERTEX_CONFIG : null;
+    const allowedFromConfig = (cfg && Array.isArray(cfg.allowedExtensionIds)) ? cfg.allowedExtensionIds : [];
+    const allowList = allowedFromConfig;
     const isAllowed = allowList.includes(runtimeId);
     return isAllowed ? 'https://vertex-ai-proxy-603340132885.us-central1.run.app' : '';
   } catch (_) {
@@ -633,8 +630,8 @@ const EmbeddingBackfill = {
 
 // === EMBEDDING MANAGER (auto-embed on save) ===
 const EmbeddingManager = {
-  proxyUrl: (globalThis.window && window.VERTEX_CONFIG && window.VERTEX_CONFIG.proxyUrl) || getDefaultProxyUrl(),
-  model: (globalThis.window && window.VERTEX_CONFIG && window.VERTEX_CONFIG.model) || 'text-embedding-004',
+  proxyUrl: ((typeof globalThis !== 'undefined' && globalThis.VERTEX_CONFIG && globalThis.VERTEX_CONFIG.proxyUrl) ? globalThis.VERTEX_CONFIG.proxyUrl : getDefaultProxyUrl()),
+  model: ((typeof globalThis !== 'undefined' && globalThis.VERTEX_CONFIG && globalThis.VERTEX_CONFIG.model) ? globalThis.VERTEX_CONFIG.model : 'text-embedding-004'),
 
   async hasVector(id) {
     try {

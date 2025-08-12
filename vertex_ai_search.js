@@ -11,17 +11,14 @@
   } catch (_) {}
 })();
 
-// Official Web Store build gating for default proxy usage
-const OFFICIAL_EXTENSION_ID = 'ncjpgepmkgekadjmigeajanfgfcjhebm';
+// Default proxy usage gated by config-based allowlist
 function getDefaultProxyUrl() {
   try {
     const runtimeId = (chrome && chrome.runtime && chrome.runtime.id) || '';
     const allowedFromConfig = (globalThis.window && window.VERTEX_CONFIG && Array.isArray(window.VERTEX_CONFIG.allowedExtensionIds))
       ? window.VERTEX_CONFIG.allowedExtensionIds
       : null;
-    const allowList = allowedFromConfig && allowedFromConfig.length > 0
-      ? allowedFromConfig
-      : [OFFICIAL_EXTENSION_ID];
+    const allowList = Array.isArray(allowedFromConfig) ? allowedFromConfig : [];
     const isAllowed = allowList.includes(runtimeId);
     return isAllowed ? 'https://vertex-ai-proxy-603340132885.us-central1.run.app' : '';
   } catch (_) {
